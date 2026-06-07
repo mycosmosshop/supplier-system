@@ -13625,9 +13625,17 @@
                     // NOT: "Kaydedilmiş Sürümler" penceresi artık otomatik açılmaz; gerekirse butondan açılır.
                 }, 500);
 
-                // GÜVENLİK: Sayfadan çıkarken/yenilerken mevcut tam veriyi yerele ANLIK (senkron) kaydet → kaydedilmemiş düzenleme KAYBOLMAZ
-                window.addEventListener('beforeunload', function(){
+                // GÜVENLİK: Veriyi her ayrılışta kaydet → kaydedilmemiş düzenleme KAYBOLMAZ (çıkış / yenileme / modül değişimi / sekme değişimi)
+                function _flushLocalNow(){
                     try { if (typeof allResults !== 'undefined' && allResults && allResults.length > 0) { localStorage.setItem('selectedSuppliers', JSON.stringify(allResults)); } } catch(e) {}
+                }
+                window.addEventListener('beforeunload', _flushLocalNow);  // sekme/portal kapanma, yenileme
+                window.addEventListener('pagehide', _flushLocalNow);      // iframe modül değişiminde (src değişince) güvenilir
+                document.addEventListener('visibilitychange', function(){ // sekme/arka plana geçme, gizlenme
+                    if (document.hidden) {
+                        _flushLocalNow();
+                        try { if (typeof autoDriveBackup === 'function') autoDriveBackup(); } catch(e) {} // sayfa açıkken Drive'a da yedekle
+                    }
                 });
 
                 // Eğer Excel yüklüyse (allResults doluysa), 8D sayılarını güncelle
