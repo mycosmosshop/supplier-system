@@ -22,6 +22,8 @@ function doGet(e) {
       out = { success: true, files: listBackups() };
     } else if (p.action === 'latest') {
       out = latestBackup();
+    } else if (p.action === 'getfile') {
+      out = getFileByName(p.name);
     } else {
       out = { success: false, error: 'Bilinmeyen action' };
     }
@@ -82,4 +84,16 @@ function latestBackup() {
   if (!files.length) return { success: true, content: null };
   var f = DriveApp.getFileById(files[0].id);
   return { success: true, name: files[0].name, content: f.getBlob().getDataAsString() };
+}
+
+// Belirli bir dosyayı isimle getir (paylaşım linkleri için)
+function getFileByName(name) {
+  if (!name) return { success: false, error: 'Dosya adi yok' };
+  var folder = DriveApp.getFolderById(FOLDER_ID);
+  var it = folder.getFilesByName(name);
+  if (it.hasNext()) {
+    var f = it.next();
+    return { success: true, name: name, content: f.getBlob().getDataAsString() };
+  }
+  return { success: false, error: 'Dosya bulunamadi: ' + name };
 }

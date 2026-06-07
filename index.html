@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search);};</script>
+<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search);};</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
 <script src="supplier-sync.js"></script>
@@ -4648,6 +4648,28 @@
                     return;
                 }
 
+                // DRIVE modu: sharedDriveKey varsa değişiklikleri Drive'a (aynı key) güncelle
+                if (docRecord.sharedDriveKey) {
+                    const ds = getDriveSettings();
+                    if (!ds) { showAlert('⚠️ Drive ayarları bulunamadı!', 'error'); return; }
+                    showAlert('💾 Değişiklikler Drive\'a kaydediliyor...', 'info');
+                    const convDocs = {};
+                    for (const [docType, files] of Object.entries(docRecord.documents || {})) {
+                        convDocs[docType] = await Promise.all(files.map(async (file) => {
+                            if (file.blob instanceof Blob) {
+                                const dataUrl = await new Promise((resolve) => { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result); reader.readAsDataURL(file.blob); });
+                                return { id:file.id, name:file.name, type:file.type, size:file.size, data:dataUrl, timestamp:file.timestamp, description:file.description||'', status:file.status||'pending', reviewComment:file.reviewComment||'', reviewedAt:file.reviewedAt||null, supplierComment:file.supplierComment||'', supplierCommentDate:file.supplierCommentDate||null, uploadedBySupplier:file.uploadedBySupplier||false };
+                            }
+                            return file;
+                        }));
+                    }
+                    const shareData = { supplierName: supplierName, documents: convDocs, exemptDocTypes: docRecord.exemptDocTypes||[], customTypes: docRecord.customTypes||[], sharedAt: new Date().toISOString(), mode: 'supplier-upload' };
+                    await fetch(ds.url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action:'save', secret: ds.secret, name: docRecord.sharedDriveKey, content: JSON.stringify(shareData) }) });
+                    await new Promise(r => setTimeout(r, 1500));
+                    showAlert('✅ Değişiklikler Drive\'a kaydedildi! Karşı taraf linki açınca güncel hâli görür.', 'success');
+                    return;
+                }
+
                 // Storj key'i var mı kontrol et
                 if (!docRecord.sharedStorjKey) {
                     showAlert('❌ Önce "İlk Paylaşım Yap" ile paylaşım yapmalısınız!', 'error');
@@ -4757,9 +4779,9 @@
 
             console.log('🚀 Doküman paylaşımı başlıyor:', supplierName);
 
-            const settings = getStorjSettings();
-            if (!settings) {
-                showAlert('⚠️ Storj ayarları yapılmamış!\n\nAyarlar menüsünden Storj DCS ayarlarını yapın.\n\n📝 Kurulum:\n1. storj.io\'dan ücretsiz hesap açın\n2. Bucket oluşturun\n3. S3 credentials alın\n4. Ayarları kaydedin', 'error');
+            const ds = getDriveSettings();
+            if (!ds) {
+                showAlert('⚠️ Google Drive ayarları bulunamadı!\n\nAyarlar & Veritabanı menüsünden Drive\'ı kurun (DRIVE-KURULUM.txt).', 'error');
                 return;
             }
 
@@ -4819,38 +4841,29 @@
                 };
 
                 // Unique key oluştur
-                const storjKey = `DOCS_${supplierName}_${Date.now()}.json`.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const shareKey = `DOCS_${supplierName}_${Date.now()}.json`.replace(/[^a-zA-Z0-9._-]/g, '_');
 
-                console.log('📤 Dokümanlar Storj\'a yükleniyor...');
-                console.log('🔑 Key:', storjKey);
+                console.log('📤 Dokümanlar Google Drive\'a yükleniyor... Key:', shareKey);
                 console.log('📊 Veri boyutu:', JSON.stringify(shareData).length, 'byte');
 
-                // Storj'a yükle
-                const result = await uploadToStorj(storjKey, JSON.stringify(shareData, null, 2), settings);
+                // Drive'a yükle (Apps Script)
+                await fetch(ds.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'save', secret: ds.secret, name: shareKey, content: JSON.stringify(shareData) }) });
+                // Yazmanın tamamlanması için kısa bekle
+                await new Promise(r => setTimeout(r, 1800));
 
-                console.log('✅ Storj\'a yüklendi!');
-                console.log('🔗 URL:', result.url);
-                console.log('✅ Yorumlar Storj\'a kaydedildi. Karşı taraf "Senkronize Et" butonuna bastığında görebilir.');
-
-                // Storj key'i sakla
-                docRecord.sharedStorjKey = storjKey;
+                // Drive key'i sakla
+                docRecord.sharedDriveKey = shareKey;
                 await saveSupplierDocuments(supplierName, docRecord);
 
-                // Tedarikçi URL'i oluştur (credentials'ı encode ederek)
-                const encodedCreds = btoa(JSON.stringify({ 
-                    accessKey: settings.accessKey, 
-                    secretKey: settings.secretKey, 
-                    bucket: settings.bucket, 
-                    endpoint: settings.endpoint, 
-                    key: storjKey 
-                }));
-                const shareUrl = `${window.location.origin}${window.location.pathname}?mode=documents&storj=${encodedCreds}`;
+                // Tedarikçi URL'i oluştur (Apps Script url + secret + key encode)
+                const encodedCreds = btoa(JSON.stringify({ url: ds.url, secret: ds.secret, key: shareKey }));
+                const shareUrl = `${window.location.origin}${window.location.pathname}?mode=documents&drive=${encodedCreds}`;
 
                 // Linki kopyala
                 await navigator.clipboard.writeText(shareUrl);
 
                 // Link göster
-                showShareLinkDialog(shareUrl, 'Storj DCS - Dokümanlar');
+                showShareLinkDialog(shareUrl, 'Google Drive - Dokümanlar');
                 
                 // Butonları güncelle: İlk paylaşım gizle, kaydet ve senkronize göster
                 const saveChangesBtn = document.getElementById('saveChangesBtn');
@@ -25696,7 +25709,23 @@ Devam etmek istiyor musunuz?`;
             const binId = urlParams.get('8d');
             const gistId = urlParams.get('gist');
             const storjEncoded = urlParams.get('storj');
-            
+            const driveEncoded = urlParams.get('drive');
+
+            if (driveEncoded) {
+                try {
+                    const dcreds = JSON.parse(atob(driveEncoded));
+                    if (dcreds.key && dcreds.key.indexOf('DOCS_') === 0) {
+                        console.log('📄 Drive doküman paylaşımı tespit edildi');
+                        await loadSharedDocumentsFromDrive(driveEncoded);
+                        return;
+                    }
+                    if (typeof loadShared8DReportFromDrive === 'function') {
+                        await loadShared8DReportFromDrive(driveEncoded);
+                        return;
+                    }
+                } catch (e) { console.error('Drive paylaşım parse hatası:', e); }
+            }
+
             if (storjEncoded) {
                 // Credentials'ı decode edip key'i kontrol et
                 try {
@@ -25952,6 +25981,30 @@ Devam etmek istiyor musunuz?`;
             } catch (error) {
                 console.error('Load shared documents error:', error);
                 showAlert('❌ Storj DCS\'ten dokümanlar yüklenemedi!\n\n' + error.message, 'error');
+            }
+        }
+
+        // Drive'dan paylaşılan dokümanları yükle (dış tedarikçi — app/giriş gerektirmez)
+        async function loadSharedDocumentsFromDrive(encoded) {
+            try {
+                const creds = JSON.parse(atob(encoded)); // {url, secret, key}
+                console.log('🚀 Dokümanlar Google Drive\'dan yükleniyor... Key:', creds.key);
+                const shareData = await new Promise((resolve, reject) => {
+                    const cb = '__shdrv_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+                    const script = document.createElement('script');
+                    const t = setTimeout(function(){ cleanup(); reject(new Error('Zaman aşımı (Drive yanıt vermedi)')); }, 90000);
+                    function cleanup(){ try{ delete window[cb]; }catch(e){ window[cb]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); clearTimeout(t); }
+                    window[cb] = function(d){ cleanup(); if (d && d.success && d.content) { resolve(typeof d.content === 'string' ? JSON.parse(d.content) : d.content); } else { reject(new Error((d && d.error) || 'Veri bulunamadı')); } };
+                    const q = 'action=getfile&name=' + encodeURIComponent(creds.key) + '&secret=' + encodeURIComponent(creds.secret) + '&callback=' + cb;
+                    script.src = creds.url + (creds.url.indexOf('?') >= 0 ? '&' : '?') + q;
+                    script.onerror = function(){ cleanup(); reject(new Error('Drive bağlantı hatası')); };
+                    document.body.appendChild(script);
+                });
+                console.log('✅ Dokümanlar yüklendi (Drive)');
+                showSharedDocumentsView(shareData);
+            } catch (error) {
+                console.error('Load shared documents (Drive) error:', error);
+                showAlert('❌ Drive\'dan dokümanlar yüklenemedi!\n\n' + error.message, 'error');
             }
         }
 
