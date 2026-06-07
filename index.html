@@ -14559,6 +14559,20 @@
                     </div>
                 `;
                 
+                // GOOGLE DRIVE Yedekleri bölümü (async doldurulur)
+                html += `
+                    <div style="background: linear-gradient(135deg, #1565c0 0%, #5e35b1 100%); color: white; padding: 15px; border-radius: 8px; margin: 20px -20px 0 -20px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:1.5em;">🟢</span>
+                            <div><div style="font-weight:700; font-size:1.2em;">Google Drive Yedekleri</div>
+                            <div style="font-size:0.85em; opacity:0.9;">Tüm cihazlardan erişilebilir (Tedarikçi Değerlendirme)</div></div>
+                        </div>
+                    </div>
+                    <div id="driveBackupsSection" style="padding:15px; background:#e3f2fd; border-radius:0 0 8px 8px; margin: 0 -20px 20px -20px;">
+                        <div style="text-align:center; padding:20px; color:#1565c0;">🔄 Drive yedekleri yükleniyor...</div>
+                    </div>
+                `;
+
                 // STORJ AYARLARI YOK - MODAL İÇİNDE AYAR BUTONU GÖSTER
                 if (!settings) {
                     html += `
@@ -14589,7 +14603,8 @@
 
                     // Modal'ı göster
                     showCustomAlert(html, 'Kaydedilmiş Sürümler');
-                    
+                    setTimeout(loadDriveBackupsIntoModal, 150);
+
                     return; // Fonksiyonu burada sonlandır
                 }
                 
@@ -14611,7 +14626,8 @@
 
                 // Modal'ı göster
                 showCustomAlert(html, 'Kaydedilmiş Sürümler');
-                
+                setTimeout(loadDriveBackupsIntoModal, 150);
+
                 // ASYNC STORJ YÜKLEME - Storj ayarları varsa arka planda yedekleri yükle
                 (async () => {
                         try {
@@ -18455,6 +18471,33 @@
                 var data=typeof r.content==='string' ? JSON.parse(r.content) : r.content;
                 await restoreSupplierBackup(data);
             }catch(e){ showAlert('❌ Drive indirme hatası: '+e.message, 'error'); }
+        }
+        // "Kaydedilmiş Sürümler" modalındaki Drive bölümünü doldur
+        async function loadDriveBackupsIntoModal(){
+            var sec = document.getElementById('driveBackupsSection');
+            if(!sec) return;
+            try{
+                if(!(typeof getDriveSettings==='function' && getDriveSettings())){ sec.innerHTML='<div style="text-align:center;padding:15px;color:#666;">Drive ayarlı değil</div>'; return; }
+                var r = await driveJsonp({action:'list'});
+                var files = (r && r.files) || [];
+                if(!files.length){ sec.innerHTML='<div style="text-align:center;padding:20px;color:#1565c0;">📭 Drive\'da yedek yok</div>'; return; }
+                var h='';
+                files.forEach(function(f,i){
+                    var rs = i%2===0?'background:white;':'background:#e8eefc;';
+                    var dt = f.date ? new Date(f.date).toLocaleString('tr-TR') : '';
+                    h += '<div style="padding:12px;margin:8px 0;'+rs+'border-radius:8px;border:1px solid #bbdefb;"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;"><div style="flex:1;"><div style="font-weight:600;color:#1565c0;">🟢 '+dt+'</div><div style="font-size:0.85em;color:#666;margin-top:4px;">Boyut: '+(f.sizeMB||'?')+' MB</div><div style="font-size:0.7em;color:#999;word-break:break-all;"><code>'+f.name+'</code></div></div><button class="btn" style="padding:6px 12px;background:#1976d2;color:white;border:none;border-radius:4px;cursor:pointer;flex-shrink:0;" onclick="loadDriveBackupByName(\''+f.name+'\')">📥 Yükle</button></div></div>';
+                });
+                sec.innerHTML = h;
+            }catch(e){ sec.innerHTML='<div style="text-align:center;padding:15px;color:#c62828;">❌ Drive listesi alınamadı: '+e.message+'</div>'; }
+        }
+        async function loadDriveBackupByName(name){
+            try{
+                showAlert('📥 Drive yedeği indiriliyor...', 'info');
+                var r = await driveJsonp({action:'getfile', name:name});
+                if(!r || !r.content){ showAlert('❌ Dosya bulunamadı.', 'error'); return; }
+                var data = typeof r.content==='string' ? JSON.parse(r.content) : r.content;
+                await restoreSupplierBackup(data);
+            }catch(e){ showAlert('❌ Yükleme hatası: '+e.message, 'error'); }
         }
 
         // ======== JSON Export/Import Fonksiyonları ========
