@@ -13531,35 +13531,29 @@
                 // 8D rapor sayısını güncelle
                 update8DReportCount();
                 
-                // Modal kontrolü - Storj yüklemesi dışında HER ZAMAN aç
+                // Modal OTOMATİK AÇILMA KAPATILDI. Açılışta kayıtlı veriyi yükleyip göster.
                 setTimeout(async () => {
-                    // Storj'dan yeni yüklendiyse modal açma (flag kontrol et)
                     const skipFlag = localStorage.getItem('skipAutoModal');
-                    if (skipFlag === 'true') {
-                        localStorage.removeItem('skipAutoModal');
-                        console.log('📊 Storj yüklemesi tamamlandı, modal atlandı');
-                        console.log('📊 Tabloda', allResults ? allResults.length : 0, 'tedarikçi yüklü');
-                        
-                        // 8D sayılarını güncelle
-                        if (allResults && allResults.length > 0) {
-                            await load8DCountsFromDB();
+                    if (skipFlag === 'true') { localStorage.removeItem('skipAutoModal'); }
+                    try {
+                        if (!allResults || allResults.length === 0) {
+                            const sd = localStorage.getItem('selectedSuppliers');
+                            if (sd) {
+                                const data = JSON.parse(sd);
+                                if (data && data.length > 0) {
+                                    allResults = data;
+                                    allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined && s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
+                                    try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
+                                    try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
+                                    try{ var c=document.getElementById('controls'); if(c) c.classList.add('active'); }catch(e){}
+                                    displayResults();
+                                    console.log('✅ Açılışta ' + allResults.length + ' tedarikçi otomatik yüklendi');
+                                }
+                            }
                         }
-                        return;
-                    }
-                    
-                    // İLK YÜKLEME - Modal HER ZAMAN açılsın
-                    console.log('📊 İlk yükleme, modal açılıyor...');
-                    
-                    // Kaydedilmiş sürüm var mı kontrol et
-                    const hasVersions = await checkIfVersionsExist();
-                    if (hasVersions) {
-                        console.log('📊 Kaydedilmiş sürümler bulundu, modal açılıyor...');
-                        showEditsHistory();
-                    } else {
-                        console.log('📊 Hiç kayıt yok, yine de modal açılıyor (Storj/Google Sheets için)...');
-                        // Kayıt olmasa da modal aç - kullanıcı Storj veya Google Sheets'ten yükleyebilir
-                        showEditsHistory();
-                    }
+                        if (allResults && allResults.length > 0 && typeof load8DCountsFromDB === 'function') { await load8DCountsFromDB(); }
+                    } catch(e) { console.warn('Açılış otomatik yükleme hatası:', e); }
+                    // NOT: "Kaydedilmiş Sürümler" penceresi artık otomatik açılmaz; gerekirse butondan açılır.
                 }, 500);
                 
                 // Eğer Excel yüklüyse (allResults doluysa), 8D sayılarını güncelle
