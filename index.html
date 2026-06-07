@@ -7674,9 +7674,22 @@
             }
         });
 
-        function handleFile(event) {
+        async function handleFile(event) {
             const file = event.target.files[0];
-            if (file) processFile(file);
+            if (!file) return;
+            // 1) Mevcut listeyi (varsa) KAYBETMEMEK için ayrı bir dönem/sürüm olarak kaydet
+            try {
+                if (typeof allResults !== 'undefined' && allResults && allResults.length > 0) {
+                    const keepName = prompt('⚠️ Yeni Excel yüklenecek.\n\nŞu an ekranda ' + allResults.length + ' tedarikçi var (mevcut dönem). Bunu KAYBETMEMEK için ayrı bir ad/dönem ile kaydedeyim mi?\n\nKaydetmek için ad girin (örn. 2025). Kaydetmeden devam etmek için İptal:', '2025');
+                    if (keepName && keepName.trim()) { saveEditsToIndexedDB(keepName.trim()); }
+                }
+            } catch (e) { console.warn('Mevcut dönem kaydetme atlandı:', e); }
+            // 2) Yeni listenin ad/dönemini sor (Excel işlendikten sonra ayrı sürüm olarak kaydedilecek)
+            try {
+                const newName = prompt('📥 Yüklediğiniz YENİ listeyi hangi ad/dönem ile kaydedeyim?\n(örn. 2026)\n\nBoş bırakırsanız yüklenir ama ayrı sürüm KAYDEDİLMEZ.', '2026');
+                window._excelSaveAsName = (newName && newName.trim()) ? newName.trim() : null;
+            } catch (e) { window._excelSaveAsName = null; }
+            processFile(file);
         }
 
         function showAlert(message, type) {
@@ -7721,6 +7734,11 @@
                     
                     showAlert('✅ Dosya başarıyla yüklendi! Analiz ediliyor...', 'success');
                     analyzeData(worksheet);
+                    // Yeni Excel'i AYRI bir dönem/sürüm olarak kaydet (handleFile'da ad girildiyse)
+                    if (window._excelSaveAsName) {
+                        const _saveAs = window._excelSaveAsName; window._excelSaveAsName = null;
+                        setTimeout(function(){ try { saveEditsToIndexedDB(_saveAs); } catch(e){ console.warn('Excel dönem kaydetme hatası:', e); } }, 1200);
+                    }
                 } catch (error) {
                     showAlert('❌ Hata: ' + error.message, 'error');
                 }
