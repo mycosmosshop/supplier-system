@@ -10,7 +10,8 @@
   var ROW_ID='tedarikci';
 
   // Paylaşılan İŞ verisi anahtarları (UI seçimleri ve SIRLAR hariç)
-  var KEYS=['supplierStatusMap','supplierInfoMap','supplierListForCOA','supplierCertData',
+  var KEYS=['selectedSuppliers','tdsData',
+            'supplierStatusMap','supplierInfoMap','supplierListForCOA','supplierCertData',
             'supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory',
             'targetAgreements','documentTypes','customQualityCertTypes'];
   var PREFIXES=['ppmTarget_','hataHedefi_'];
