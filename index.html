@@ -4905,23 +4905,34 @@
             try {
                 // Mevcut doküman kaydını al
                 const docRecord = await getSupplierDocuments(supplierName);
-                if (!docRecord || !docRecord.sharedStorjKey) {
-                    showAlert('⚠️ Paylaşılmış Storj key bulunamadı!', 'info');
+                let remoteData;
+                if (docRecord && docRecord.sharedDriveKey) {
+                    // DRIVE'dan çek (Apps Script getfile)
+                    const ds = getDriveSettings();
+                    if (!ds) { showAlert('❌ Drive ayarları bulunamadı!', 'error'); return; }
+                    console.log('📥 Drive\'dan güncelleme çekiliyor... Key:', docRecord.sharedDriveKey);
+                    remoteData = await new Promise((resolve, reject) => {
+                        const cb = '__syncdrv_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+                        const script = document.createElement('script');
+                        const t = setTimeout(function(){ cleanup(); reject(new Error('Zaman aşımı')); }, 90000);
+                        function cleanup(){ try{ delete window[cb]; }catch(e){ window[cb]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); clearTimeout(t); }
+                        window[cb] = function(d){ cleanup(); if (d && d.success && d.content) { resolve(typeof d.content === 'string' ? JSON.parse(d.content) : d.content); } else { reject(new Error((d && d.error) || 'Veri bulunamadı')); } };
+                        const q = 'action=getfile&name=' + encodeURIComponent(docRecord.sharedDriveKey) + '&secret=' + encodeURIComponent(ds.secret) + '&callback=' + cb;
+                        script.src = ds.url + (ds.url.indexOf('?') >= 0 ? '&' : '?') + q;
+                        script.onerror = function(){ cleanup(); reject(new Error('Drive bağlantı hatası')); };
+                        document.body.appendChild(script);
+                    });
+                } else if (docRecord && docRecord.sharedStorjKey) {
+                    // Geriye dönük: eski Storj paylaşımı
+                    const settings = getStorjSettings();
+                    if (!settings) { showAlert('❌ Storj ayarları bulunamadı!', 'error'); return; }
+                    console.log('📥 Storj\'dan güncelleme çekiliyor... Key:', docRecord.sharedStorjKey);
+                    remoteData = await downloadFromStorj(docRecord.sharedStorjKey, settings);
+                } else {
+                    showAlert('⚠️ Paylaşılmış key bulunamadı!', 'info');
                     return;
                 }
-                
-                const settings = getStorjSettings();
-                if (!settings) {
-                    showAlert('❌ Storj ayarları bulunamadı!', 'error');
-                    return;
-                }
-                
-                console.log('📥 Storj\'dan güncelleme çekiliyor...');
-                console.log('🔑 Key:', docRecord.sharedStorjKey);
-                
-                // Storj'dan indir
-                const remoteData = await downloadFromStorj(docRecord.sharedStorjKey, settings);
-                
+
                 console.log('✅ Remote data alındı');
                 console.log('📊 Remote doküman sayısı:', Object.keys(remoteData.documents || {}).length);
                 
@@ -26495,34 +26506,27 @@ Devam etmek istiyor musunuz?`;
                     });
                 });
                 
-                // Storj credentials'ı URL'den al
+                // Paylaşım credentials'ı URL'den al (önce Drive, yoksa eski Storj)
                 const urlParams = new URLSearchParams(window.location.search);
-                const storjEncoded = urlParams.get('storj');
-                if (!storjEncoded) {
-                    showAlert('❌ Storj key bulunamadı!', 'error');
-                    return;
+                const driveEncoded = urlParams.get('drive');
+                if (driveEncoded) {
+                    const dcreds = JSON.parse(atob(driveEncoded)); // {url, secret, key}
+                    console.log('📤 Drive\'a (Apps Script) gönderiliyor... Key:', dcreds.key);
+                    await fetch(dcreds.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'save', secret: dcreds.secret, name: dcreds.key, content: JSON.stringify(updatedData) }) });
+                    await new Promise(r => setTimeout(r, 1500));
+                    console.log('✅ Dokümanlar Drive\'a gönderildi! Ana PC "Senkronize Et" ile görebilir.');
+                } else {
+                    // Geriye dönük: eski Storj linkleri
+                    const storjEncoded = urlParams.get('storj');
+                    if (!storjEncoded) {
+                        showAlert('❌ Paylaşım anahtarı bulunamadı!', 'error');
+                        return;
+                    }
+                    const creds = JSON.parse(atob(storjEncoded));
+                    const settings = { accessKey: creds.accessKey, secretKey: creds.secretKey, bucket: creds.bucket, endpoint: creds.endpoint };
+                    await uploadToStorj(creds.key, JSON.stringify(updatedData, null, 2), settings);
+                    console.log('✅ Dokümanlar Storj\'a gönderildi!');
                 }
-                
-                const credsJson = atob(storjEncoded);
-                const creds = JSON.parse(credsJson);
-                
-                // Settings objesini oluştur
-                const settings = {
-                    accessKey: creds.accessKey,
-                    secretKey: creds.secretKey,
-                    bucket: creds.bucket,
-                    endpoint: creds.endpoint
-                };
-                
-                console.log('📤 Storj PUT isteği gönderiliyor...');
-                console.log('🔑 Key:', creds.key);
-                console.log('📊 Doküman türü sayısı:', Object.keys(updatedData.documents).length);
-                
-                // Storj'a yükle
-                await uploadToStorj(creds.key, JSON.stringify(updatedData, null, 2), settings);
-                
-                console.log('✅ Dokümanlar başarıyla gönderildi!');
-                console.log('✅ Yorumlar Storj\'a kaydedildi. Ana PC "Senkronize Et" butonuna bastığında görebilir.');
                 
                 // Başarılı gönderim modalı göster
                 const successModal = document.createElement('div');
