@@ -12976,7 +12976,7 @@
             };
             
             // Başlık hücresi (D1:Q3 birleştirilmiş) - 23 sütunla uyumlu genişlik
-            worksheet.mergeCells('D1:Q3');
+            worksheet.mergeCells('D1:AG3');
             const titleCell = worksheet.getCell('D1');
             titleCell.value = 'ONAYLI TEDARİKÇİ LİSTESİ';
             titleCell.font = { bold: true, size: 26, color: { argb: 'FF003366' } };
@@ -12994,8 +12994,8 @@
             };
             
             // Doküman bilgileri - DÖK.NO (R1:S1)
-            worksheet.mergeCells('R1:S1');
-            const dokNoLabel = worksheet.getCell('R1');
+            worksheet.mergeCells('AH1:AI1');
+            const dokNoLabel = worksheet.getCell('AH1');
             dokNoLabel.value = 'DÖK.NO:';
             dokNoLabel.font = { bold: true, size: 11 };
             dokNoLabel.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -13005,8 +13005,8 @@
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('T1:AM1');
-            const dokNoValue = worksheet.getCell('T1');
+            worksheet.mergeCells('AJ1:AM1');
+            const dokNoValue = worksheet.getCell('AJ1');
             dokNoValue.value = 'PL11';
             dokNoValue.font = { size: 11 };
             dokNoValue.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -13017,8 +13017,8 @@
             };
             
             // Doküman bilgileri - Y.TRH (R2:S2)
-            worksheet.mergeCells('R2:S2');
-            const ytrhLabel = worksheet.getCell('R2');
+            worksheet.mergeCells('AH2:AI2');
+            const ytrhLabel = worksheet.getCell('AH2');
             ytrhLabel.value = 'Y.TRH:';
             ytrhLabel.font = { bold: true, size: 11 };
             ytrhLabel.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -13028,8 +13028,8 @@
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('T2:AM2');
-            const ytrhValue = worksheet.getCell('T2');
+            worksheet.mergeCells('AJ2:AM2');
+            const ytrhValue = worksheet.getCell('AJ2');
             ytrhValue.value = '13.02.2013';
             ytrhValue.font = { size: 11 };
             ytrhValue.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -13040,8 +13040,8 @@
             };
             
             // Doküman bilgileri - REV.NO/TARİH (R3:S3)
-            worksheet.mergeCells('R3:S3');
-            const revLabel = worksheet.getCell('R3');
+            worksheet.mergeCells('AH3:AI3');
+            const revLabel = worksheet.getCell('AH3');
             revLabel.value = 'REV.NO/TARİH:';
             revLabel.font = { bold: true, size: 11 };
             revLabel.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -13051,8 +13051,8 @@
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('T3:AM3');
-            const revValue = worksheet.getCell('T3');
+            worksheet.mergeCells('AJ3:AM3');
+            const revValue = worksheet.getCell('AJ3');
             revValue.value = '03/29.08.2025';
             revValue.font = { size: 11 };
             revValue.alignment = { horizontal: 'left', vertical: 'middle' };
