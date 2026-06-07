@@ -18457,7 +18457,7 @@
                 var data=await buildStorjBackupData(); if(!data){ return; }
                 var json=JSON.stringify(data); var sizeMB=(json.length/1048576).toFixed(2);
                 if(!silent) showAlert('📤 Drive\'a yükleniyor ('+sizeMB+' MB)...', 'info');
-                await fetch(s.url, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'save', secret:s.secret, name:'YEDEK_'+Date.now()+'.json', content:json})});
+                await fetch(s.url, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'save', secret:s.secret, name:'GUNCEL_YEDEK.json', content:json})});
                 if(!silent) showAlert('✅ Drive\'a gönderildi ('+sizeMB+' MB)!\n🗂️ Tedarikçi Değerlendirme klasörü\n\n💡 Doğrulamak için "Drive Yedeklerini Görüntüle".', 'success');
                 else console.log('✅ Otomatik Drive yedeği yüklendi ('+sizeMB+' MB)');
             }catch(e){ if(!silent) showAlert('❌ Drive yükleme hatası: '+e.message, 'error'); else console.warn('Otomatik Drive yedek hatası:', e); }

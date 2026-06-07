@@ -48,7 +48,15 @@ function doPost(e) {
     } else if (body.action === 'save') {
       var folder = DriveApp.getFolderById(FOLDER_ID);
       var name = body.name || ('YEDEK_' + new Date().getTime() + '.json');
-      folder.createFile(name, body.content, 'application/json');
+      // UPSERT: ayni isimde dosya varsa uzerine yaz (cift kayit olmasin)
+      var ex = folder.getFilesByName(name);
+      if (ex.hasNext()) { ex.next().setContent(body.content); }
+      else { folder.createFile(name, body.content, 'application/json'); }
+      // Guncel yedek kaydedilince eski zaman-damgali otomatik yedekleri sil (Drive'da TEK dosya kalsin)
+      if (name === 'GUNCEL_YEDEK.json') {
+        var old = folder.getFiles();
+        while (old.hasNext()) { var of = old.next(); if (/^YEDEK_\d/.test(of.getName())) { of.setTrashed(true); } }
+      }
       out = { success: true, name: name };
     } else {
       out = { success: false, error: 'Bilinmeyen action' };
@@ -66,7 +74,7 @@ function listBackups() {
   var it = folder.getFiles();
   while (it.hasNext()) {
     var f = it.next();
-    if (f.getName().indexOf('YEDEK_') === 0) {
+    if (f.getName().indexOf('YEDEK_') === 0 || f.getName() === 'GUNCEL_YEDEK.json') {
       files.push({
         name: f.getName(),
         id: f.getId(),
@@ -80,6 +88,10 @@ function listBackups() {
 }
 
 function latestBackup() {
+  var folder = DriveApp.getFolderById(FOLDER_ID);
+  // Once GUNCEL_YEDEK.json (tek guncel dosya)
+  var g = folder.getFilesByName('GUNCEL_YEDEK.json');
+  if (g.hasNext()) { var gf = g.next(); return { success: true, name: 'GUNCEL_YEDEK.json', content: gf.getBlob().getDataAsString() }; }
   var files = listBackups();
   if (!files.length) return { success: true, content: null };
   var f = DriveApp.getFileById(files[0].id);
