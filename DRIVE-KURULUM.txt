@@ -1,0 +1,57 @@
+==========================================================
+ TEDARİKÇİ — GOOGLE DRIVE YEDEKLEME KURULUMU (tek seferlik)
+==========================================================
+Amaç: Tedarikçi verisini Google Drive'daki "Tedarikçi Değerlendirme"
+klasörüne yedekleyip oradan geri yüklemek. (20 TB, kart yok.)
+
+Süre: ~3 dakika. Bir kez yapılır.
+
+----------------------------------------------------------
+ADIM 1 — Apps Script projesi oluştur
+----------------------------------------------------------
+1. https://script.google.com  adresine git (volkanpekatik@gmail.com ile).
+2. Sol üst "Yeni proje" (New project).
+3. Açılan kod alanındaki her şeyi sil.
+4. DRIVE-APPS-SCRIPT.gs dosyasının TAMAMINI yapıştır.
+5. Kodun başındaki  SECRET = 'Sanifoam2026Drive'  satırını
+   istersen kendi gizli anahtarınla değiştir (uygulamaya da AYNISINI gireceksin).
+   FOLDER_ID'yi DEĞİŞTİRME (klasör zaten doğru).
+6. Disket simgesi ile Kaydet.
+
+----------------------------------------------------------
+ADIM 2 — Web App olarak yayınla
+----------------------------------------------------------
+1. Sağ üstte "Dağıt" (Deploy) → "Yeni dağıtım" (New deployment).
+2. "Tür seç" (dişli) → "Web uygulaması" (Web app).
+3. Ayarlar:
+   - Açıklama: tedarikci-drive
+   - Şu kullanıcı olarak çalıştır (Execute as): ben (Me)
+   - Erişimi olanlar (Who has access): HERKES (Anyone)
+4. "Dağıt" (Deploy).
+5. İlk seferde izin ister: "Erişime izin ver" → hesabını seç →
+   "Gelişmiş" (Advanced) → "...projesine git (güvenli değil)" → "İzin ver" (Allow).
+   (Bu, scriptin SENİN Drive'ına yazabilmesi için gerekli; senin kendi scriptin.)
+6. Çıkan "Web uygulaması URL'si"ni KOPYALA. Şuna benzer:
+   https://script.google.com/macros/s/AKfyc..../exec
+
+----------------------------------------------------------
+ADIM 3 — Uygulamaya gir
+----------------------------------------------------------
+1. Tedarikçi uygulaması → "Ayarlar & Veritabanı".
+2. "Google Drive Yedekleme" bölümü:
+   - Drive Script URL: ADIM 2'de kopyaladığın /exec URL'sini yapıştır.
+   - Güvenlik anahtarı (secret): koddaki SECRET ile AYNI değeri yaz
+     (varsayılan: Sanifoam2026Drive).
+   - "Drive Ayarını Kaydet" → sonra "Test Et".
+   - "Test Et" yeşil "çalışıyor" derse hazırsın.
+
+----------------------------------------------------------
+KULLANIM
+----------------------------------------------------------
+• "Veritabanını Drive'a Yükle" → tüm veriyi Drive'a yedekler.
+• "Drive Yedeklerini Görüntüle" → klasördeki yedekleri listeler.
+• "Drive'dan İndir ve Yükle" → en son yedeği geri yükler
+  (başka bilgisayarda da aynı URL+secret'i girip kullanabilirsin).
+
+NOT: Yedekler "Tedarikçi Değerlendirme" klasörüne YEDEK_*.json olarak kaydedilir.
+Büyük dosya (PPAP/teknik resim) akışını da istersen aynı klasöre bağlayabiliriz.

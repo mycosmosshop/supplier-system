@@ -2862,6 +2862,26 @@
                                         <strong>⚠️ Not:</strong> Her yedek için backup key oluşturulur
                                     </div>
                                 </div>
+                                <!-- GOOGLE DRIVE Yedekleme -->
+                                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-top: 15px; border: 2px solid #1565c0;">
+                                    <div style="font-weight: 700; color: #0d47a1; margin-bottom: 8px; font-size: 1.1em; display: flex; align-items: center; gap: 8px;">
+                                        <span>🟢</span> Google Drive Yedekleme
+                                    </div>
+                                    <div style="font-size: 0.8em; color: #0d47a1; background: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; line-height:1.5;">
+                                        Verileriniz Drive'daki <strong>"Tedarikçi Değerlendirme"</strong> klasörüne yedeklenir (20 TB, kart yok). Çalışması için bir kez Apps Script kurup URL'sini girin (kurulum: <strong>DRIVE-KURULUM.txt</strong>).
+                                    </div>
+                                    <input type="text" id="driveScriptUrl" placeholder="Drive Script URL (https://script.google.com/.../exec)" style="width:100%; padding:10px; border:1px solid #90caf9; border-radius:6px; margin-bottom:8px; box-sizing:border-box;">
+                                    <input type="text" id="driveSecret" placeholder="Güvenlik anahtarı (secret) — script'tekiyle aynı" style="width:100%; padding:10px; border:1px solid #90caf9; border-radius:6px; margin-bottom:8px; box-sizing:border-box;">
+                                    <div style="display:flex; gap:8px; margin-bottom:8px;">
+                                        <button onclick="saveDriveSettings()" class="btn" style="flex:1; background:#1565c0; color:white; border:none; padding:10px; border-radius:6px; font-weight:600; cursor:pointer;">💾 Drive Ayarını Kaydet</button>
+                                        <button onclick="testDriveConnection()" class="btn" style="flex:1; background:#5e35b1; color:white; border:none; padding:10px; border-radius:6px; font-weight:600; cursor:pointer;">🔌 Test Et</button>
+                                    </div>
+                                    <div style="display:flex; gap:8px; margin-bottom:8px;">
+                                        <button onclick="uploadDatabaseToDrive()" class="btn" style="flex:1; background:#2e7d32; color:white; border:none; padding:12px; border-radius:6px; font-weight:600; cursor:pointer;">📤 Veritabanını Drive'a Yükle</button>
+                                        <button onclick="downloadDatabaseFromDrive()" class="btn" style="flex:1; background:#1976d2; color:white; border:none; padding:12px; border-radius:6px; font-weight:600; cursor:pointer;">📥 Drive'dan İndir ve Yükle</button>
+                                    </div>
+                                    <button onclick="listDriveBackups()" class="btn" style="width:100%; background:linear-gradient(135deg,#1565c0 0%,#5e35b1 100%); color:white; border:none; padding:12px; border-radius:6px; font-weight:600; cursor:pointer;">📋 Drive Yedeklerini Görüntüle</button>
+                                </div>
                             </div>
                         </div>
 
@@ -18247,6 +18267,125 @@
             }
         }
 
+        // ======== GOOGLE DRIVE YEDEKLEME (Apps Script üzerinden) ========
+        function getDriveSettings(){
+            var url=(localStorage.getItem('drive_script_url')||'').trim();
+            var secret=(localStorage.getItem('drive_secret')||'').trim();
+            return url ? {url:url, secret:secret} : null;
+        }
+        function saveDriveSettings(){
+            var u=document.getElementById('driveScriptUrl'); var s=document.getElementById('driveSecret');
+            localStorage.setItem('drive_script_url', ((u&&u.value)||'').trim());
+            localStorage.setItem('drive_secret', ((s&&s.value)||'').trim());
+            showAlert('✅ Drive ayarları kaydedildi!', 'success');
+        }
+        function driveJsonp(params){
+            return new Promise(function(resolve,reject){
+                var s=getDriveSettings(); if(!s){ reject(new Error('Önce Drive Script URL girin')); return; }
+                var cb='__drivecb_'+Date.now()+'_'+Math.floor(Math.random()*100000);
+                var script=document.createElement('script');
+                var timer=setTimeout(function(){ cleanup(); reject(new Error('Zaman aşımı (script yanıt vermedi)')); }, 90000);
+                function cleanup(){ try{ delete window[cb]; }catch(e){ window[cb]=undefined; } if(script&&script.parentNode){ script.parentNode.removeChild(script); } clearTimeout(timer); }
+                window[cb]=function(data){ cleanup(); resolve(data); };
+                var all=Object.assign({}, params, {secret:s.secret, callback:cb});
+                var q=Object.keys(all).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(all[k]);}).join('&');
+                script.src=s.url+(s.url.indexOf('?')>=0?'&':'?')+q;
+                script.onerror=function(){ cleanup(); reject(new Error('Drive bağlantı hatası (URL doğru mu?)')); };
+                document.body.appendChild(script);
+            });
+        }
+        async function testDriveConnection(){
+            try{ var r=await driveJsonp({action:'test'});
+                if(r && r.success){ showAlert('✅ Drive bağlantısı çalışıyor!\n📁 Klasör: '+(r.folder||'Tedarikçi Değerlendirme'), 'success'); }
+                else { showAlert('⚠️ Yanıt beklenen formatta değil:\n'+JSON.stringify(r).slice(0,200), 'error'); }
+            }catch(e){ showAlert('❌ Drive bağlantı hatası: '+e.message+'\n\nScript URL ve secret doğru mu?', 'error'); }
+        }
+        // Storj ile AYNI formatta yedek oluştur (Storj fonksiyonlarına dokunmadan)
+        async function buildStorjBackupData(){
+            if(!db){ showAlert('❌ Veritabanı hazır değil!', 'error'); return null; }
+            var exportData={ exportedAt:new Date().toISOString(), version:db.version, stores:{} };
+            if(allResults && allResults.length>0){
+                exportData.stores['suppliers']=allResults.map(function(r){ var o=Object.assign({}, r);
+                    o.normalizedName=r.normalizedName||normalizeName(r.name); o.certExpiryDates=r.certExpiryDates||{};
+                    o.lokasyon=r.lokasyon||[]; o.monthlySevk=r.monthlySevk||[]; o.monthlyIade=r.monthlyIade||[]; o.monthlyPPM=r.monthlyPPM||[]; o.monthlyHata=r.monthlyHata||[]; o.monthlyTermin=r.monthlyTermin||[]; o.monthlyCompletion=r.monthlyCompletion||[]; o.monthlyTerminPuan=r.monthlyTerminPuan||[]; o.monthlyTamamlanmaPuan=r.monthlyTamamlanmaPuan||[]; o.monthlyKalitePuan=r.monthlyKalitePuan||[]; o.monthlyVdaPuan=r.monthlyVdaPuan||[]; o.monthlyPpmPuan=r.monthlyPpmPuan||[]; o.monthlyTerminGecikmeGun=r.monthlyTerminGecikmeGun||[];
+                    return o; });
+                try{ localStorage.setItem('selectedSuppliers', JSON.stringify(exportData.stores['suppliers'])); }catch(e){}
+            } else {
+                var sd=localStorage.getItem('selectedSuppliers');
+                if(sd){ try{ var sup=JSON.parse(sd); if(sup&&sup.length>0){ exportData.stores['suppliers']=sup; } else { showAlert('❌ Yedeklenecek tedarikçi verisi yok!', 'error'); return null; } }catch(e){ showAlert('❌ Tedarikçi verisi okunamadı!', 'error'); return null; } }
+                else { showAlert('❌ Yedeklenecek tedarikçi verisi yok!', 'error'); return null; }
+            }
+            var storeNames=['supplierHistory','supplierLocations','supplierDocuments','report8D','supplier8DCounts'];
+            for(var i=0;i<storeNames.length;i++){ var sn=storeNames[i];
+                try{
+                    var allData=await new Promise(function(res,rej){ var tx=db.transaction([sn],'readonly'); var rq=tx.objectStore(sn).getAll(); rq.onsuccess=function(){res(rq.result);}; rq.onerror=function(){rej(rq.error);}; });
+                    if(sn==='supplierDocuments'){ for(var d=0;d<allData.length;d++){ var rec=allData[d]; if(rec&&rec.documents){ for(var dt in rec.documents){ var files=rec.documents[dt]||[]; for(var f=0;f<files.length;f++){ var file=files[f]; if(file&&file.blob&&typeof file.blob!=='string'){ try{ file.data=await blobToBase64(file.blob); delete file.blob; }catch(e){} } } } } } }
+                    exportData.stores[sn]=allData;
+                }catch(e){ exportData.stores[sn]=[]; }
+            }
+            return exportData;
+        }
+        // Storj formatındaki yedeği geri yükle (Storj fonksiyonlarına dokunmadan)
+        async function restoreSupplierBackup(importData){
+            if(!importData || !importData.stores){ showAlert('❌ Geçersiz yedek dosyası!', 'error'); return; }
+            var suppliers=importData.stores['suppliers']||[];
+            if(suppliers.length===0){ showAlert('⚠️ Bu yedekte tedarikçi verisi yok!', 'error'); return; }
+            var summary=Object.keys(importData.stores).map(function(n){return '• '+n+': '+(importData.stores[n]||[]).length+' kayıt';}).join('\n');
+            if(!confirm('⚠️ MEVCUT VERİLERİN ÜZERİNE YAZILACAK!\n\nYüklenecek:\n'+summary+'\n\nDevam edilsin mi?')){ showAlert('İşlem iptal edildi.', 'info'); return; }
+            showAlert('💾 Geri yükleniyor...', 'info');
+            var keys=Object.keys(importData.stores);
+            for(var k=0;k<keys.length;k++){
+                var storeName=keys[k]; var data=importData.stores[storeName]||[];
+                if(storeName==='suppliers'){ try{ localStorage.setItem('selectedSuppliers', JSON.stringify(data)); }catch(e){} allResults=data; continue; }
+                if(storeName==='supplierDocuments'){ for(var d=0;d<data.length;d++){ var rec=data[d]; if(rec&&rec.documents){ for(var dt in rec.documents){ var files=rec.documents[dt]||[]; for(var f=0;f<files.length;f++){ var file=files[f]; if(file&&file.data&&typeof file.data==='string'&&!file.blob){ try{ file.blob=base64ToBlob(file.data); }catch(e){} } } } } } }
+                try{
+                    await new Promise(function(resolve,reject){
+                        var tx=db.transaction([storeName],'readwrite'); var st=tx.objectStore(storeName);
+                        tx.oncomplete=resolve; tx.onerror=function(){reject(tx.error);}; tx.onabort=function(){reject(tx.error);};
+                        st.clear();
+                        for(var x=0;x<data.length;x++){ st.add(data[x]); }
+                    });
+                }catch(e){ console.warn('restore store hata', storeName, e); }
+            }
+            if(allResults && allResults.length){
+                allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined&&s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
+                try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
+                try{ displayResults(); }catch(e){}
+                if(typeof load8DCountsFromDB==='function'){ try{ await load8DCountsFromDB(); }catch(e){} }
+            }
+            showAlert('✅ Yedek başarıyla yüklendi!\n📊 '+(allResults?allResults.length:0)+' tedarikçi tabloda.', 'success');
+        }
+        async function uploadDatabaseToDrive(){
+            var s=getDriveSettings(); if(!s){ showAlert('⚠️ Önce Drive Script URL girip kaydedin!', 'error'); return; }
+            try{
+                showAlert('📦 Yedek hazırlanıyor...', 'info');
+                var data=await buildStorjBackupData(); if(!data) return;
+                var json=JSON.stringify(data); var sizeMB=(json.length/1048576).toFixed(2);
+                showAlert('📤 Drive\'a yükleniyor ('+sizeMB+' MB)...', 'info');
+                await fetch(s.url, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'save', secret:s.secret, name:'YEDEK_'+Date.now()+'.json', content:json})});
+                showAlert('✅ Drive\'a gönderildi ('+sizeMB+' MB)!\n🗂️ Tedarikçi Değerlendirme klasörü\n\n💡 Doğrulamak için "Drive Yedeklerini Görüntüle".', 'success');
+            }catch(e){ showAlert('❌ Drive yükleme hatası: '+e.message, 'error'); }
+        }
+        async function listDriveBackups(){
+            try{ showAlert('📋 Drive yedekleri alınıyor...', 'info');
+                var r=await driveJsonp({action:'list'}); var files=(r&&r.files)||[];
+                if(!files.length){ showAlert('📭 Drive\'da yedek bulunamadı.\n\n(Önce "Veritabanını Drive\'a Yükle".)', 'info'); return; }
+                var msg='📁 Drive Yedekleri ('+files.length+'):\n\n'+files.map(function(f,i){return (i+1)+') '+f.name+'  ('+(f.sizeMB||'?')+' MB)';}).join('\n')+'\n\n📥 En yenisini yüklemek için "Drive\'dan İndir ve Yükle".';
+                showAlert(msg, 'info');
+            }catch(e){ showAlert('❌ Liste hatası: '+e.message, 'error'); }
+        }
+        async function downloadDatabaseFromDrive(){
+            var s=getDriveSettings(); if(!s){ showAlert('⚠️ Önce Drive Script URL girip kaydedin!', 'error'); return; }
+            if(!db){ showAlert('❌ Veritabanı hazır değil!', 'error'); return; }
+            try{
+                showAlert('📥 Drive\'dan en son yedek indiriliyor...', 'info');
+                var r=await driveJsonp({action:'latest'});
+                if(!r || !r.content){ showAlert('❌ Drive\'da yedek bulunamadı.', 'error'); return; }
+                var data=typeof r.content==='string' ? JSON.parse(r.content) : r.content;
+                await restoreSupplierBackup(data);
+            }catch(e){ showAlert('❌ Drive indirme hatası: '+e.message, 'error'); }
+        }
+
         // ======== JSON Export/Import Fonksiyonları ========
 
         async function exportEditsToJSON() {
@@ -23435,6 +23574,9 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         // Storj ayarlarını kaydet
         // Storj ayarlarını input alanlarına yükle
         function loadStorjSettings() {
+            // Drive ayarlarını da forma yükle
+            try { var _du=document.getElementById('driveScriptUrl'); if(_du) _du.value=localStorage.getItem('drive_script_url')||'';
+                  var _ds=document.getElementById('driveSecret'); if(_ds) _ds.value=localStorage.getItem('drive_secret')||''; } catch(e){}
             const settings = getStorjSettings();
             if (settings) {
                 const accessKeyInput = document.getElementById('storjAccessKey');
