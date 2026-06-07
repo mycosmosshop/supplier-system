@@ -18426,6 +18426,8 @@
         var _autoDriveTimer = null;
         function autoDriveBackup(){
             try {
+                // Test/paylaşım modunda (view/share/supplier/documents) Drive'a YAZMA — sadece okuma, gerçek veriyi ezme
+                if (/[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search)) return;
                 if (window._driveBackupInProgress) return; // kendi yazımı tetiklemesin (döngü koruması)
                 if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') {
                     clearTimeout(_autoDriveTimer);
