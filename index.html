@@ -4415,17 +4415,17 @@
                                         <div style="margin-top: 8px; padding: 8px; background: #f3e5f5; border: 2px solid #9c27b0; border-radius: 6px;">
                                             <label style="display: block; font-size: 0.75em; color: #6a1b9a; margin-bottom: 3px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
                                                 💬 Müşteri Yorumu (Tedarikçi bu yorumu görecek)
-                                                <span style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ STORJ</span>
+                                                <span style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ DRIVE</span>
                                             </label>
-                                            <textarea id="reviewComment_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" placeholder="Tedarikçiye yorum yazın... (Kaydedildiğinde Storj üzerinden tedarikçiye ulaşır)" onchange="updateDocumentReviewComment('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', ${idx}, this.value)" style="width: 100%; min-height: 50px; padding: 6px 8px; border: 1px solid #9c27b0; border-radius: 4px; font-size: 0.8em; resize: vertical; box-sizing: border-box;">${file.reviewComment || ''}</textarea>
+                                            <textarea id="reviewComment_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" placeholder="Tedarikçiye yorum yazın... (Kaydedildiğinde Drive üzerinden tedarikçiye ulaşır)" onchange="updateDocumentReviewComment('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', ${idx}, this.value)" style="width: 100%; min-height: 50px; padding: 6px 8px; border: 1px solid #9c27b0; border-radius: 4px; font-size: 0.8em; resize: vertical; box-sizing: border-box;">${file.reviewComment || ''}</textarea>
                                             <div style="font-size: 0.7em; color: #6a1b9a; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
-                                                ℹ️ Bu yorum "Kaydet ve Paylaş" veya "Senkronize Et" butonuna bastığınızda Storj üzerinden tedarikçiye iletilir.
+                                                ℹ️ Bu yorum "Kaydet ve Paylaş" veya "Senkronize Et" butonuna bastığınızda Drive üzerinden tedarikçiye iletilir.
                                             </div>
                                         </div>
                                         <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 6px;">
                                             <label style="display: block; font-size: 0.75em; color: #2e7d32; margin-bottom: 3px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
                                                 💭 Tedarikçi Yorumu
-                                                <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ STORJ</span>
+                                                <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ DRIVE</span>
                                                 ${file.supplierCommentDate ? `<span style="font-size: 0.9em; color: #666;">📅 ${new Date(file.supplierCommentDate).toLocaleDateString('tr-TR')}</span>` : ''}
                                             </label>
                                             ${file.supplierComment ? `
@@ -25177,7 +25177,7 @@ Devam etmek istiyor musunuz?`;
                 await navigator.clipboard.writeText(shareUrl);
                 
                 // Link göster
-                showShareLinkDialog(shareUrl, 'Storj DCS');
+                showShareLinkDialog(shareUrl, 'Google Drive');
                 
             } catch (error) {
                 console.error('❌ Storj paylaşım hatası:', error);
@@ -26163,7 +26163,7 @@ Devam etmek istiyor musunuz?`;
                                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
                                         <div style="display: flex; align-items: center; gap: 8px;">
                                             <div style="font-size: 0.9em; font-weight: 700; color: ${statusColor};">${statusText}</div>
-                                            <span style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7em; font-weight: 600;">☁️ STORJ</span>
+                                            <span style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7em; font-weight: 600;">☁️ DRIVE</span>
                                         </div>
                                         ${file.reviewedAt ? `<div style="font-size: 0.75em; color: #666;">📅 ${new Date(file.reviewedAt).toLocaleDateString('tr-TR')}</div>` : ''}
                                     </div>
@@ -26178,11 +26178,11 @@ Devam etmek istiyor musunuz?`;
                                     <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border: 2px solid #4CAF50; border-radius: 6px;">
                                         <label style="display: block; font-size: 0.75em; color: #2e7d32; margin-bottom: 3px; font-weight: 600; display: flex; align-items: center; gap: 4px;">
                                             💭 Tedarikçi Yorumu (Müşteriye iletilir):
-                                            <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ STORJ</span>
+                                            <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.85em;">☁️ DRIVE</span>
                                         </label>
                                         <textarea id="supplierComment_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" placeholder="Müşteriye iletilecek yorumunuzu yazın..." onchange="updateSupplierComment('${safeDocType}', ${idx}, this.value)" style="width: 100%; min-height: 50px; padding: 6px 8px; border: 1px solid #4CAF50; border-radius: 4px; font-size: 0.8em; resize: vertical; box-sizing: border-box; line-height: 1.4;">${file.supplierComment || ''}</textarea>
                                         <div style="font-size: 0.7em; color: #2e7d32; margin-top: 4px; display: flex; align-items: center; gap: 4px;">
-                                            ℹ️ Bu yorum "Dokümanları Gönder" butonuna bastığınızda Storj üzerinden müşteriye iletilir.
+                                            ℹ️ Bu yorum "Dokümanları Gönder" butonuna bastığınızda Drive üzerinden müşteriye iletilir.
                                         </div>
                                     </div>
                                 </div>
