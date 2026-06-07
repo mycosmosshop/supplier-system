@@ -7769,9 +7769,13 @@
                     if (m === null) { window._excelSaveAsName=null; return; } // iptal
                     window._mergeMode = (String(m).trim()==='2') ? 'merge' : 'replace';
                     window._mergeOld = JSON.parse(JSON.stringify(allResults)); // elle düzeltmeli mevcut veri
-                } else if (hasData && curName && curName !== year) {
-                    // FARKLI yıl → mevcut dönemi adıyla sakla (kaybolmasın)
-                    try { saveEditsToIndexedDB(curName); } catch(e){}
+                } else if (hasData && curName !== year) {
+                    // FARKLI yıl yükleniyor → mevcut dönemi sakla (kaybolmasın). Adı yoksa sor.
+                    let saveCur = curName;
+                    if (!saveCur) {
+                        try { saveCur = prompt('⚠️ Şu an ekrandaki ' + allResults.length + ' tedarikçi (mevcut dönem) kaybolmasın.\n\nHangi YIL adıyla saklayayım? (örn. 2025)\n\nİptal = saklamadan üzerine yaz.', '2025'); } catch(e){}
+                    }
+                    if (saveCur && String(saveCur).trim()) { try { saveEditsToIndexedDB(String(saveCur).trim()); } catch(e){} }
                 }
             }
             processFile(file);
