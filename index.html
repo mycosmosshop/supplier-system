@@ -7706,6 +7706,106 @@
             }
         });
 
+        // ===== IATF 8.4.2.4/8.4.2.5 EK DEĞERLENDİRME SÜTUNLARI (Onaylı Tedarikçi ek yapısı — Excel formülleriyle birebir) =====
+        var IATF_SORUMLU_OPTS = ['-','Tedarikçi','Müşteri','İç/Ultech'];
+        var IATF_HEADERS = ['Müşteri Aksaklığı Olay Sayısı','Müşteri Aksaklığı Sorumlusu','Müşteri Aksaklığı Durum','Ekstra Navlun Olay Sayısı','Ekstra Navlun Sorumlusu','Ekstra Navlun Durum','Özel Durum Bildirimi Geldi mi?','PPAP / Onay Durumu','Bildirim Değerlendirmesi','Saha/Garanti Problemi Sayısı','Saha Problemi Sorumlusu','Saha Problemi Durum','IATF Puan Düzeltmesi','Düzeltilmiş Tedarikçi Puanı','Düzeltilmiş Tedarikçi Sınıfı','Risk Analizi Sonucu'];
+        function _iatfDefaults(s){
+            if(s.musteriAksaklikSayisi==null) s.musteriAksaklikSayisi=0;
+            if(s.musteriAksaklikSorumlu==null) s.musteriAksaklikSorumlu='-';
+            if(s.ekstraNavlunSayisi==null) s.ekstraNavlunSayisi=0;
+            if(s.ekstraNavlunSorumlu==null) s.ekstraNavlunSorumlu='-';
+            if(s.ozelDurum==null) s.ozelDurum='Hayır';
+            if(s.ppapOnay==null) s.ppapOnay='Gerekmiyor';
+            if(s.sahaProblemSayisi==null) s.sahaProblemSayisi=0;
+            if(s.sahaProblemSorumlu==null) s.sahaProblemSorumlu='-';
+        }
+        function computeIatfFields(s){
+            _iatfDefaults(s);
+            var x=+s.musteriAksaklikSayisi||0, y=s.musteriAksaklikSorumlu||'-';
+            var aa=+s.ekstraNavlunSayisi||0, ab=s.ekstraNavlunSorumlu||'-';
+            var ad=s.ozelDurum||'Hayır', ae=s.ppapOnay||'Gerekmiyor';
+            var ag=+s.sahaProblemSayisi||0, ah=s.sahaProblemSorumlu||'-';
+            s.musteriDurum = (x===0)?'✅ Yeşil':(y==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(y==='İç/Ultech'?'🟡 İç Kaynaklı – Puan Etkilenmez':(x===1?'⚠️ Sarı':'🔴 Kırmızı')));
+            s.navlunDurum = (aa===0)?'✅ Yeşil':(ab==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(ab==='İç/Ultech'?'🟡 İç Kaynaklı – Puan Etkilenmez':(aa===1?'⚠️ Sarı':'🔴 Kırmızı')));
+            s.sahaDurum = (ag===0)?'✅ Yeşil':(ah==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(ah==='İç/Ultech'?'🟡 İç Kaynaklı – Puan Etkilenmez':'🔴 Kırmızı – Tedarikçi Kaynaklı'));
+            s.bildirimDeger = (ad==='Hayır')?'✅ Bildirim Yok':(ae==='Evet'?'✅ PPAP / Onay Tamamlandı':(ae==='Gerekmiyor'?'✅ Kabul Edildi':'⚠️ PPAP / Onay Bekliyor (–5 Puan)'));
+            var d=0;
+            if(x>0 && y==='Tedarikçi') d+=Math.min(x*10,20);
+            if(aa>0 && ab==='Tedarikçi') d+=Math.min(aa*5,10);
+            if(ag>0 && ah==='Tedarikçi') d+=Math.min(ag*15,25);
+            if(ad==='Evet' && ae==='Hayır') d+=5;
+            s.iatfDuzeltme = -d;
+            var base = Math.round((+s.tedarikcipuani||0)*100);
+            var ak = base + s.iatfDuzeltme; if(!isFinite(ak)) ak=0; if(ak<0) ak=0;
+            s.duzeltilmisPuan = ak;
+            s.duzeltilmisSinif = (ak>=90)?'A':(ak>=80?'B':(ak>=70?'C':'D'));
+            var ppm=+s.ppm||+s.currentPPM||0, ppmHedef=+s.ppmTarget||0;
+            if(ak<70 || (x>0&&y==='Tedarikçi') || (ag>0&&ah==='Tedarikçi')) s.riskAnalizi='🔴 HIGH – Kritik Tedarikçi';
+            else if(ak<90 || (ppmHedef>0&&ppm>ppmHedef) || (aa>0&&ab==='Tedarikçi') || (ad==='Evet'&&ae==='Hayır')) s.riskAnalizi='🟠 MEDIUM – İyileştirme Gerekli';
+            else s.riskAnalizi='🟢 LOW – Stabil Tedarikçi';
+            return s;
+        }
+        function saveSupplierIatfData(){
+            try{
+                var m={};
+                allResults.forEach(function(s){
+                    var has=(+s.musteriAksaklikSayisi||0)||(+s.ekstraNavlunSayisi||0)||(+s.sahaProblemSayisi||0)||(s.musteriAksaklikSorumlu&&s.musteriAksaklikSorumlu!=='-')||(s.ekstraNavlunSorumlu&&s.ekstraNavlunSorumlu!=='-')||(s.sahaProblemSorumlu&&s.sahaProblemSorumlu!=='-')||(s.ozelDurum&&s.ozelDurum!=='Hayır')||(s.ppapOnay&&s.ppapOnay!=='Gerekmiyor');
+                    if(has){ m[s.name]={mas:s.musteriAksaklikSayisi||0,mso:s.musteriAksaklikSorumlu||'-',ens:s.ekstraNavlunSayisi||0,eso:s.ekstraNavlunSorumlu||'-',od:s.ozelDurum||'Hayır',pp:s.ppapOnay||'Gerekmiyor',sps:s.sahaProblemSayisi||0,sso:s.sahaProblemSorumlu||'-'}; }
+                });
+                localStorage.setItem('supplierIatfData', JSON.stringify(m));
+            }catch(e){ console.warn('saveSupplierIatfData', e); }
+        }
+        function loadSupplierIatfData(){
+            try{
+                if(!allResults) return;
+                var saved=localStorage.getItem('supplierIatfData');
+                var m=saved?JSON.parse(saved):{};
+                allResults.forEach(function(s){
+                    var d=m[s.name];
+                    if(d){ s.musteriAksaklikSayisi=d.mas; s.musteriAksaklikSorumlu=d.mso; s.ekstraNavlunSayisi=d.ens; s.ekstraNavlunSorumlu=d.eso; s.ozelDurum=d.od; s.ppapOnay=d.pp; s.sahaProblemSayisi=d.sps; s.sahaProblemSorumlu=d.sso; }
+                    computeIatfFields(s);
+                });
+            }catch(e){ console.warn('loadSupplierIatfData', e); try{ allResults.forEach(computeIatfFields); }catch(_){} }
+        }
+        function updateIatfField(name, field, value){
+            var s=allResults.find(function(r){return r.name===name;}); if(!s) return;
+            if(field==='musteriAksaklikSayisi'||field==='ekstraNavlunSayisi'||field==='sahaProblemSayisi'){ value=parseInt(value,10)||0; if(value<0)value=0; }
+            s[field]=value;
+            computeIatfFields(s);
+            saveSupplierIatfData();
+            try{ displayResults(); }catch(e){}
+        }
+        function _iatfEsc(v){ return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+        function _iatfSel(name, field, val, opts){
+            var h='<select onchange="updateIatfField(\''+_iatfEsc(name)+'\',\''+field+'\',this.value)" style="width:100%;min-width:80px;padding:3px;border:1px solid #ccc;border-radius:4px;font-size:0.78em;">';
+            opts.forEach(function(o){ h+='<option value="'+o+'"'+(String(val)===o?' selected':'')+'>'+o+'</option>'; });
+            return h+'</select>';
+        }
+        function iatfCellsHtml(s){
+            computeIatfFields(s);
+            var nm=_iatfEsc(s.name);
+            var numInput=function(field,val){ return '<input type="number" min="0" value="'+(val||0)+'" onchange="updateIatfField(\''+nm+'\',\''+field+'\',this.value)" style="width:55px;padding:3px;border:1px solid #ccc;border-radius:4px;font-size:0.8em;text-align:center;">'; };
+            var disp=function(v){ return '<span style="font-size:0.78em;white-space:nowrap;">'+(v||'')+'</span>'; };
+            return ''+
+              '<td class="text-center">'+numInput('musteriAksaklikSayisi',s.musteriAksaklikSayisi)+'</td>'+
+              '<td class="text-center">'+_iatfSel(s.name,'musteriAksaklikSorumlu',s.musteriAksaklikSorumlu,IATF_SORUMLU_OPTS)+'</td>'+
+              '<td class="text-center">'+disp(s.musteriDurum)+'</td>'+
+              '<td class="text-center">'+numInput('ekstraNavlunSayisi',s.ekstraNavlunSayisi)+'</td>'+
+              '<td class="text-center">'+_iatfSel(s.name,'ekstraNavlunSorumlu',s.ekstraNavlunSorumlu,IATF_SORUMLU_OPTS)+'</td>'+
+              '<td class="text-center">'+disp(s.navlunDurum)+'</td>'+
+              '<td class="text-center">'+_iatfSel(s.name,'ozelDurum',s.ozelDurum,['Hayır','Evet'])+'</td>'+
+              '<td class="text-center">'+_iatfSel(s.name,'ppapOnay',s.ppapOnay,['Gerekmiyor','Evet','Hayır'])+'</td>'+
+              '<td class="text-center">'+disp(s.bildirimDeger)+'</td>'+
+              '<td class="text-center">'+numInput('sahaProblemSayisi',s.sahaProblemSayisi)+'</td>'+
+              '<td class="text-center">'+_iatfSel(s.name,'sahaProblemSorumlu',s.sahaProblemSorumlu,IATF_SORUMLU_OPTS)+'</td>'+
+              '<td class="text-center">'+disp(s.sahaDurum)+'</td>'+
+              '<td class="text-center">'+disp(s.iatfDuzeltme)+'</td>'+
+              '<td class="text-center"><b>'+s.duzeltilmisPuan+'</b></td>'+
+              '<td class="text-center"><span class="supplier-class-badge class-'+String(s.duzeltilmisSinif).toLowerCase()+'">'+s.duzeltilmisSinif+'</span></td>'+
+              '<td class="text-center">'+disp(s.riskAnalizi)+'</td>';
+        }
+        function iatfHeaderHtml(){ return IATF_HEADERS.map(function(h){ return '<th class="text-center" style="min-width:90px;background:#0f4c81;">'+h+'</th>'; }).join(''); }
+
         // Re-upload: kullanıcının elle girdiği skorları (VDA, 8D, termin/tamamlanma, kalite) eski dönemden KORU;
         // sevk/iade/hata'yı moda göre uygula (replace=üzerine yaz, merge=yeni dolu ayları ekle, eskiler kalsın).
         function mergeWithOldPeriod(oldData, mode){
@@ -9285,6 +9385,8 @@
             } catch (e) {
                 console.error('Sertifika verisi yükleme hatası:', e);
             }
+            // IATF ek değerlendirme girdilerini de uygula (her belge-yükleme yolunda otomatik)
+            try { if (typeof loadSupplierIatfData === 'function') loadSupplierIatfData(); } catch(e) {}
         }
 
         // Ay seçimi değiştiğinde tüm metrikleri yeniden hesapla
@@ -10568,6 +10670,7 @@
                                     <th class="text-right">Tamamlanma Puanı</th>
                                     <th class="text-right">Tedarikçi Puanı</th>
                                     <th class="text-center">Tedarikçi Sınıfı</th>
+                                    ${iatfHeaderHtml()}
                                 </tr>
                             </thead>
                             <tbody>
@@ -10757,6 +10860,7 @@
                                 ${result.tedarikcisınıfı}
                             </span>
                         </td>
+                        ${iatfCellsHtml(result)}
                     </tr>
                 `;
             });
@@ -13050,9 +13154,10 @@
                 'PPM Hedefi', 'PPM', 'PPM Puanı', 'Hata Hedefi', 'Toplam Hata Sayısı', 
                 'Hata Puanı', 'Kalite Belgeleri', 'Kalite Belge Puanı', 'VDA/Denetim Puanı', 
                 'Talep Edilen 8D', 'Cevaplanan 8D', '8D Dönüş Oranı', 'Termin Puanı', 
-                'Tamamlanma Puanı', 'Tedarikçi Puanı', 'Tedarikçi Sınıfı'
+                'Tamamlanma Puanı', 'Tedarikçi Puanı', 'Tedarikçi Sınıfı',
+                ...(typeof IATF_HEADERS !== 'undefined' ? IATF_HEADERS : [])
             ];
-            
+
             const headerRow = worksheet.getRow(9);
             headerRow.values = headers;
             headerRow.height = 25;
@@ -13096,6 +13201,7 @@
                 }
                 const docText = docCount > 0 ? `${docCount} dosya` : '-';
                 
+                try { if (typeof computeIatfFields === 'function') computeIatfFields(r); } catch(e) {}
                 const rowData = [
                     i + 1,
                     r.status,
@@ -13119,7 +13225,12 @@
                     r.terminPuan.toFixed(0) + '%',
                     r.tamamlanmaPuan.toFixed(0) + '%',
                     (r.tedarikcipuani * 100).toFixed(0) + '%',
-                    r.tedarikcisınıfı
+                    r.tedarikcisınıfı,
+                    (r.musteriAksaklikSayisi||0), (r.musteriAksaklikSorumlu||'-'), (r.musteriDurum||''),
+                    (r.ekstraNavlunSayisi||0), (r.ekstraNavlunSorumlu||'-'), (r.navlunDurum||''),
+                    (r.ozelDurum||'Hayır'), (r.ppapOnay||'Gerekmiyor'), (r.bildirimDeger||''),
+                    (r.sahaProblemSayisi||0), (r.sahaProblemSorumlu||'-'), (r.sahaDurum||''),
+                    (r.iatfDuzeltme||0), (r.duzeltilmisPuan!=null?r.duzeltilmisPuan:''), (r.duzeltilmisSinif||''), (r.riskAnalizi||'')
                 ];
                 
                 const dataRow = worksheet.addRow(rowData);
@@ -13227,7 +13338,12 @@
                 { width: 13 },  // Termin Puanı
                 { width: 18 },  // Tamamlanma Puanı
                 { width: 16 },  // Tedarikçi Puanı
-                { width: 16 }   // Tedarikçi Sınıfı
+                { width: 16 },  // Tedarikçi Sınıfı
+                { width: 14 }, { width: 16 }, { width: 16 },   // Müşteri Aksaklığı
+                { width: 14 }, { width: 16 }, { width: 16 },   // Ekstra Navlun
+                { width: 16 }, { width: 16 }, { width: 22 },   // Özel Durum, PPAP, Bildirim
+                { width: 16 }, { width: 16 }, { width: 18 },   // Saha Problemi
+                { width: 15 }, { width: 18 }, { width: 18 }, { width: 28 }  // IATF düzeltme, Düzeltilmiş Puan/Sınıf, Risk
             ];
             
             // Excel dosyasını oluştur ve indir
@@ -18615,7 +18731,7 @@
             }
             // Filtreler + ayar/iş anahtarlarını da yedeğe ekle → TEK dosyada tam veri (filtreler kaybolmaz)
             exportData.prefs = {};
-            ['supplierFilters','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
+            ['supplierFilters','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierIatfData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
             try{ for(var pi=0;pi<localStorage.length;pi++){ var lk=localStorage.key(pi); if(lk && (lk.indexOf('ppmTarget_')===0 || lk.indexOf('hataHedefi_')===0)){ exportData.prefs[lk]=localStorage.getItem(lk); } } }catch(e){}
             return exportData;
         }
