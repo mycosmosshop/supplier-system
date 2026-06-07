@@ -13579,6 +13579,18 @@
                                 }
                             }
                         }
+                        // Yerelde veri yoksa Drive'dan OTOMATİK çek (hangi kullanıcı/profil olursa olsun girince veri gelir)
+                        if ((!allResults || allResults.length === 0) && typeof getDriveSettings === 'function' && getDriveSettings() && typeof driveJsonp === 'function') {
+                            try {
+                                showAlert('☁️ Veriler Drive\'dan yükleniyor...', 'info');
+                                const _r = await driveJsonp({action:'latest'});
+                                if (_r && _r.content) {
+                                    const _d = typeof _r.content === 'string' ? JSON.parse(_r.content) : _r.content;
+                                    await restoreSupplierBackup(_d, true);
+                                    console.log('✅ Açılışta Drive\'dan veri çekildi: ' + (allResults ? allResults.length : 0) + ' tedarikçi');
+                                }
+                            } catch(e) { console.warn('Drive otomatik çekme hatası:', e); }
+                        }
                         if (allResults && allResults.length > 0 && typeof load8DCountsFromDB === 'function') { await load8DCountsFromDB(); }
                     } catch(e) { console.warn('Açılış otomatik yükleme hatası:', e); }
                     // NOT: "Kaydedilmiş Sürümler" penceresi artık otomatik açılmaz; gerekirse butondan açılır.
@@ -18291,8 +18303,10 @@
 
         // ======== GOOGLE DRIVE YEDEKLEME (Apps Script üzerinden) ========
         function getDriveSettings(){
-            var url=(localStorage.getItem('drive_script_url')||'').trim();
-            var secret=(localStorage.getItem('drive_secret')||'').trim();
+            var DEF_URL='https://script.google.com/macros/s/AKfycby2nGHzpjJWEe-By16Urj865sLLvowSUPZC4_HyvCCzU4fyRwy6pXbfU3AumHwYMlWs_A/exec';
+            var DEF_SECRET='Sanifoam2026Drive';
+            var url=(localStorage.getItem('drive_script_url')||'').trim() || DEF_URL;
+            var secret=(localStorage.getItem('drive_secret')||'').trim() || DEF_SECRET;
             return url ? {url:url, secret:secret} : null;
         }
         function saveDriveSettings(){
@@ -18348,12 +18362,12 @@
             return exportData;
         }
         // Storj formatındaki yedeği geri yükle (Storj fonksiyonlarına dokunmadan)
-        async function restoreSupplierBackup(importData){
+        async function restoreSupplierBackup(importData, silent){
             if(!importData || !importData.stores){ showAlert('❌ Geçersiz yedek dosyası!', 'error'); return; }
             var suppliers=importData.stores['suppliers']||[];
-            if(suppliers.length===0){ showAlert('⚠️ Bu yedekte tedarikçi verisi yok!', 'error'); return; }
+            if(suppliers.length===0){ if(!silent) showAlert('⚠️ Bu yedekte tedarikçi verisi yok!', 'error'); return; }
             var summary=Object.keys(importData.stores).map(function(n){return '• '+n+': '+(importData.stores[n]||[]).length+' kayıt';}).join('\n');
-            if(!confirm('⚠️ MEVCUT VERİLERİN ÜZERİNE YAZILACAK!\n\nYüklenecek:\n'+summary+'\n\nDevam edilsin mi?')){ showAlert('İşlem iptal edildi.', 'info'); return; }
+            if(!silent && !confirm('⚠️ MEVCUT VERİLERİN ÜZERİNE YAZILACAK!\n\nYüklenecek:\n'+summary+'\n\nDevam edilsin mi?')){ showAlert('İşlem iptal edildi.', 'info'); return; }
             showAlert('💾 Geri yükleniyor...', 'info');
             var keys=Object.keys(importData.stores);
             for(var k=0;k<keys.length;k++){
