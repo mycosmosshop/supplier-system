@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search);};</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📋 8D Raporu</title>
+
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #333; }
+
+        /* ===== TOPBAR ===== */
+        .topbar {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        .topbar-title { color: white; font-size: 1.3em; font-weight: 700; letter-spacing: 0.3px; }
+        .topbar-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+        .nav-btn {
+            padding: 7px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.88em;
+            font-weight: 600;
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            transition: opacity 0.2s, transform 0.2s;
+        }
+        .nav-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .nav-btn-home    { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); }
+        .nav-btn-coa     { background: linear-gradient(135deg,#0d47a1 0%,#1565c0 100%); }
+        .nav-btn-nonconf { background: linear-gradient(135deg,#880e4f 0%,#ad1457 100%); }
+        .nav-btn-fish    { background: linear-gradient(135deg,#1b5e20 0%,#2e7d32 100%); }
+        .nav-btn-new     { background: linear-gradient(135deg,#e65100 0%,#f57c00 100%); }
+
+        /* ===== ALERT ===== */
+        #alertBox {
+            position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+            padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 1em;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25); z-index: 9999;
+            display: none; min-width: 280px; text-align: center;
+        }
+        #alertBox.success { background: #4caf50; color: white; }
+        #alertBox.error   { background: #f44336; color: white; }
+        #alertBox.warning { background: #ff9800; color: white; }
+
+        /* ===== LIST VIEW ===== */
+        #listView  { display: block; }
+        #formView  { display: none; }
+
+        .stats-bar {
+            display: flex; gap: 12px; flex-wrap: wrap;
+            padding: 20px 24px 0;
+        }
+        .stat-card {
+            background: white; border-radius: 10px; padding: 16px 22px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08); flex: 1; min-width: 140px;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+        }
+        .stat-card .num { font-size: 2em; font-weight: 700; color: #1e3c72; }
+        .stat-card .lbl { font-size: 0.85em; color: #666; }
+
+        .list-container { padding: 20px 24px; }
+        .supplier-group {
+            margin-bottom: 20px; border: 1px solid #ddd; border-radius: 10px;
+            overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+        }
+        .supplier-header {
+            background: linear-gradient(135deg,#1e3c72 0%,#2a5298 100%);
+            color: white; padding: 14px 18px; font-size: 1.1em; font-weight: 600;
+        }
+        .supplier-cards {
+            background: white; padding: 14px;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 12px;
+        }
+        .report-card {
+            border: 1px solid #ddd; border-radius: 8px; padding: 14px;
+            background: #f8f9fa; cursor: pointer;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .report-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-2px); }
+        .report-card-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; }
+        .report-card-title { font-weight: 700; color: #1e3c72; font-size: 1.05em; }
+        .report-card-actions { display: flex; gap: 4px; }
+        .card-btn { padding: 5px 9px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.82em; }
+        .status-badge {
+            display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 700;
+        }
+        .status-open       { background: #ffebee; color: #c62828; }
+        .status-inprogress { background: #fff8e1; color: #f57c00; }
+        .status-closed     { background: #e8f5e9; color: #2e7d32; }
+        .empty-state { text-align: center; padding: 80px 20px; color: #999; }
+        .empty-state .icon { font-size: 3.5em; margin-bottom: 16px; }
+        .empty-state p { font-size: 1.1em; }
+
+        /* ===== FORM VIEW ===== */
+        .form-header {
+            background: linear-gradient(135deg,#1e3c72 0%,#2a5298 100%);
+            color: white; padding: 16px 24px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .form-header h2 { font-size: 1.1em; font-weight: 600; }
+        .form-meta-bar {
+            background: #e8f4fd; padding: 12px 24px;
+            display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+            border-bottom: 2px solid #ddd;
+        }
+        .form-meta-bar label { font-weight: 600; font-size: 0.88em; color: #1e3c72; display: block; margin-bottom: 4px; }
+        .form-meta-bar input, .form-meta-bar select {
+            padding: 7px 12px; border: 1px solid #bcd; border-radius: 6px;
+            font-size: 0.92em; min-width: 180px;
+        }
+
+        /* ===== TABS ===== */
+        .tab-nav {
+            display: flex; border-bottom: 2px solid #ddd; background: #f5f7fa;
+            position: sticky; top: 0; z-index: 10; padding: 10px 10px 0;
+            overflow-x: auto;
+        }
+        .tab-8d-btn {
+            position: relative;
+            padding: 12px 20px 12px 30px !important;
+            margin-right: 8px;
+            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 12px 50%);
+            border: none !important; background: #ccc; cursor: pointer;
+            font-weight: 600; color: #666; transition: all 0.3s;
+            white-space: nowrap; flex-shrink: 0;
+        }
+        .tab-8d-btn:first-child {
+            clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+            padding-left: 20px !important;
+        }
+        .tab-8d-btn:last-child {
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 12px 50%);
+            margin-right: 0;
+        }
+        .tab-8d-btn.active {
+            background: linear-gradient(135deg,#1e3c72 0%,#2a5298 100%) !important;
+            color: white !important; z-index: 2;
+        }
+        .tab-8d-btn:hover:not(.active) { background: #e3f2fd !important; }
+
+        /* ===== DYNAMIC ITEMS ===== */
+        .d1-team-member,.d3-action,.d4-root-cause,.d5-action,
+        .d6-implementation,.d7-prevention,.d8-participant {
+            background: #f8f9fa; border: 1px solid #dee2e6;
+            border-radius: 8px; padding: 15px; margin-bottom: 15px; position: relative;
+        }
+        .remove-btn-8d {
+            position: absolute; top: 10px; right: 10px;
+            background: #dc3545; color: white; border: none;
+            border-radius: 50%; width: 28px; height: 28px;
+            cursor: pointer; font-weight: bold; font-size: 16px;
+            line-height: 1; transition: transform 0.2s;
+        }
+        .remove-btn-8d:hover { transform: scale(1.1); background: #c82333; }
+
+        /* ===== FORM ELEMENTS ===== */
+        .tab-content-area { padding: 25px; }
+        .field-label { display: block; font-weight: 600; margin-bottom: 5px; color: #333; font-size: 0.9em; }
+        .field-input {
+            width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;
+            font-size: 0.95em; font-family: inherit;
+        }
+        .field-input:focus { outline: none; border-color: #1e3c72; box-shadow: 0 0 0 2px rgba(30,60,114,0.15); }
+        .field-readonly { background: #f5f5f5; }
+        .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+        .span-2 { grid-column: span 2; }
+        .span-3 { grid-column: span 3; }
+        .gap-15 { display: grid; gap: 15px; }
+
+        .section-title {
+            font-size: 1.1em; font-weight: 700; padding-bottom: 10px;
+            margin-bottom: 20px; border-bottom: 2px solid currentColor;
+        }
+
+        .attach-box {
+            margin-top: 20px; padding: 20px; background: #f8f9fa;
+            border-radius: 8px; border: 2px dashed currentColor;
+        }
+        .attach-box h4 { margin: 0 0 15px; display: flex; align-items: center; gap: 8px; }
+        .attach-box h4 small { font-size: 0.8em; font-weight: normal; color: #666; }
+        .attach-list { display: grid; gap: 8px; }
+        .attach-item {
+            display: flex; align-items: center; padding: 10px;
+            background: white; border: 1px solid #ddd; border-radius: 4px; gap: 10px;
+        }
+        .attach-item .icon { font-size: 1.4em; flex-shrink: 0; }
+        .attach-item .info { flex: 1; min-width: 0; }
+        .attach-item .info .name { font-weight: 600; font-size: 0.95em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .attach-item .info .meta { font-size: 0.82em; color: #666; }
+        .btn-dl { padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+        .btn-rm { padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; flex-shrink: 0; }
+        .btn-up { padding: 9px 18px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+
+        .add-btn       { margin-top: 12px; padding: 8px 16px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        .add-btn-small { margin: 12px 4px 4px 0; padding: 8px 14px; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; }
+
+        /* ===== D4 LINKED ANALYSES ===== */
+        .d4-linked-section { margin-top: 24px; padding-top: 18px; border-top: 1px dashed #c62828; }
+        .d4-linked-title { font-weight: 700; color: #c62828; font-size: 0.95em; margin-bottom: 12px; display:flex; align-items:center; gap:6px; }
+        .d4-preview-btn {
+            padding:5px 12px; border:1.5px solid #1565c0; border-radius:5px;
+            background:rgba(21,101,192,0.08); color:#1565c0;
+            cursor:pointer; font-size:0.8em; font-weight:700; font-family:inherit;
+            transition:all 0.15s;
+        }
+        .d4-preview-btn:hover { background:rgba(21,101,192,0.18); }
+        .d4-preview-wrap {
+            margin-top:10px; border-radius:8px; overflow:hidden;
+            border:1.5px solid #c62828; width:100%;
+        }
+        .d4-preview-iframe {
+            display:block; width:100%; height:420px; border:none;
+        }
+        .d4-link-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media(max-width:600px){ .d4-link-grid { grid-template-columns: 1fr; } }
+        .d4-link-card {
+            border-radius: 8px; padding: 16px;
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        .d4-link-card.empty {
+            border: 2px dashed #bbb; background: #fafafa;
+            align-items: center; justify-content: center;
+            min-height: 110px; text-align: center;
+        }
+        .d4-link-card.linked { border: 2px solid; background: #fff; }
+        .d4-link-card-icon { font-size: 1.6em; }
+        .d4-link-card-name { font-weight: 700; font-size: 0.9em; }
+        .d4-link-card-problem { font-size: 0.82em; color: #555; }
+        .d4-link-card-meta { font-size: 0.76em; color: #888; }
+        .d4-link-btn-open {
+            padding: 6px 14px; border: none; border-radius: 4px;
+            color: white; cursor: pointer; font-weight: 600;
+            font-size: 0.84em; font-family: inherit;
+        }
+        .d4-link-btn-remove {
+            padding: 6px 12px; border: none; border-radius: 4px;
+            background: #ef5350; color: white; cursor: pointer;
+            font-size: 0.84em; font-family: inherit;
+        }
+        .d4-link-btn-add {
+            padding: 7px 16px; border-radius: 4px; cursor: pointer;
+            font-weight: 600; font-size: 0.85em; font-family: inherit;
+            background: transparent; margin-top: 4px;
+        }
+
+        /* ===== D4 BAĞLA MODAL ===== */
+        #d4LinkModal {
+            display:none; position:fixed; inset:0;
+            background:rgba(0,0,0,0.55); z-index:10000;
+            align-items:center; justify-content:center;
+        }
+        #d4LinkModal.open { display:flex; }
+        .d4m-box {
+            background:#fff; border-radius:12px;
+            width:min(520px,95vw); max-height:88vh;
+            display:flex; flex-direction:column;
+            box-shadow:0 8px 32px rgba(0,0,0,0.3);
+            overflow:hidden;
+        }
+        .d4m-header {
+            padding:18px 22px 14px; border-bottom:1px solid #e8e8e8;
+            display:flex; align-items:center; justify-content:space-between;
+        }
+        .d4m-title { font-weight:700; font-size:1.05em; color:#222; }
+        .d4m-close {
+            background:none; border:none; font-size:1.3em;
+            cursor:pointer; color:#888; line-height:1; padding:2px 6px;
+        }
+        .d4m-close:hover { color:#333; }
+        .d4m-body { overflow-y:auto; padding:16px 20px 20px; flex:1; display:flex; flex-direction:column; gap:10px; }
+        .d4m-new-btn {
+            width:100%; padding:12px; border-radius:8px;
+            font-weight:700; font-size:0.95em; cursor:pointer;
+            border:2px dashed; font-family:inherit; background:transparent;
+            transition:background 0.15s;
+        }
+        .d4m-new-btn:hover { background:rgba(0,0,0,0.04); }
+        .d4m-separator {
+            font-weight:600; font-size:0.82em; color:#999;
+            text-transform:uppercase; letter-spacing:0.5px;
+            padding:4px 0 2px;
+        }
+        .d4m-record {
+            border:1px solid #e4e4e4; border-radius:8px;
+            padding:11px 14px; display:flex;
+            justify-content:space-between; align-items:center;
+            gap:10px; transition:background 0.12s;
+        }
+        .d4m-record:hover { background:#f9f9f9; }
+        .d4m-record-name { font-weight:600; font-size:0.88em; color:#222; }
+        .d4m-record-meta { font-size:0.76em; color:#999; margin-top:2px; }
+        .d4m-pick-btn {
+            padding:6px 14px; border:none; border-radius:5px;
+            color:white; font-weight:700; font-size:0.82em;
+            cursor:pointer; white-space:nowrap; font-family:inherit;
+        }
+        .d4m-empty { color:#aaa; text-align:center; padding:22px 0; font-size:0.9em; }
+        .d4m-error { color:#e53935; text-align:center; padding:16px 0; font-size:0.88em; }
+
+        /* ===== FORM FOOTER ===== */
+        .form-footer {
+            padding: 14px 24px; border-top: 2px solid #ddd;
+            display: flex; justify-content: space-between; gap: 10px;
+            background: #f5f7fa; flex-wrap: wrap;
+        }
+        .form-footer-left, .form-footer-right { display: flex; gap: 10px; flex-wrap: wrap; }
+        .footer-btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.95em; }
+        .btn-pdf  { background: #e53935; color: white; }
+        .btn-back { background: #f0f0f0; border: 1px solid #ccc; color: #333; }
+        .btn-save { background: #1e3c72; color: white; }
+        .btn-del  { background: #f44336; color: white; }
+
+        .saving-spinner {
+            display: none; position: fixed; bottom: 80px; right: 24px;
+            background: #1e3c72; color: white; padding: 10px 18px; border-radius: 8px;
+            font-weight: 600; font-size: 0.9em; z-index: 9998;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        @media (max-width: 700px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .grid-3 { grid-template-columns: 1fr; }
+            .span-2, .span-3 { grid-column: span 1; }
+            .tab-8d-btn { padding: 8px 14px 8px 22px !important; font-size: 0.85em; }
+            .topbar { flex-direction: column; gap: 10px; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+    <div class="topbar-left">
+        <span class="topbar-title">📋 8D Raporu</span>
+        <span style="color:rgba(255,255,255,0.6); font-size:0.9em;">Problem Çözme Metodu</span>
+    </div>
+    <div class="topbar-nav">
+        <a href="index.html"                   class="nav-btn nav-btn-home">🏠 Ana Sayfa</a>
+        <a href="coa-arsiv.html"               class="nav-btn nav-btn-coa">📄 COA</a>
+        <a href="uygunsuzluk-analizi.html"     class="nav-btn nav-btn-nonconf">⚠️ Uygunsuzluk</a>
+        <a href="balik-kilcigi.html"           class="nav-btn nav-btn-fish">🐟 Balık Kılçığı</a>
+        <a href="5-neden-analizi.html"           class="nav-btn" style="background:linear-gradient(135deg,#5b21b6,#7c3aed);">🔍 5 Neden</a>
+        <button onclick="startNewReport()"     class="nav-btn nav-btn-new">➕ Yeni Rapor</button>
+    </div>
+</div>
+
+<!-- ALERT -->
+<div id="alertBox"></div>
+
+<!-- SAVING SPINNER -->
+<div class="saving-spinner" id="savingSpinner">💾 Kaydediliyor...</div>
+
+<!-- ============================================================
+     LIST VIEW
+============================================================ -->
+<div id="listView">
+    <div class="stats-bar" id="statsBar">
+        <div class="stat-card"><div class="num" id="statTotal">0</div><div class="lbl">Toplam Rapor</div></div>
+        <div class="stat-card"><div class="num" id="statClosed"     style="color:#2e7d32">0</div><div class="lbl">Kapalı</div></div>
+        <div class="stat-card"><div class="num" id="statInProgress" style="color:#f57c00">0</div><div class="lbl">Devam Eden</div></div>
+        <div class="stat-card"><div class="num" id="statOpen"       style="color:#c62828">0</div><div class="lbl">Açık</div></div>
+        <div class="stat-card"><div class="num" id="statSuppliers">0</div><div class="lbl">Tedarikçi / Konu</div></div>
+    </div>
+    <div class="list-container" id="reportListContainer">
+        <div class="empty-state"><div class="icon">⏳</div><p>Raporlar yükleniyor...</p></div>
+    </div>
+</div>
+
+<!-- ============================================================
+     FORM VIEW
+============================================================ -->
+<div id="formView">
+
+    <!-- Form header -->
+    <div class="form-header">
+        <h2 id="formTitle">📋 8D RAPOR — Problem Çözme Metodu</h2>
+        <button onclick="closeForm()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:white;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:600;">← Listeye Dön</button>
+    </div>
+
+    <!-- Kaynak bağlam baneri (URL param ile açıldığında görünür) -->
+    <div id="sourceBanner" style="display:none;align-items:center;gap:12px;padding:10px 18px;background:#1a2744;border-left:4px solid #6366f1;border-radius:0 8px 8px 0;margin:0 0 4px 0;font-size:0.92em;color:#c7d2fe;">
+        <span id="sourceBannerIcon" style="font-size:1.4em;"></span>
+        <div>
+            <div style="font-weight:700;color:#e0e7ff;" id="sourceBannerTitle"></div>
+            <div style="font-size:0.85em;opacity:.8;" id="sourceBannerSub"></div>
+        </div>
+        <a id="sourceBannerLink" href="#" style="margin-left:auto;padding:5px 12px;background:#4f46e5;color:#fff;border-radius:6px;text-decoration:none;font-size:0.85em;white-space:nowrap;">← Sayfaya Dön</a>
+    </div>
+
+    <!-- Source + Supplier/Konu + Month -->
+    <div class="form-meta-bar">
+        <!-- KAYNAK -->
+        <div>
+            <label>📂 Kaynak</label>
+            <select id="meta_source" onchange="onSourceChange()" style="min-width:190px;">
+                <option value="Tedarikçi">🏭 Tedarikçi (Ana Sayfada Görünür)</option>
+                <option value="Uygunsuzluk">⚠️ Uygunsuzluk Analizi</option>
+                <option value="Kapsamlı Rapor">📊 Kapsamlı Rapor</option>
+                <option value="Balık Kılçığı">🐟 Balık Kılçığı</option>
+                <option value="Genel">📋 Genel / Diğer</option>
+            </select>
+        </div>
+        <!-- TEDARİKÇİ (sadece Tedarikçi kaynağında) -->
+        <div id="meta_supplier_wrap">
+            <label>🏭 Tedarikçi</label>
+            <select id="meta_supplier" style="min-width:240px;">
+                <option value="">— Tedarikçi Seçiniz —</option>
+            </select>
+        </div>
+        <!-- KONU (Tedarikçi dışı kaynaklar için) -->
+        <div id="meta_konu_wrap" style="display:none;">
+            <label>📝 Konu / Kayıt</label>
+            <!-- Uygunsuzluk / Balık Kılçığı için açılan liste -->
+            <select id="meta_konu_sel" style="min-width:240px;">
+                <option value="">— Seçiniz —</option>
+            </select>
+            <!-- Genel / Diğer için serbest metin -->
+            <input type="text" id="meta_konu_free" style="min-width:240px;padding:7px 10px;border:1px solid #ccc;border-radius:6px;font-size:0.95em;display:none;" placeholder="Konu veya başlık giriniz...">
+        </div>
+        <!-- AY -->
+        <div>
+            <label>📅 Ay (Opsiyonel)</label>
+            <select id="meta_month">
+                <option value="">— Seçiniz —</option>
+                <option value="1">Ocak</option><option value="2">Şubat</option>
+                <option value="3">Mart</option><option value="4">Nisan</option>
+                <option value="5">Mayıs</option><option value="6">Haziran</option>
+                <option value="7">Temmuz</option><option value="8">Ağustos</option>
+                <option value="9">Eylül</option><option value="10">Ekim</option>
+                <option value="11">Kasım</option><option value="12">Aralık</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- TAB NAV -->
+    <div class="tab-nav">
+        <button class="tab-8d-btn active" onclick="switch8DTab('head')" data-tab="head">Head Data</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d1')"  data-tab="d1">D1</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d2')"  data-tab="d2">D2</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d3')"  data-tab="d3">D3</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d4')"  data-tab="d4">D4</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d5')"  data-tab="d5">D5</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d6')"  data-tab="d6">D6</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d7')"  data-tab="d7">D7</button>
+        <button class="tab-8d-btn" onclick="switch8DTab('d8')"  data-tab="d8">D8</button>
+    </div>
+
+    <!-- TAB CONTENTS -->
+    <div class="tab-content-area">
+
+        <!-- HEAD DATA -->
+        <div class="tab-8d-content" data-tab-content="head">
+            <div class="section-title" style="color:#1e3c72;">HEAD DATA</div>
+            <div class="grid-2">
+                <div><label class="field-label">8D-Report Number</label>
+                    <input type="text" id="f8d_reportNumber" class="field-input"></div>
+                <div><label class="field-label">Version</label>
+                    <input type="text" id="f8d_version" class="field-input"></div>
+                <div><label class="field-label">8D-Title</label>
+                    <input type="text" id="f8d_title" class="field-input"></div>
+                <div><label class="field-label">Start Date</label>
+                    <input type="date" id="f8d_startDate" class="field-input"></div>
+                <div><label class="field-label">Subject of Problem Solving</label>
+                    <input type="text" id="f8d_subject" class="field-input"></div>
+                <div><label class="field-label">Current Date</label>
+                    <input type="date" id="f8d_currentDate" class="field-input"></div>
+                <div><label class="field-label">Problem Owner / Customer</label>
+                    <input type="text" id="f8d_customer" class="field-input"></div>
+                <div><label class="field-label">Status / Report Form</label>
+                    <select id="f8d_status" class="field-input">
+                        <option value="">Seçiniz</option>
+                        <option value="Open">Open</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Closed">Closed</option>
+                    </select></div>
+                <div><label class="field-label">E-Mail</label>
+                    <input type="email" id="f8d_email" class="field-input"></div>
+                <div><label class="field-label">Phone</label>
+                    <input type="tel" id="f8d_phone" class="field-input"></div>
+                <div class="span-2"><label class="field-label">Additional Information</label>
+                    <textarea id="f8d_additionalInfo" class="field-input" rows="3"></textarea></div>
+            </div>
+
+            <div class="section-title" style="color:#1e3c72; margin-top:30px;">PRELIMINARY DEFECT INFORMATION</div>
+            <div class="grid-2">
+                <div><label class="field-label">Part Number</label>
+                    <input type="text" id="f8d_partNumber" class="field-input"></div>
+                <div><label class="field-label">Part Name</label>
+                    <input type="text" id="f8d_partName" class="field-input"></div>
+                <div class="span-2"><label class="field-label">Defect Description</label>
+                    <textarea id="f8d_defectDescription" class="field-input" rows="3"></textarea></div>
+                <div><label class="field-label">Defect Quantity (pcs)</label>
+                    <input type="number" id="f8d_defectQuantity" class="field-input" min="0" oninput="calculateDefectRate()"></div>
+                <div><label class="field-label">Total Checked Quantity (pcs)</label>
+                    <input type="number" id="f8d_totalCheckedQuantity" class="field-input" min="0" oninput="calculateDefectRate()"></div>
+                <div><label class="field-label">Defect Rate (%)</label>
+                    <input type="number" id="f8d_defectRate" class="field-input field-readonly" step="0.01" readonly></div>
+                <div><label class="field-label">Tespit Yeri</label>
+                    <select id="f8d_detectionPoint" class="field-input">
+                        <option value="">— Seçiniz —</option>
+                    </select></div>
+            </div>
+
+            <!-- Defect Photos -->
+            <div class="attach-box" style="color:#1e3c72; border-color:#1e3c72;">
+                <h4 style="color:#1e3c72;">📎 DEFECT PHOTOS (ATTACHMENTS) <small>(Evidence of defect)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="headDefectPhotoInput" multiple accept="image/*,.pdf" style="display:none;" onchange="handleHeadDefectPhotos(event)">
+                    <button class="btn-up" style="background:#1e3c72;" onclick="document.getElementById('headDefectPhotoInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="headDefectPhotosList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D1 -->
+        <div class="tab-8d-content" data-tab-content="d1" style="display:none;">
+            <div class="section-title" style="color:#2e7d32;">D1 — PROBLEM SOLVING TEAM</div>
+            <div id="d1TeamMembers"></div>
+            <button class="add-btn" style="background:#2e7d32;" onclick="addD1TeamMember()">+ Ekip Üyesi Ekle</button>
+        </div>
+
+        <!-- D2 -->
+        <div class="tab-8d-content" data-tab-content="d2" style="display:none;">
+            <div class="section-title" style="color:#0277bd;">D2 — PROBLEM DESCRIPTION</div>
+            <div class="gap-15">
+                <div><label class="field-label">Description — Symptom</label>
+                    <textarea id="f8d_d2_symptom" class="field-input" rows="4"></textarea></div>
+                <div><label class="field-label">Description — Problem (created by Problem Solving Team)</label>
+                    <textarea id="f8d_d2_problem" class="field-input" rows="4" placeholder="Including description of effects, extent of affected products, etc."></textarea></div>
+                <div class="grid-2">
+                    <div><label class="field-label">Hata Tipi</label>
+                        <select id="f8d_d2_errorType" class="field-input">
+                            <option value="">— Seçiniz —</option>
+                        </select></div>
+                    <div><label class="field-label">Hata Kaynağı</label>
+                        <select id="f8d_d2_errorLocation" class="field-input">
+                            <option value="">— Seçiniz —</option>
+                        </select></div>
+                    <div><label class="field-label">Risk Assessment started/updated?</label>
+                        <select id="f8d_d2_riskAssessment" class="field-input">
+                            <option value="">Seçiniz</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select></div>
+                    <div><label class="field-label">Date</label>
+                        <input type="date" id="f8d_d2_riskDate" class="field-input"></div>
+                </div>
+            </div>
+            <div class="attach-box" style="color:#0277bd; border-color:#0277bd;">
+                <h4 style="color:#0277bd;">📎 APPEND ATTACHMENTS <small>(Supporting documents)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="d2AttachmentInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none;" onchange="handleD2Attachments(event)">
+                    <button class="btn-up" style="background:#0277bd;" onclick="document.getElementById('d2AttachmentInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="d2AttachmentsList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D3 -->
+        <div class="tab-8d-content" data-tab-content="d3" style="display:none;">
+            <div class="section-title" style="color:#f57c00;">D3 — CONTAINMENT ACTIONS</div>
+            <div id="d3ContainmentActions"></div>
+            <button class="add-btn" style="background:#f57c00;" onclick="addD3Action()">+ Eylem Ekle</button>
+        </div>
+
+        <!-- D4 -->
+        <div class="tab-8d-content" data-tab-content="d4" style="display:none;">
+            <div class="section-title" style="color:#c62828;">D4 — ROOT CAUSE ANALYSIS</div>
+            <div id="d4RootCauses"></div>
+            <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('tco')">+ TCO Ekle</button>
+                <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('tcn')">+ TCN Ekle</button>
+                <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('sco')">+ SCO Ekle</button>
+                <button class="add-btn-small" style="background:#c62828;" onclick="addD4RootCause('scn')">+ SCN Ekle</button>
+            </div>
+            <!-- Linked root cause analyses -->
+            <div class="d4-linked-section">
+                <div class="d4-linked-title">🔗 Bağlı Kök Neden Analizleri</div>
+                <div class="d4-link-grid" id="d4LinkCards"></div>
+            </div>
+        </div>
+
+        <!-- D5 -->
+        <div class="tab-8d-content" data-tab-content="d5" style="display:none;">
+            <div class="section-title" style="color:#6a1b9a;">D5 — SELECTION AND VERIFICATION OF CORRECTIVE ACTIONS</div>
+            <div id="d5CorrectiveActions"></div>
+            <button class="add-btn" style="background:#6a1b9a;" onclick="addD5Action()">+ Düzeltici Eylem Ekle</button>
+            <div class="attach-box" style="color:#6a1b9a; border-color:#6a1b9a;">
+                <h4 style="color:#6a1b9a;">📎 APPEND ATTACHMENTS <small>(Verification documents)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="d5AttachmentInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none;" onchange="handleD5Attachments(event)">
+                    <button class="btn-up" style="background:#6a1b9a;" onclick="document.getElementById('d5AttachmentInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="d5AttachmentsList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D6 -->
+        <div class="tab-8d-content" data-tab-content="d6" style="display:none;">
+            <div class="section-title" style="color:#00695c;">D6 — IMPLEMENTATION AND VALIDATION OF CORRECTIVE ACTIONS</div>
+            <div id="d6Implementations"></div>
+            <button class="add-btn" style="background:#00695c;" onclick="addD6Implementation()">+ Uygulama Ekle</button>
+            <div class="attach-box" style="color:#00695c; border-color:#00695c;">
+                <h4 style="color:#00695c;">📎 APPEND ATTACHMENTS <small>(Implementation evidence)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="d6AttachmentInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none;" onchange="handleD6Attachments(event)">
+                    <button class="btn-up" style="background:#00695c;" onclick="document.getElementById('d6AttachmentInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="d6AttachmentsList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D7 -->
+        <div class="tab-8d-content" data-tab-content="d7" style="display:none;">
+            <div class="section-title" style="color:#01579b;">D7 — PREVENTION OF REOCCURRENCE</div>
+            <div id="d7Preventions"></div>
+            <button class="add-btn" style="background:#01579b;" onclick="addD7Prevention()">+ Önleme Eylemi Ekle</button>
+            <div class="attach-box" style="color:#01579b; border-color:#01579b;">
+                <h4 style="color:#01579b;">📎 APPEND ATTACHMENTS <small>(Proof of applicability)</small></h4>
+                <div style="margin-bottom:14px;">
+                    <input type="file" id="d7AttachmentInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" style="display:none;" onchange="handleD7Attachments(event)">
+                    <button class="btn-up" style="background:#01579b;" onclick="document.getElementById('d7AttachmentInput').click()">📁 Dosya Seç</button>
+                </div>
+                <div class="attach-list" id="d7AttachmentsList"><div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div></div>
+            </div>
+        </div>
+
+        <!-- D8 -->
+        <div class="tab-8d-content" data-tab-content="d8" style="display:none;">
+            <div class="section-title" style="color:#558b2f;">D8 — CONCLUSION AND APPRECIATION OF THE TEAM'S SUCCESS</div>
+            <div class="gap-15">
+                <div id="d8Participants"></div>
+                <button class="add-btn" style="background:#558b2f;" onclick="addD8Participant()">+ Katılımcı Ekle</button>
+                <div><label class="field-label">Result 8D Assessment</label>
+                    <textarea id="f8d_d8_result" class="field-input" rows="3"></textarea></div>
+                <div class="grid-2">
+                    <div><label class="field-label">8D Assessment carried out by</label>
+                        <input type="text" id="f8d_d8_assessmentBy" class="field-input"></div>
+                    <div><label class="field-label">Date of the Final Meeting (Optional)</label>
+                        <input type="date" id="f8d_d8_finalMeetingDate" class="field-input"></div>
+                </div>
+                <div><label class="field-label">8D Assessment performed on</label>
+                    <input type="date" id="f8d_d8_performedOn" class="field-input"></div>
+                <div><label class="field-label">Results of the Final Discussion (Optional)</label>
+                    <textarea id="f8d_d8_finalDiscussion" class="field-input" rows="3"></textarea></div>
+            </div>
+        </div>
+
+    </div><!-- /.tab-content-area -->
+
+    <!-- FORM FOOTER -->
+    <div class="form-footer">
+        <div class="form-footer-left">
+            <button class="footer-btn btn-pdf" onclick="export8DReportPDF()">📄 PDF Export</button>
+        </div>
+        <div class="form-footer-right">
+            <button class="footer-btn btn-del" id="deleteFormBtn" onclick="deleteCurrentReport()" style="display:none;">🗑️ Sil</button>
+            <button class="footer-btn btn-back" onclick="closeForm()">← İptal</button>
+            <button class="footer-btn btn-save" onclick="save8DReport()">💾 Kaydet</button>
+        </div>
+    </div>
+
+</div><!-- /#formView -->
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================ -->
+<script>
+/* ================================================================
+   DB CONFIG  (mirrors index.html)
+================================================================ */
+const DB_NAME        = 'SupplierDataDB';
+const STORE_8D       = 'report8D';
+const STORE_HISTORY  = 'supplierHistory';   // Ana tedarikçi listesi
+let db = null;
+
+// Uygunsuzluk analiz verilerinden dinamik dropdown için
+const UYG_DB_NAME    = 'UygunsuzlukDB';
+const UYG_DB_VER     = 1;
+const UYG_STORE      = 'cache';
+const UYG_DATA_KEY   = 'data';
+
+/* ================================================================
+   STATE
+================================================================ */
+let current8DData         = null;
+let headDefectPhotos      = [];
+let d2Attachments         = [];
+let d5Attachments         = [];
+let d6Attachments         = [];
+let d7Attachments         = [];
+let d1MemberCount         = 0;
+let d3ActionCount         = 0;
+let d4RootCauseCount      = 0;
+/* D4 linked analyses (fishbone + 5-neden) */
+let _d4Links       = { fishbone: null, whyFive: null };
+let _d4WhyFiveData = null;   // yüklenen 5-neden verisi (preview + PDF için)
+
+function d4RenderLinkCards() {
+    const c = document.getElementById('d4LinkCards');
+    if (!c) return;
+    const makeCard = (type, icon, name, color) => {
+        const lk = _d4Links[type];
+        if (lk) {
+            return `<div class="d4-link-card linked" style="border-color:${color};">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="d4-link-card-icon">${icon}</span>
+                    <span class="d4-link-card-name" style="color:${color};">${name}</span>
+                </div>
+                <div class="d4-link-card-problem"><strong>Problem:</strong> ${esc(lk.problem||'')}</div>
+                ${lk.label ? `<div class="d4-link-card-problem">Etiket: ${esc(lk.label)}</div>` : ''}
+                <div class="d4-link-card-meta">Bağlandı: ${lk.linkedAt||''}</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+                    <button class="d4-link-btn-open" style="background:${color};" onclick="d4OpenAnalysis('${type}')">&#8599;&#65039; Aç / Düzenle</button>
+                    <button class="d4-link-btn-remove" onclick="d4UnlinkAnalysis('${type}')">&#128465; Kaldır</button>
+                    ${type === 'fishbone' && (lk.idbId || lk.key) ? `<button class="d4-preview-btn" id="d4PrevBtn_${type}" onclick="d4ToggleFishbonePreview('${type}','${lk.idbId||''}','${lk.key||''}')">&#128065; Diyagramı Göster</button>` : ''}
+                ${type === 'whyFive' && lk.key ? `<button class="d4-preview-btn" id="d4PrevBtn_whyFive" style="border-color:#1565c0;color:#1565c0;" onclick="d4ToggleWhyFivePreview('${lk.key}')">&#128065; 5 Nedeni Göster</button>` : ''}
+                </div>
+                ${type === 'fishbone' && (lk.idbId || lk.key) ? `<div class="d4-preview-wrap" id="d4PrevWrap_${type}" style="display:none;"><iframe class="d4-preview-iframe" id="d4PrevFrame_${type}"></iframe></div>` : ''}
+                ${type === 'whyFive' && lk.key ? `<div class="d4-preview-wrap" id="d4PrevWrap_whyFive" style="display:none;border-color:#1565c0;"><iframe class="d4-preview-iframe" id="d4PrevFrame_whyFive" style="height:520px;"></iframe></div>` : ''}
+            </div>`;
+        } else {
+            return `<div class="d4-link-card empty">
+                <span class="d4-link-card-icon">${icon}</span>
+                <span class="d4-link-card-name" style="color:${color};">${name}</span>
+                <span style="font-size:0.8em;color:#aaa;">Henüz bağlanmadı</span>
+                <button class="d4-link-btn-add" style="border:2px solid ${color};color:${color};" onclick="d4LinkAnalysis('${type}')">+ Bağla</button>
+            </div>`;
+        }
+    };
+    c.innerHTML = makeCard('fishbone','🐟','Balık Kılçığı Analizi','#c62828')
+                + makeCard('whyFive','🔵','5 Neden Analizi','#1565c0');
+}
+
+/* ===== D4 BAĞLA MODAL ===== */
+let _d4ModalType = null;
+
+function d4LinkAnalysis(type) {
+    _d4ModalType = type;
+    const isFish = type === 'fishbone';
+    const color  = isFish ? '#c62828' : '#1565c0';
+    const icon   = isFish ? '🐟' : '🔵';
+    const name   = isFish ? 'Balık Kılçığı Analizi' : '5 Neden Analizi';
+
+    document.getElementById('d4LMTitle').textContent = icon + ' ' + name + ' Bağla';
+    const nb = document.getElementById('d4LMNewBtn');
+    nb.style.color = color; nb.style.borderColor = color;
+    const body = document.getElementById('d4LMBody');
+    body.innerHTML = '<div class="d4m-empty">⏳ Yükleniyor…</div>';
+    document.getElementById('d4LinkModal').classList.add('open');
+
+    if (isFish) _d4LoadFishboneRecords(); else _d4LoadWhyFiveRecords();
+}
+
+function d4CloseLinkModal() {
+    document.getElementById('d4LinkModal').classList.remove('open');
+    _d4ModalType = null;
+}
+
+function d4CreateNew() {
+    const type = _d4ModalType;
+    if (!type) return;
+    d4CloseLinkModal();
+    const prob = (document.getElementById('f8d_d2_problem')?.value
+               || document.getElementById('f8d_d2_symptom')?.value
+               || document.getElementById('f8d_partName')?.value || '').trim();
+    const reportId = current8DData?.id || Date.now();
+    const key = type === 'fishbone' ? `bk_8d_${reportId}` : null;
+    _d4Links[type] = { key, problem: prob, label: '', linkedAt: new Date().toLocaleString('tr-TR') };
+    d4RenderLinkCards();
+    d4OpenAnalysis(type);
+}
+
+async function _d4LoadFishboneRecords() {
+    const body = document.getElementById('d4LMBody');
+    try {
+        const db = await new Promise((ok, err) => {
+            const r = indexedDB.open('FishboneAnalysisDB', 1);
+            r.onsuccess = e => ok(e.target.result);
+            r.onerror   = e => err(e.target.error);
+            r.onupgradeneeded = e => {
+                const d = e.target.result;
+                if (!d.objectStoreNames.contains('fishbones'))
+                    d.createObjectStore('fishbones', { keyPath:'id', autoIncrement:true });
+            };
+        });
+        const all = await new Promise((ok, err) => {
+            const r = db.transaction(['fishbones'], 'readonly').objectStore('fishbones').getAll();
+            r.onsuccess = () => ok(r.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        if (!all.length) { body.innerHTML = '<div class="d4m-empty">🐟 Kayıtlı balık kılçığı analizi yok.<br>Yeni Oluştur ile başlayabilirsiniz.</div>'; return; }
+        body.innerHTML = '';
+        all.slice().reverse().forEach(rec => {
+            const d = document.createElement('div');
+            d.className = 'd4m-record';
+            d.innerHTML = `<div>
+                <div class="d4m-record-name">${(rec.problem||'Adsız Analiz').replace(/</g,'&lt;')}</div>
+                <div class="d4m-record-meta">${rec.savedAt||''}</div>
+              </div>
+              <button class="d4m-pick-btn" style="background:#c62828;" onclick="d4SelectFishboneRecord(${rec.id})">Bağla</button>`;
+            body.appendChild(d);
+        });
+    } catch(e) {
+        body.innerHTML = '<div class="d4m-error">❌ ' + e.message + '</div>';
+    }
+}
+
+async function _d4LoadWhyFiveRecords() {
+    const body = document.getElementById('d4LMBody');
+    try {
+        const db = await new Promise((ok, err) => {
+            const r = indexedDB.open('KaliteRaporDB', 5);
+            r.onsuccess = e => ok(e.target.result);
+            r.onerror   = e => err(e.target.error);
+            r.onupgradeneeded = e => {
+                const d = e.target.result;
+                if (!d.objectStoreNames.contains('payloads')) d.createObjectStore('payloads');
+            };
+        });
+        const entries = await new Promise((ok, err) => {
+            const tx = db.transaction(['payloads'], 'readonly');
+            const keys = [], vals = [];
+            tx.objectStore('payloads').openCursor().onsuccess = e => {
+                const c = e.target.result;
+                if (c) { if (c.key.toString().startsWith('5neden_')) { keys.push(c.key); vals.push(c.value); } c.continue(); }
+                else ok(keys.map((k, i) => ({ key: k, data: vals[i] })));
+            };
+            tx.onerror = e => err(e.target.error);
+        });
+        if (!entries.length) { body.innerHTML = '<div class="d4m-empty">🔵 Kayıtlı 5 Neden analizi yok.<br>Yeni Oluştur ile başlayabilirsiniz.</div>'; return; }
+        entries.sort((a, b) => b.key.localeCompare(a.key));
+        body.innerHTML = '';
+        entries.forEach(({ key, data }) => {
+            const name    = data._saveName || key;
+            const savedAt = data._savedAt  || '';
+            const part    = data.meta?.part || '';
+            const d = document.createElement('div');
+            d.className = 'd4m-record';
+            d.innerHTML = `<div>
+                <div class="d4m-record-name">${name.replace(/</g,'&lt;')}</div>
+                <div class="d4m-record-meta">${[part, savedAt].filter(Boolean).join(' · ')}</div>
+              </div>
+              <button class="d4m-pick-btn" style="background:#1565c0;" onclick="d4SelectWhyFiveRecord('${key.replace(/'/g,'&apos;')}')">Bağla</button>`;
+            body.appendChild(d);
+        });
+    } catch(e) {
+        body.innerHTML = '<div class="d4m-error">❌ ' + e.message + '</div>';
+    }
+}
+
+async function d4SelectFishboneRecord(recordId) {
+    try {
+        const db = await new Promise((ok, err) => {
+            const r = indexedDB.open('FishboneAnalysisDB', 1);
+            r.onsuccess = e => ok(e.target.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        const rec = await new Promise((ok, err) => {
+            const r = db.transaction(['fishbones'], 'readonly').objectStore('fishbones').get(recordId);
+            r.onsuccess = () => ok(r.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        if (!rec) { alert('Kayıt bulunamadı.'); return; }
+        const reportId = current8DData?.id || Date.now();
+        const lsKey = `bk_8d_${reportId}`;
+        localStorage.setItem(lsKey, JSON.stringify(rec.stateData));
+        _d4Links['fishbone'] = {
+            key   : lsKey,
+            idbId : recordId,
+            problem: rec.problem || '',
+            label  : rec.problem || '',
+            linkedAt: new Date().toLocaleString('tr-TR')
+        };
+        d4CloseLinkModal();
+        d4RenderLinkCards();
+    } catch(e) { alert('Hata: ' + e.message); }
+}
+
+async function d4SelectWhyFiveRecord(idbKey) {
+    try {
+        const db = await new Promise((ok, err) => {
+            const r = indexedDB.open('KaliteRaporDB', 5);
+            r.onsuccess = e => ok(e.target.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        const data = await new Promise((ok, err) => {
+            const r = db.transaction(['payloads'], 'readonly').objectStore('payloads').get(idbKey);
+            r.onsuccess = () => ok(r.result);
+            r.onerror   = e => err(e.target.error);
+        });
+        const name    = data?._saveName || idbKey;
+        const problem = data?.meta?.part || data?._saveName || '';
+        _d4Links['whyFive'] = {
+            key: idbKey,
+            problem: problem,
+            label: name,
+            linkedAt: new Date().toLocaleString('tr-TR')
+        };
+        d4CloseLinkModal();
+        d4RenderLinkCards();
+    } catch(e) { alert('Hata: ' + e.message); }
+}
+
+function d4OpenAnalysis(type) {
+    const lk = _d4Links[type];
+    if (!lk) { d4LinkAnalysis(type); return; }
+    localStorage.setItem('_8d_bridge', JSON.stringify({
+        type: type === 'fishbone' ? 'fishbone' : 'why5',
+        key : lk.key,
+        problem: lk.problem
+    }));
+    window.open(type === 'fishbone' ? 'balik-kilcigi.html' : '5-neden-analizi.html', '_blank');
+}
+
+function d4UnlinkAnalysis(type) {
+    if (!confirm('Bu analiz bağlantısını D4\'den kaldırmak istiyor musunuz?\nAnaliz verileri silinmez.')) return;
+    _d4Links[type] = null;
+    d4RenderLinkCards();
+}
+
+function d4ToggleFishbonePreview(type, idbId, stateKey) {
+    const wrap  = document.getElementById('d4PrevWrap_'  + type);
+    const btn   = document.getElementById('d4PrevBtn_'   + type);
+    const frame = document.getElementById('d4PrevFrame_' + type);
+    if (!wrap) return;
+    const isOpen = wrap.style.display !== 'none';
+    if (isOpen) {
+        wrap.style.display = 'none';
+        if (btn) btn.innerHTML = '&#128065; Diyagramı Göster';
+        if (frame) frame.src = 'about:blank';
+    } else {
+        wrap.style.display = 'block';
+        if (btn) btn.innerHTML = '&#128065; Gizle';
+        if (frame && (!frame.src || frame.src === 'about:blank' || frame.src === '')) {
+            // Önce idbId (IndexedDB), yoksa statekey (localStorage) kullan
+            const params = new URLSearchParams({ embed: '1' });
+            if (idbId)   params.set('idbid',    idbId);
+            if (stateKey) params.set('statekey', stateKey);
+            frame.src = `balik-kilcigi.html?${params.toString()}`;
+        }
+    }
+}
+async function d4ToggleWhyFivePreview(stateKey) {
+    const wrap  = document.getElementById('d4PrevWrap_whyFive');
+    const btn   = document.getElementById('d4PrevBtn_whyFive');
+    const frame = document.getElementById('d4PrevFrame_whyFive');
+    if (!wrap) return;
+    const isOpen = wrap.style.display !== 'none';
+    if (isOpen) {
+        wrap.style.display = 'none';
+        if (btn)   btn.innerHTML = '&#128065; 5 Nedeni Göster';
+        if (frame) frame.src = 'about:blank';
+        _d4WhyFiveData = null;
+        return;
+    }
+    wrap.style.display = 'block';
+    if (btn) btn.innerHTML = '&#128065; Gizle';
+    if (frame && (!frame.src || frame.src === 'about:blank' || frame.src === '')) {
+        const params = new URLSearchParams({ embed: '1', tab: 'tech' });
+        if (stateKey) params.set('statekey', stateKey);
+        frame.src = `5-neden-analizi.html?${params.toString()}`;
+    }
+    // Load data for PDF export too
+    if (!_d4WhyFiveData && stateKey) {
+        try {
+            const db   = await new Promise((ok, err) => { const r = indexedDB.open('KaliteRaporDB', 5); r.onsuccess = e => ok(e.target.result); r.onerror = e => err(e.target.error); });
+            const data = await new Promise((ok, err) => { const r = db.transaction(['payloads'],'readonly').objectStore('payloads').get(stateKey); r.onsuccess = () => ok(r.result); r.onerror = e => err(e.target.error); });
+            if (data) _d4WhyFiveData = data;
+        } catch(e) { /* silent */ }
+    }
+}
+
+function _render5NPreview(data) {
+    const SECS = [
+        { label:'&#128308; TCO — Teknik Kök Neden (Oluşum)',     d: data.tech?.os  },
+        { label:'&#128309; TCN — Teknik Kök Neden (Tespit)',       d: data.tech?.nd  },
+        { label:'&#128994; SCO — Sistemsel Kök Neden (Oluşum)',   d: data.sys?.os   },
+        { label:'&#128995; SCN — Sistemsel Kök Neden (Tespit)',     d: data.sys?.nd   },
+    ];
+    let h = '<div style="padding:12px 14px;font-family:inherit;font-size:13px;">';
+    if (data.meta?.part)     h += `<div style="font-weight:700;margin-bottom:2px;">${esc(data.meta.part)}</div>`;
+    if (data.meta?.customer) h += `<div style="color:#64748b;margin-bottom:10px;font-size:12px;">${esc(data.meta.customer)}</div>`;
+    for (const sec of SECS) {
+        const d = sec.d;
+        if (!d?.chains?.some(c => c.steps?.some(s => s.text))) continue;
+        h += `<div style="margin-bottom:14px;">`;
+        h += `<div style="font-weight:700;font-size:12px;margin-bottom:6px;">${sec.label}</div>`;
+        if (d.problem) h += `<div style="font-size:11px;color:#475569;margin-bottom:4px;">Problem: ${esc(d.problem)}</div>`;
+        d.chains.forEach((chain, ci) => {
+            const validSteps = chain.steps?.filter(s => s.text) || [];
+            if (!validSteps.length) return;
+            h += `<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:4px;">`;
+            validSteps.forEach((step, si) => {
+                const bg = step.isRoot ? '#fee2e2' : '#eff6ff';
+                const bd = step.isRoot ? '#fca5a5' : '#bfdbfe';
+                const cl = step.isRoot ? '#b91c1c' : '#1d4ed8';
+                h += `<span style="background:${bg};border:1px solid ${bd};color:${cl};border-radius:4px;padding:2px 8px;font-size:12px;">`
+                   + `${si+1}. ${esc(step.text)}`
+                   + `</span>`;
+                if (si < validSteps.length - 1) h += `<span style="color:#94a3b8;font-size:14px">→</span>`;
+            });
+            h += `</div>`;
+        });
+        const defaultRc = ['Teknik Kök Neden\n(Oluşum)', 'Teknik Kök Neden\n(Tespit Edilememe)', 'Sistemsel Kök Neden\n(Oluşum)', 'Sistemsel Kök Neden\n(Tespit Edilememe)'];
+        if (d.rcText && !defaultRc.includes(d.rcText)) {
+            h += `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:4px;padding:4px 8px;margin-top:4px;font-size:11px;color:#166534;"><strong>Kök Neden:</strong> ${esc(d.rcText)}</div>`;
+        }
+        h += `</div>`;
+    }
+    h += '</div>';
+    return h;
+}
+
+let d5ActionCount         = 0;
+let d6ImplementationCount = 0;
+let d7PreventionCount     = 0;
+let d8ParticipantCount    = 0;
+
+/* ================================================================
+   INDEXEDDB  — open without specifying version so we don't downgrade
+================================================================ */
+function openDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME);
+        req.onsuccess = () => { db = req.result; resolve(db); };
+        req.onerror   = () => reject(req.error);
+        req.onupgradeneeded = e => {
+            const d = e.target.result;
+            if (!d.objectStoreNames.contains(STORE_8D)) {
+                const s = d.createObjectStore(STORE_8D, { keyPath:'id', autoIncrement:true });
+                s.createIndex('supplierName','supplierName',{ unique:false });
+                s.createIndex('timestamp',   'timestamp',   { unique:false });
+            }
+        };
+    });
+}
+
+/* ================================================================
+   UYGUNSUZLUK DROPDOWN — UygunsuzlukDB'den hata tipi/kaynağı/tespit yeri çek
+================================================================ */
+function loadUygunsuzlukDropdowns(savedValues) {
+    const req = indexedDB.open(UYG_DB_NAME, UYG_DB_VER);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(UYG_STORE);
+    req.onsuccess = () => {
+        const udb = req.result;
+        const tx  = udb.transaction(UYG_STORE, 'readonly');
+        const get = tx.objectStore(UYG_STORE).get(UYG_DATA_KEY);
+        get.onsuccess = () => {
+            udb.close();
+            const rows = get.result || [];
+            if (!rows.length) return; // Uygunsuzluk verisi yock
+
+            const uniq = field => [
+                ...new Set(
+                    rows.map(r => (r[field] || '').toString().trim())
+                        .filter(v => v)
+                )
+            ].sort((a,b) => a.localeCompare(b,'tr'));
+
+            const fillSel = (id, values, currentVal) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                const prev = currentVal !== undefined ? currentVal : el.value;
+                el.innerHTML = '<option value="">— Seçiniz —</option>';
+                values.forEach(v => {
+                    const o = document.createElement('option');
+                    o.value = o.textContent = v;
+                    if (v === prev) o.selected = true;
+                    el.appendChild(o);
+                });
+                // Eğer mevcut değer listede yoksa ama var ise, ekle
+                if (prev && !values.includes(prev)) {
+                    const o = document.createElement('option');
+                    o.value = o.textContent = prev;
+                    o.selected = true;
+                    el.insertBefore(o, el.children[1]);
+                }
+            };
+
+            const sv = savedValues || {};
+            fillSel('f8d_d2_errorType',     uniq('hataTipi'),      sv.errorType);
+            fillSel('f8d_d2_errorLocation', uniq('hataKaynagi'),   sv.errorLocation);
+            fillSel('f8d_detectionPoint',   uniq('tespitYeri'),    sv.detectionPoint);
+        };
+        get.onerror = () => udb.close();
+    };
+    // Hata varsa (DB yok, vb.) sessizce geç
+    req.onerror = () => {};
+}
+
+/* ================================================================
+   SUPPLIER DROPDOWN — Ana listeden yükle
+================================================================ */
+function loadSupplierList(selectedValue) {
+    if (!db) return;
+    const sel = document.getElementById('meta_supplier');
+    if (!sel) return;
+
+    // supplierHistory store'unda her kayıt bir ANLİK GÖRÜNTÜ'dür (snapshot).
+    // Snapshot'ın r.name'i "liste adı"dır, bireysel tedarikçiler r.data[] içindedir.
+    // En son snapshot'ı al ve r.data[]'dan tedarikçi isimlerini çıkar.
+    const tx  = db.transaction([STORE_HISTORY], 'readonly');
+    const req = tx.objectStore(STORE_HISTORY).getAll();
+    req.onsuccess = () => {
+        const snapshots = req.result || [];
+        if (!snapshots.length) {
+            sel.innerHTML = '<option value="">— Tedarikçi Seçiniz —</option>'
+                          + '<option value="" disabled>( Ana sayfada kayıtlı liste bulunamadı )</option>';
+            return;
+        }
+
+        // En son kaydedilen snapshot'ı bul
+        snapshots.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const latest      = snapshots[0];
+        const suppData    = latest.data || [];
+
+        // Bireysel tedarikçi isimlerini unique + sıralı topla
+        const names = [...new Set(
+            suppData
+                .map(s => (s.name || '').trim())
+                .filter(n => n && !n.startsWith('[Tedarikçi Adı Yok'))
+        )].sort((a, b) => a.localeCompare(b, 'tr'));
+
+        // Eğer kaydedilen rapordaki isim listede yoksa üste ekle
+        const current = selectedValue || sel.value || '';
+        if (current && !names.includes(current)) names.unshift(current);
+
+        // Dropdown'u doldur
+        sel.innerHTML = '<option value="">— Tedarikçi Seçiniz —</option>';
+        names.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = opt.textContent = n;
+            if (n === current) opt.selected = true;
+            sel.appendChild(opt);
+        });
+
+        if (!names.length) {
+            sel.innerHTML += '<option value="" disabled>( Listede tedarikçi bulunamadı )</option>';
+        }
+    };
+    req.onerror = () => console.warn('Tedarikçi listesi yüklenemedi');
+}
+
+/* ================================================================
+   KONU HELPER — seçili konu değerini okur / yazar
+================================================================ */
+function getKonuValue() {
+    const sel  = document.getElementById('meta_konu_sel');
+    const free = document.getElementById('meta_konu_free');
+    if (free && free.style.display !== 'none') return free.value.trim();
+    return sel ? sel.value.trim() : '';
+}
+function setKonuValue(v) {
+    const sel  = document.getElementById('meta_konu_sel');
+    const free = document.getElementById('meta_konu_free');
+    if (free && free.style.display !== 'none') { free.value = v || ''; }
+    else if (sel) { sel.value = v || ''; }
+}
+
+/* ================================================================
+   KONU DROPDOWN — Uygunsuzluk / Balık Kılçığı için kayıtlardan doldur
+================================================================ */
+function loadKonuDropdown(source, savedValue) {
+    const sel  = document.getElementById('meta_konu_sel');
+    const free = document.getElementById('meta_konu_free');
+    if (!sel || !free) return;
+
+    if (source === 'Uygunsuzluk') {
+        sel.style.display  = '';
+        free.style.display = 'none';
+        sel.innerHTML = '<option value="">— Yükleniyor… —</option>';
+        const req = indexedDB.open('UygunsuzlukDB', 1);
+        req.onsuccess = () => {
+            const udb = req.result;
+            const tx  = udb.transaction('cache', 'readonly');
+            const get = tx.objectStore('cache').get('data');
+            get.onsuccess = () => {
+                udb.close();
+                const rows = Array.isArray(get.result) ? get.result : [];
+                sel.innerHTML = '<option value="">— Seçiniz —</option>';
+                rows.forEach(r => {
+                    const seri  = String(r.uygunsuzlukSeri || '').trim();
+                    const tarih = String(r.uygunsuzlukTarih || '').trim();
+                    const stok  = String(r.stokKodu  || '').trim();
+                    const tip   = String(r.hataTipi  || '').trim();
+                    if (!seri) return;
+                    const label = `#${seri}${tarih ? ' · ' + tarih : ''}${stok ? ' · ' + stok : ''}${tip ? ' – ' + tip : ''}`;
+                    const opt = document.createElement('option');
+                    opt.value = seri; opt.textContent = label;
+                    if (seri === String(savedValue || '')) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+                if (rows.length === 0) {
+                    sel.innerHTML += '<option value="" disabled>(Uygunsuzluk kaydı yok — Uygunsuzluk Analizi sayfasında Excel yükleyin)</option>';
+                }
+            };
+            get.onerror = () => { udb.close(); sel.innerHTML = '<option value="">— Veri okunamadı —</option>'; };
+        };
+        req.onerror = () => { sel.innerHTML = '<option value="">— UygunsuzlukDB bağlantı hatası —</option>'; };
+
+    } else if (source === 'Balık Kılçığı') {
+        sel.style.display  = '';
+        free.style.display = 'none';
+        const data = JSON.parse(localStorage.getItem('fishbone_aksiyonlar') || '{}');
+        const problems = Object.keys(data).filter(k => k && k !== 'undefined');
+        sel.innerHTML = '<option value="">— Seçiniz —</option>';
+        // Eğer kaydedilen değer problem listesinde yoksa (orn. kauş ismi) başına özel seçenek olarak ekle
+        if (savedValue && !problems.includes(savedValue)) {
+            const customOpt = document.createElement('option');
+            customOpt.value = savedValue; customOpt.textContent = savedValue; customOpt.selected = true;
+            sel.appendChild(customOpt);
+            if (problems.length) {
+                const sep = document.createElement('option'); sep.disabled = true; sep.textContent = '── Kaydedilmiş Problemler ──';
+                sel.appendChild(sep);
+            }
+        }
+        problems.forEach(problem => {
+            const opt = document.createElement('option');
+            opt.value = problem; opt.textContent = problem;
+            if (problem === (savedValue || '')) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        if (!problems.length && !savedValue) {
+            sel.innerHTML += '<option value="" disabled>(Balık Kılçığı kaydı yok — Balık Kılçığı sayfasında problem kaydedin)</option>';
+        }
+
+    } else if (source === 'Kapsamlı Rapor') {
+        sel.style.display  = 'none';
+        free.style.display = '';
+        free.value = savedValue || '';
+        free.placeholder = 'Örn: En yüksek hata tipi: “Kalinlik Tolerans Disi”';
+
+    } else {
+        // Genel / Diğer — serbest metin
+        sel.style.display  = 'none';
+        free.style.display = '';
+        free.value = savedValue || '';
+    }
+}
+
+/* ================================================================
+   KAYNAK DEĞİŞTİRME — supplier/konu görünürlüğü
+================================================================ */
+function onSourceChange(savedKonu) {
+    const src        = document.getElementById('meta_source').value;
+    const isSupplier = src === 'Tedarikçi';
+    document.getElementById('meta_supplier_wrap').style.display = isSupplier ? '' : 'none';
+    document.getElementById('meta_konu_wrap').style.display     = isSupplier ? 'none' : '';
+    if (!isSupplier) loadKonuDropdown(src, savedKonu !== undefined ? savedKonu : '');
+}
+
+/* ================================================================
+   ALERT
+================================================================ */
+let _alertTimer = null;
+function showAlert(msg, type='success') {
+    const el = document.getElementById('alertBox');
+    el.textContent = msg;
+    el.className   = type;
+    el.style.display = 'block';
+    clearTimeout(_alertTimer);
+    _alertTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+}
+
+/* ================================================================
+   VIEW SWITCHING
+================================================================ */
+function showListView() {
+    document.getElementById('listView').style.display  = 'block';
+    document.getElementById('formView').style.display  = 'none';
+    refreshList();
+}
+function showFormView(uygValues) {
+    document.getElementById('listView').style.display  = 'none';
+    document.getElementById('formView').style.display  = 'block';
+    switch8DTab('head');
+    window.scrollTo(0,0);
+    // Uygunsuzluk dropdown'larını yükle (kayıtlı değerler varsa onlarla)
+    loadUygunsuzlukDropdowns(uygValues || null);
+}
+function closeForm() { showListView(); }
+
+/* ================================================================
+   CREATE NEW + OPEN FOR EDIT
+================================================================ */
+function startNewReport() {
+    current8DData = null;
+    clear8DForm();
+    document.getElementById('formTitle').textContent           = '📋 8D RAPOR — Yeni Rapor';
+    document.getElementById('meta_month').value                = '';
+    document.getElementById('meta_source').value               = 'Tedarikçi';
+    onSourceChange('');
+    document.getElementById('deleteFormBtn').style.display     = 'none';
+    loadSupplierList('');
+    showFormView(null);
+}
+
+function openReportForEdit(reportId) {
+    if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
+    const tx  = db.transaction([STORE_8D],'readonly');
+    const req = tx.objectStore(STORE_8D).get(reportId);
+    req.onsuccess = () => {
+        const doc = req.result;
+        if (!doc) { showAlert('❌ Rapor bulunamadı!','error'); return; }
+        current8DData = doc;
+        clear8DForm();
+        populate8DForm(doc);
+        loadSupplierList(doc.supplierName || '');
+        document.getElementById('meta_month').value            = doc.monthIndex   || '';
+        document.getElementById('meta_source').value           = doc.source       || 'Tedarikçi';
+        onSourceChange(doc.konu || '');
+        const titleLabel = doc.source === 'Tedarikçi' ? (doc.supplierName || '') : (doc.konu || doc.source || '');
+        document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${titleLabel}`;
+        document.getElementById('deleteFormBtn').style.display = 'inline-block';
+        // Kaydedilmiş değerlerle birlikte uygunsuzluk dropdown'larını doldur
+        showFormView({
+            errorType     : doc.d2?.errorType,
+            errorLocation : doc.d2?.errorLocation,
+            detectionPoint: doc.head?.detectionPoint
+        });
+    };
+    req.onerror = () => showAlert('❌ Rapor açılamadı!','error');
+}
+
+/* ================================================================
+   SAVE
+================================================================ */
+async function save8DReport() {
+    const source       = document.getElementById('meta_source').value || 'Tedarikçi';
+    const supplierName = source === 'Tedarikçi' ? document.getElementById('meta_supplier').value.trim() : '';
+    const konu         = source !== 'Tedarikçi' ? getKonuValue() : '';
+    if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
+    if (source === 'Tedarikçi' && !supplierName) {
+        showAlert('⚠️ Tedarikçi seçiniz!','error');
+        document.getElementById('meta_supplier').focus();
+        return;
+    }
+
+    const monthVal  = document.getElementById('meta_month').value;
+    const v = id => document.getElementById(id)?.value || '';
+
+    const reportData = {
+        supplierName : supplierName,
+        source       : source,
+        konu         : konu,
+        monthIndex   : monthVal ? parseInt(monthVal) : null,
+        timestamp    : new Date().toISOString(),
+
+        head: {
+            reportNumber        : v('f8d_reportNumber'),
+            version             : v('f8d_version'),
+            title               : v('f8d_title'),
+            startDate           : v('f8d_startDate'),
+            subject             : v('f8d_subject'),
+            currentDate         : v('f8d_currentDate'),
+            customer            : v('f8d_customer'),
+            status              : v('f8d_status'),
+            email               : v('f8d_email'),
+            phone               : v('f8d_phone'),
+            additionalInfo      : v('f8d_additionalInfo'),
+            partNumber          : v('f8d_partNumber'),
+            partName            : v('f8d_partName'),
+            defectDescription   : v('f8d_defectDescription'),
+            defectQuantity      : v('f8d_defectQuantity'),
+            totalCheckedQuantity: v('f8d_totalCheckedQuantity'),
+            defectRate          : v('f8d_defectRate'),
+            detectionPoint      : v('f8d_detectionPoint'),
+            defectPhotos        : headDefectPhotos || [],
+        },
+
+        d1: {
+            teamMembers: Array.from(document.querySelectorAll('.d1-team-member')).map(m => ({
+                name      : m.querySelector('.d1-name').value,
+                department: m.querySelector('.d1-department').value,
+                position  : m.querySelector('.d1-position').value,
+                contact   : m.querySelector('.d1-contact').value
+            }))
+        },
+        d2: {
+            symptom       : v('f8d_d2_symptom'),
+            problem       : v('f8d_d2_problem'),
+            errorType     : v('f8d_d2_errorType'),
+            errorLocation : v('f8d_d2_errorLocation'),
+            riskAssessment: v('f8d_d2_riskAssessment'),
+            riskDate      : v('f8d_d2_riskDate'),
+            attachments   : d2Attachments || []
+        },
+        d3: {
+            actions: Array.from(document.querySelectorAll('.d3-action')).map(a => ({
+                description: a.querySelector('.d3-description').value,
+                responsible: a.querySelector('.d3-responsible').value,
+                date       : a.querySelector('.d3-date').value
+            }))
+        },
+        d4: {
+            rootCauses: Array.from(document.querySelectorAll('.d4-root-cause')).map(c => ({
+                type        : c.querySelector('.d4-type').value,
+                title       : c.querySelector('.d4-title').value,
+                description : c.querySelector('.d4-description').value,
+                verification: c.querySelector('.d4-verification').value,
+                results     : c.querySelector('.d4-results').value,
+                date        : c.querySelector('.d4-date').value
+            })),
+            fishboneLink: _d4Links.fishbone,
+            whyFiveLink : _d4Links.whyFive
+        },
+        d5: {
+            actions: Array.from(document.querySelectorAll('.d5-action')).map(a => ({
+                action            : a.querySelector('.d5-action-text').value,
+                planDate          : a.querySelector('.d5-plan-date').value,
+                responsible       : a.querySelector('.d5-responsible').value,
+                verificationDate  : a.querySelector('.d5-verification-date').value,
+                verificationPerson: a.querySelector('.d5-verification-person').value
+            })),
+            attachments: d5Attachments || []
+        },
+        d6: {
+            implementations: Array.from(document.querySelectorAll('.d6-implementation')).map(i => ({
+                action       : i.querySelector('.d6-action').value,
+                launchDate   : i.querySelector('.d6-launch-date').value,
+                effectiveFrom: i.querySelector('.d6-effective-from').value,
+                validatedOn  : i.querySelector('.d6-validated-on').value,
+                responsible  : i.querySelector('.d6-responsible').value
+            })),
+            attachments: d6Attachments || []
+        },
+        d7: {
+            preventions: Array.from(document.querySelectorAll('.d7-prevention')).map(p => ({
+                description: p.querySelector('.d7-description').value,
+                responsible: p.querySelector('.d7-responsible').value,
+                planned    : p.querySelector('.d7-planned').value,
+                handover   : p.querySelector('.d7-handover').value,
+                assessment : p.querySelector('.d7-assessment').value
+            })),
+            attachments: d7Attachments || []
+        },
+        d8: {
+            participants    : Array.from(document.querySelectorAll('.d8-participant')).map(p => ({
+                name: p.querySelector('.d8-participant-name').value
+            })),
+            result          : v('f8d_d8_result'),
+            assessmentBy    : v('f8d_d8_assessmentBy'),
+            finalMeetingDate: v('f8d_d8_finalMeetingDate'),
+            performedOn     : v('f8d_d8_performedOn'),
+            finalDiscussion : v('f8d_d8_finalDiscussion')
+        }
+    };
+
+    document.getElementById('savingSpinner').style.display = 'block';
+
+    try {
+        const tx    = db.transaction([STORE_8D],'readwrite');
+        const store = tx.objectStore(STORE_8D);
+        const isEdit = !!(current8DData && current8DData.id);
+
+        if (isEdit) {
+            reportData.id = current8DData.id;
+            // Preserve remote share keys
+            ['sharedBinId','sharedPantryId','sharedBasketName',
+             'sharedGistId','gistId','sharedStorjKey']
+                .forEach(k => { if (current8DData[k]) reportData[k] = current8DData[k]; });
+
+            const req = store.put(reportData);
+            req.onsuccess = () => {
+                current8DData = reportData;
+                document.getElementById('savingSpinner').style.display = 'none';
+                if ((source === 'Balık Kılçığı' || source === 'Kapsamlı Rapor') && konu) {
+                    try { const s = JSON.parse(localStorage.getItem('fishbone_8d_saved')||'{}'); s[konu]=reportData.id; localStorage.setItem('fishbone_8d_saved', JSON.stringify(s)); } catch(e) {}
+                }
+                showAlert('✅ 8D Raporu güncellendi!','success');
+            };
+            req.onerror = () => {
+                document.getElementById('savingSpinner').style.display = 'none';
+                showAlert('❌ Güncelleme başarısız!','error');
+            };
+        } else {
+            const req = store.add(reportData);
+            req.onsuccess = () => {
+                reportData.id = req.result;
+                current8DData = reportData;
+                document.getElementById('savingSpinner').style.display = 'none';
+                document.getElementById('deleteFormBtn').style.display = 'inline-block';
+                document.getElementById('formTitle').textContent = `📋 8D RAPOR — ${supplierName}`;
+                if ((source === 'Balık Kılçığı' || source === 'Kapsamlı Rapor') && konu) {
+                    try { const s = JSON.parse(localStorage.getItem('fishbone_8d_saved')||'{}'); s[konu]=reportData.id; localStorage.setItem('fishbone_8d_saved', JSON.stringify(s)); } catch(e) {}
+                }
+                showAlert('✅ 8D Raporu kaydedildi!','success');
+            };
+            req.onerror = () => {
+                document.getElementById('savingSpinner').style.display = 'none';
+                showAlert('❌ Kaydetme başarısız!','error');
+            };
+        }
+    } catch(e) {
+        document.getElementById('savingSpinner').style.display = 'none';
+        showAlert('❌ Bir hata oluştu!','error');
+        console.error(e);
+    }
+}
+
+/* ================================================================
+   DELETE
+================================================================ */
+async function deleteCurrentReport() {
+    if (!current8DData?.id) return;
+    if (!confirm('⚠️ Bu raporu silmek istediğinize emin misiniz?')) return;
+    const tx  = db.transaction([STORE_8D],'readwrite');
+    const req = tx.objectStore(STORE_8D).delete(current8DData.id);
+    req.onsuccess = () => { showAlert('✅ Rapor silindi!','success'); current8DData = null; closeForm(); };
+    req.onerror   = () => showAlert('❌ Silme başarısız!','error');
+}
+
+async function deleteReportFromList(reportId, supplierName) {
+    if (!confirm(`⚠️ "${supplierName}" raporunu silmek istediğinize emin misiniz?`)) return;
+    const tx  = db.transaction([STORE_8D],'readwrite');
+    const req = tx.objectStore(STORE_8D).delete(reportId);
+    req.onsuccess = () => { showAlert('✅ Rapor silindi!','success'); refreshList(); };
+    req.onerror   = () => showAlert('❌ Silme başarısız!','error');
+}
+
+/* ================================================================
+   LIST
+================================================================ */
+async function refreshList() {
+    if (!db) return;
+    const tx  = db.transaction([STORE_8D],'readonly');
+    const req = tx.objectStore(STORE_8D).getAll();
+    req.onsuccess = () => renderList(req.result || []);
+    req.onerror   = () => showAlert('❌ Raporlar yüklenemedi!','error');
+}
+
+function renderList(reports) {
+    const closed     = reports.filter(r => r.head?.status === 'Closed').length;
+    const inProgress = reports.filter(r => r.head?.status === 'In Progress').length;
+    const open       = reports.filter(r => r.head?.status === 'Open' || !r.head?.status).length;
+    const suppliers  = new Set(reports.map(r => (r.source||'Tedarikçi') === 'Tedarikçi' ? r.supplierName : r.source)).size;
+
+    document.getElementById('statTotal').textContent      = reports.length;
+    document.getElementById('statClosed').textContent     = closed;
+    document.getElementById('statInProgress').textContent = inProgress;
+    document.getElementById('statOpen').textContent       = open;
+    document.getElementById('statSuppliers').textContent  = suppliers;
+
+    const container = document.getElementById('reportListContainer');
+
+    if (!reports.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">📭</div>
+                <p>Henüz 8D raporu kaydedilmemiş</p>
+                <p style="font-size:0.9em;margin-top:8px;color:#bbb;">Üstteki <strong>➕ Yeni Rapor</strong> butonuna tıklayarak başlayın</p>
+            </div>`;
+        return;
+    }
+
+    // Kaynak ikonu
+    const srcIcon = { 'Tedarikçi':'🏭', 'Uygunsuzluk':'⚠️', 'Balık Kılçığı':'🐟', 'Genel':'📋' };
+
+    // Group key: Tedarikçi raporları supplierName'e göre; diğerleri source'a göre
+    const groups = {};
+    reports.forEach(r => {
+        const src = r.source || 'Tedarikçi';
+        const key = src === 'Tedarikçi'
+            ? (r.supplierName || '(Tedarikçi Belirtilmemiş)')
+            : src;
+        (groups[key] = groups[key] || { source: src, items: [] }).items.push(r);
+    });
+
+    let html = '';
+    Object.keys(groups).sort().forEach(groupKey => {
+        const group  = groups[groupKey];
+        const src    = group.source;
+        const icon   = srcIcon[src] || '📋';
+        const list   = group.items.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+        html += `<div class="supplier-group">
+            <div class="supplier-header">${icon} ${esc(groupKey)} &nbsp;<span style="font-size:0.8em;opacity:0.8;">${list.length} rapor</span></div>
+            <div class="supplier-cards">`;
+
+        list.forEach(r => {
+            const status    = r.head?.status || 'Open';
+            const statusCls = status === 'Closed' ? 'status-closed' : status === 'In Progress' ? 'status-inprogress' : 'status-open';
+            const statusIco = status === 'Closed' ? '✓' : status === 'In Progress' ? '◐' : '○';
+            const repNo     = r.head?.reportNumber || '—';
+            // Kart başlığı: Tedarikçi'de rapor no, diğerlerinde konu
+            const cardTitle = (r.source && r.source !== 'Tedarikçi') ? (r.konu || repNo) : repNo;
+            const hoverTitle = r.head?.title || '';
+            const dateStr   = r.head?.startDate
+                ? new Date(r.head.startDate).toLocaleDateString('tr-TR')
+                : new Date(r.timestamp).toLocaleDateString('tr-TR');
+            const monthLbl  = r.monthIndex ? `${r.monthIndex}. Ay` : '';
+            const deleteLabel = escAttr(groupKey);
+
+            html += `
+            <div class="report-card" onclick="openReportForEdit(${r.id})">
+                <div class="report-card-head">
+                    <div>
+                        <div class="report-card-title">${esc(cardTitle)}</div>
+                        ${monthLbl ? `<div style="font-size:0.8em;color:#888;margin-top:2px;">${esc(monthLbl)}</div>` : ''}
+                    </div>
+                    <div class="report-card-actions" onclick="event.stopPropagation()">
+                        <button class="card-btn" style="background:#2196F3;color:white;" title="Düzenle" onclick="openReportForEdit(${r.id})">✏️</button>
+                        <button class="card-btn" style="background:#f44336;color:white;" title="Sil"     onclick="deleteReportFromList(${r.id},'${deleteLabel}')">🗑️</button>
+                    </div>
+                </div>
+                ${hoverTitle ? `<div style="font-size:0.87em;color:#555;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(hoverTitle)}">${esc(hoverTitle)}</div>` : ''}
+                <div><span class="status-badge ${statusCls}">${statusIco} ${esc(status)}</span></div>
+                <div style="font-size:0.78em;color:#aaa;border-top:1px solid #eee;padding-top:8px;margin-top:10px;">📅 ${dateStr}</div>
+            </div>`;
+        });
+        html += '</div></div>';
+    });
+
+    container.innerHTML = html;
+}
+
+function esc(s)     { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s||'').replace(/'/g,"\\'"); }
+
+/* ================================================================
+   TAB SWITCHING
+================================================================ */
+function switch8DTab(tabName) {
+    document.querySelectorAll('.tab-8d-content').forEach(c => c.style.display = 'none');
+    document.querySelectorAll('.tab-8d-btn').forEach(b => b.classList.remove('active'));
+    const content = document.querySelector(`[data-tab-content="${tabName}"]`);
+    if (content) content.style.display = 'block';
+    const btn = document.querySelector(`.tab-nav [data-tab="${tabName}"]`);
+    if (btn) btn.classList.add('active');
+}
+
+/* ================================================================
+   FORM CLEAR + POPULATE
+================================================================ */
+function clear8DForm() {
+    const clearEl = id => { const el = document.getElementById(id); if(el) el.value = ''; };
+    // Kaynak alanını sıfırla
+    const srcEl = document.getElementById('meta_source'); if(srcEl) srcEl.value = 'Tedarikçi';
+    setKonuValue('');
+    onSourceChange('');
+    [
+        'f8d_reportNumber','f8d_version','f8d_title','f8d_startDate',
+        'f8d_subject','f8d_currentDate','f8d_customer','f8d_status',
+        'f8d_email','f8d_phone','f8d_additionalInfo',
+        'f8d_partNumber','f8d_partName','f8d_defectDescription',
+        'f8d_defectQuantity','f8d_totalCheckedQuantity','f8d_defectRate','f8d_detectionPoint',
+        'f8d_d2_symptom','f8d_d2_problem','f8d_d2_errorType','f8d_d2_errorLocation',
+        'f8d_d2_riskAssessment','f8d_d2_riskDate',
+        'f8d_d8_result','f8d_d8_assessmentBy','f8d_d8_finalMeetingDate',
+        'f8d_d8_performedOn','f8d_d8_finalDiscussion'
+    ].forEach(clearEl);
+
+    ['d1TeamMembers','d3ContainmentActions','d4RootCauses','d5CorrectiveActions',
+     'd6Implementations','d7Preventions','d8Participants']
+        .forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
+
+    d1MemberCount = d3ActionCount = d4RootCauseCount = d5ActionCount =
+    d6ImplementationCount = d7PreventionCount = d8ParticipantCount = 0;
+
+    headDefectPhotos = []; d2Attachments = []; d5Attachments = [];
+    d6Attachments    = []; d7Attachments = [];
+
+    _d4Links = { fishbone: null, whyFive: null };
+    _d4WhyFiveData = null;
+    d4RenderLinkCards();
+
+    renderHeadDefectPhotos();
+    renderD2Attachments(); renderD5Attachments();
+    renderD6Attachments(); renderD7Attachments();
+}
+
+function populate8DForm(data) {
+    clear8DForm();
+    const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v || ''; };
+    // Kaynak + konu
+    set('meta_source', data.source || 'Tedarikçi');
+    onSourceChange(data.konu || '');
+
+    if (data.head) {
+        const h = data.head;
+        set('f8d_reportNumber',         h.reportNumber);
+        set('f8d_version',              h.version);
+        set('f8d_title',                h.title);
+        set('f8d_startDate',            h.startDate);
+        set('f8d_subject',              h.subject);
+        set('f8d_currentDate',          h.currentDate);
+        set('f8d_customer',             h.customer);
+        set('f8d_status',               h.status);
+        set('f8d_email',                h.email);
+        set('f8d_phone',                h.phone);
+        set('f8d_additionalInfo',       h.additionalInfo);
+        set('f8d_partNumber',           h.partNumber);
+        set('f8d_partName',             h.partName);
+        set('f8d_defectDescription',    h.defectDescription);
+        set('f8d_defectQuantity',       h.defectQuantity);
+        set('f8d_totalCheckedQuantity', h.totalCheckedQuantity);
+        set('f8d_defectRate',           h.defectRate);
+        set('f8d_detectionPoint',       h.detectionPoint);
+        if (h.defectPhotos) { headDefectPhotos = h.defectPhotos; renderHeadDefectPhotos(); }
+    }
+
+    if (data.d1?.teamMembers) data.d1.teamMembers.forEach(m => addD1TeamMember(m));
+
+    if (data.d2) {
+        set('f8d_d2_symptom',        data.d2.symptom);
+        set('f8d_d2_problem',        data.d2.problem);
+        set('f8d_d2_errorType',      data.d2.errorType);
+        set('f8d_d2_errorLocation',  data.d2.errorLocation);
+        set('f8d_d2_riskAssessment', data.d2.riskAssessment);
+        set('f8d_d2_riskDate',       data.d2.riskDate);
+        if (data.d2.attachments) { d2Attachments = data.d2.attachments; renderD2Attachments(); }
+    }
+
+    if (data.d3?.actions)          data.d3.actions.forEach(a => addD3Action(a));
+    if (data.d4?.rootCauses)       data.d4.rootCauses.forEach(c => addD4RootCause(c.type, c));
+    if (data.d4?.fishboneLink)     _d4Links.fishbone = data.d4.fishboneLink;
+    if (data.d4?.whyFiveLink)      _d4Links.whyFive  = data.d4.whyFiveLink;
+    d4RenderLinkCards();
+    if (data.d5?.actions)          data.d5.actions.forEach(a => addD5Action(a));
+    if (data.d5?.attachments)      { d5Attachments = data.d5.attachments; renderD5Attachments(); }
+    if (data.d6?.implementations)  data.d6.implementations.forEach(i => addD6Implementation(i));
+    if (data.d6?.attachments)      { d6Attachments = data.d6.attachments; renderD6Attachments(); }
+    if (data.d7?.preventions)      data.d7.preventions.forEach(p => addD7Prevention(p));
+    if (data.d7?.attachments)      { d7Attachments = data.d7.attachments; renderD7Attachments(); }
+
+    if (data.d8) {
+        if (data.d8.participants) data.d8.participants.forEach(p => addD8Participant(p));
+        set('f8d_d8_result',           data.d8.result);
+        set('f8d_d8_assessmentBy',     data.d8.assessmentBy);
+        set('f8d_d8_finalMeetingDate', data.d8.finalMeetingDate);
+        set('f8d_d8_performedOn',      data.d8.performedOn);
+        set('f8d_d8_finalDiscussion',  data.d8.finalDiscussion);
+    }
+}
+
+/* ================================================================
+   DYNAMIC ITEM ADDERS
+================================================================ */
+function addD1TeamMember(data = {}) {
+    d1MemberCount++;
+    const id = `d1m_${d1MemberCount}`;
+    document.getElementById('d1TeamMembers').insertAdjacentHTML('beforeend', `
+        <div class="d1-team-member" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Name</label>
+                    <input type="text" class="d1-name field-input" value="${esc(data.name||'')}"></div>
+                <div><label class="field-label">Department</label>
+                    <input type="text" class="d1-department field-input" value="${esc(data.department||'')}"></div>
+                <div><label class="field-label">Position</label>
+                    <input type="text" class="d1-position field-input" value="${esc(data.position||'')}"></div>
+                <div class="span-3"><label class="field-label">Contact Details</label>
+                    <input type="text" class="d1-contact field-input" value="${esc(data.contact||'')}" placeholder="Email, Phone, etc."></div>
+            </div>
+        </div>`);
+}
+
+function addD3Action(data = {}) {
+    d3ActionCount++;
+    const id = `d3a_${d3ActionCount}`;
+    document.getElementById('d3ContainmentActions').insertAdjacentHTML('beforeend', `
+        <div class="d3-action" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Containment Action Description</label>
+                <textarea class="d3-description field-input" rows="3">${esc(data.description||'')}</textarea>
+            </div>
+            <div class="grid-2" style="margin-top:10px;">
+                <div><label class="field-label">Responsible Person</label>
+                    <input type="text" class="d3-responsible field-input" value="${esc(data.responsible||'')}"></div>
+                <div><label class="field-label">Target Date</label>
+                    <input type="date" class="d3-date field-input" value="${esc(data.date||'')}"></div>
+            </div>
+        </div>`);
+}
+
+/* reset link state when opening a new form */
+function _resetD4Links() {
+    _d4Links = { fishbone: null, whyFive: null };
+    _d4WhyFiveData = null;
+    d4RenderLinkCards();
+}
+
+function addD4RootCause(type, data = {}) {
+    d4RootCauseCount++;
+    const id = `d4c_${d4RootCauseCount}`;
+    const names = {
+        tco:'Technical Root Cause Occurrence (TCO)',
+        tcn:'Technical Root Cause Non-Detection (TCN)',
+        sco:'Systemic Root Cause Occurrence (SCO)',
+        scn:'Systemic Root Cause Non-Detection (SCN)'
+    };
+    document.getElementById('d4RootCauses').insertAdjacentHTML('beforeend', `
+        <div class="d4-root-cause" id="${id}" style="border-left:4px solid #c62828;">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <h4 style="margin:0 0 10px;color:#c62828;">${names[type]||type}</h4>
+            <input type="hidden" class="d4-type" value="${type}">
+            <div style="margin-top:10px;">
+                <label class="field-label">Title</label>
+                <input type="text" class="d4-title field-input" value="${esc(data.title||'')}">
+            </div>
+            <div style="margin-top:10px;">
+                <label class="field-label">Description</label>
+                <textarea class="d4-description field-input" rows="3">${esc(data.description||'')}</textarea>
+            </div>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Verification by (Person)</label>
+                    <input type="text" class="d4-verification field-input" value="${esc(data.verification||'')}"></div>
+                <div><label class="field-label">Results / Method / Report</label>
+                    <input type="text" class="d4-results field-input" value="${esc(data.results||'')}"></div>
+                <div><label class="field-label">Date</label>
+                    <input type="date" class="d4-date field-input" value="${esc(data.date||'')}"></div>
+            </div>
+        </div>`);
+}
+
+function addD5Action(data = {}) {
+    d5ActionCount++;
+    const id = `d5a_${d5ActionCount}`;
+    document.getElementById('d5CorrectiveActions').insertAdjacentHTML('beforeend', `
+        <div class="d5-action" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Corrective Action</label>
+                <textarea class="d5-action-text field-input" rows="3">${esc(data.action||'')}</textarea>
+            </div>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Plan Date of Launch</label>
+                    <input type="date" class="d5-plan-date field-input" value="${esc(data.planDate||'')}"></div>
+                <div><label class="field-label">Responsible for the Launch</label>
+                    <input type="text" class="d5-responsible field-input" value="${esc(data.responsible||'')}"></div>
+                <div><label class="field-label">Verification performed on</label>
+                    <input type="date" class="d5-verification-date field-input" value="${esc(data.verificationDate||'')}"></div>
+                <div class="span-3"><label class="field-label">Verification by (Person)</label>
+                    <input type="text" class="d5-verification-person field-input" value="${esc(data.verificationPerson||'')}"></div>
+            </div>
+        </div>`);
+}
+
+function addD6Implementation(data = {}) {
+    d6ImplementationCount++;
+    const id = `d6i_${d6ImplementationCount}`;
+    document.getElementById('d6Implementations').insertAdjacentHTML('beforeend', `
+        <div class="d6-implementation" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Corrective Action</label>
+                <textarea class="d6-action field-input" rows="3">${esc(data.action||'')}</textarea>
+            </div>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Launch Date</label>
+                    <input type="date" class="d6-launch-date field-input" value="${esc(data.launchDate||'')}"></div>
+                <div><label class="field-label">Effective From</label>
+                    <input type="date" class="d6-effective-from field-input" value="${esc(data.effectiveFrom||'')}"></div>
+                <div><label class="field-label">Validated on</label>
+                    <input type="date" class="d6-validated-on field-input" value="${esc(data.validatedOn||'')}"></div>
+                <div class="span-3"><label class="field-label">Responsible (Validation)</label>
+                    <input type="text" class="d6-responsible field-input" value="${esc(data.responsible||'')}"></div>
+            </div>
+        </div>`);
+}
+
+function addD7Prevention(data = {}) {
+    d7PreventionCount++;
+    const id = `d7p_${d7PreventionCount}`;
+    document.getElementById('d7Preventions').insertAdjacentHTML('beforeend', `
+        <div class="d7-prevention" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Description</label>
+                <textarea class="d7-description field-input" rows="3">${esc(data.description||'')}</textarea>
+            </div>
+            <div class="grid-3" style="margin-top:10px;">
+                <div><label class="field-label">Responsible (Person, Contact)</label>
+                    <input type="text" class="d7-responsible field-input" value="${esc(data.responsible||'')}"></div>
+                <div><label class="field-label">Planned</label>
+                    <input type="date" class="d7-planned field-input" value="${esc(data.planned||'')}"></div>
+                <div><label class="field-label">Hand Over Date</label>
+                    <input type="date" class="d7-handover field-input" value="${esc(data.handover||'')}"></div>
+                <div class="span-3"><label class="field-label">Assessment of Applicability (by the Recipient)</label>
+                    <input type="text" class="d7-assessment field-input" value="${esc(data.assessment||'')}"></div>
+            </div>
+        </div>`);
+}
+
+function addD8Participant(data = {}) {
+    d8ParticipantCount++;
+    const id = `d8p_${d8ParticipantCount}`;
+    document.getElementById('d8Participants').insertAdjacentHTML('beforeend', `
+        <div class="d8-participant" id="${id}">
+            <button class="remove-btn-8d" onclick="document.getElementById('${id}').remove()">×</button>
+            <div style="margin-top:10px;">
+                <label class="field-label">Participant Name</label>
+                <input type="text" class="d8-participant-name field-input" value="${esc(data.name||'')}">
+            </div>
+        </div>`);
+}
+
+/* ================================================================
+   DEFECT RATE
+================================================================ */
+function calculateDefectRate() {
+    const dq = parseFloat(document.getElementById('f8d_defectQuantity').value) || 0;
+    const tq = parseFloat(document.getElementById('f8d_totalCheckedQuantity').value) || 0;
+    document.getElementById('f8d_defectRate').value = tq > 0 ? (dq/tq*100).toFixed(2) : '0.00';
+}
+
+/* ================================================================
+   ATTACHMENT HANDLERS — generic helpers
+================================================================ */
+function _handleFiles(event, arr, renderFn) {
+    const files = event.target.files;
+    if (!files?.length) return;
+    Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+            arr.push({ name:file.name, type:file.type, size:file.size, data:e.target.result, uploadDate:new Date().toISOString() });
+            renderFn();
+        };
+        reader.readAsDataURL(file);
+    });
+    event.target.value = '';
+}
+
+function _renderFiles(listId, arr, dlFn, rmFn) {
+    const el = document.getElementById(listId);
+    if (!el) return;
+    if (!arr.length) {
+        el.innerHTML = '<div style="text-align:center;padding:16px;color:#999;">Henüz dosya eklenmedi</div>';
+        return;
+    }
+    el.innerHTML = arr.map((a, i) => {
+        const sz   = (a.size/1024).toFixed(1) + ' KB';
+        const icon = a.type.startsWith('image/') ? '🖼️' : a.type.includes('pdf') ? '📄'
+                   : a.type.includes('word') ? '📝' : (a.type.includes('excel')||a.type.includes('sheet')) ? '📊' : '📎';
+        return `<div class="attach-item">
+            <span class="icon">${icon}</span>
+            <div class="info">
+                <div class="name">${esc(a.name)}</div>
+                <div class="meta">${sz} · ${new Date(a.uploadDate).toLocaleString('tr-TR')}</div>
+            </div>
+            <button class="btn-dl" onclick="${dlFn}(${i})">📥</button>
+            <button class="btn-rm" onclick="${rmFn}(${i})">🗑️</button>
+        </div>`;
+    }).join('');
+}
+
+function _download(arr, i) {
+    const a = arr[i]; if (!a) return;
+    const link = document.createElement('a'); link.href = a.data; link.download = a.name; link.click();
+}
+function _remove(arr, i, renderFn) {
+    if (confirm('Bu dosyayı silmek istediğinize emin misiniz?')) { arr.splice(i,1); renderFn(); }
+}
+
+// Head Defect Photos
+function handleHeadDefectPhotos(e) { _handleFiles(e, headDefectPhotos, renderHeadDefectPhotos); }
+function renderHeadDefectPhotos()   { _renderFiles('headDefectPhotosList', headDefectPhotos, 'downloadHeadDefectPhoto', 'removeHeadDefectPhoto'); }
+function downloadHeadDefectPhoto(i) { _download(headDefectPhotos, i); }
+function removeHeadDefectPhoto(i)   { _remove(headDefectPhotos, i, renderHeadDefectPhotos); }
+
+// D2
+function handleD2Attachments(e)    { _handleFiles(e, d2Attachments, renderD2Attachments); }
+function renderD2Attachments()      { _renderFiles('d2AttachmentsList', d2Attachments, 'downloadD2Attachment', 'removeD2Attachment'); }
+function downloadD2Attachment(i)    { _download(d2Attachments, i); }
+function removeD2Attachment(i)      { _remove(d2Attachments, i, renderD2Attachments); }
+
+// D5
+function handleD5Attachments(e)    { _handleFiles(e, d5Attachments, renderD5Attachments); }
+function renderD5Attachments()      { _renderFiles('d5AttachmentsList', d5Attachments, 'downloadD5Attachment', 'removeD5Attachment'); }
+function downloadD5Attachment(i)    { _download(d5Attachments, i); }
+function removeD5Attachment(i)      { _remove(d5Attachments, i, renderD5Attachments); }
+
+// D6
+function handleD6Attachments(e)    { _handleFiles(e, d6Attachments, renderD6Attachments); }
+function renderD6Attachments()      { _renderFiles('d6AttachmentsList', d6Attachments, 'downloadD6Attachment', 'removeD6Attachment'); }
+function downloadD6Attachment(i)    { _download(d6Attachments, i); }
+function removeD6Attachment(i)      { _remove(d6Attachments, i, renderD6Attachments); }
+
+// D7
+function handleD7Attachments(e)    { _handleFiles(e, d7Attachments, renderD7Attachments); }
+function renderD7Attachments()      { _renderFiles('d7AttachmentsList', d7Attachments, 'downloadD7Attachment', 'removeD7Attachment'); }
+function downloadD7Attachment(i)    { _download(d7Attachments, i); }
+function removeD7Attachment(i)      { _remove(d7Attachments, i, renderD7Attachments); }
+
+/* ================================================================
+   PDF EXPORT  — print-window approach (Turkish-safe, SVG-native)
+================================================================ */
+async function export8DReportPDF() {
+    const v   = id => document.getElementById(id)?.value?.trim() || '';
+    const esc = s  => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    const supplierName = v('meta_supplier') || 'Tedarikçi';
+
+    /* ── 1. Form data ────────────────────────────────────────────── */
+    const head = {
+        reportNo: v('f8d_reportNumber'), version: v('f8d_version'),
+        title:    v('f8d_title'),        startDate: v('f8d_startDate'),
+        subject:  v('f8d_subject'),      currentDate: v('f8d_currentDate'),
+        customer: v('f8d_customer'),     status: v('f8d_status'),
+        email:    v('f8d_email'),        phone: v('f8d_phone'),
+        source:   v('meta_source')
+    };
+    const defect = {
+        partNumber: v('f8d_partNumber'), partName: v('f8d_partName'),
+        description: v('f8d_defectDescription'),
+        defectQty: v('f8d_defectQuantity'), checkedQty: v('f8d_totalCheckedQuantity'),
+        defectRate: v('f8d_defectRate'), detectionPoint: v('f8d_detectionPoint')
+    };
+    const d1members = Array.from(document.querySelectorAll('.d1-team-member')).map(m => ({
+        name: m.querySelector('.d1-name')?.value||'', dept: m.querySelector('.d1-department')?.value||'',
+        pos:  m.querySelector('.d1-position')?.value||'', contact: m.querySelector('.d1-contact')?.value||''
+    }));
+    const d2 = {
+        symptom: v('f8d_d2_symptom'), problem: v('f8d_d2_problem'),
+        errorType: v('f8d_d2_errorType'), errorLocation: v('f8d_d2_errorLocation'),
+        risk: v('f8d_d2_riskAssessment'), riskDate: v('f8d_d2_riskDate')
+    };
+    const d3actions = Array.from(document.querySelectorAll('.d3-action')).map(a => ({
+        desc: a.querySelector('.d3-description')?.value||'',
+        resp: a.querySelector('.d3-responsible')?.value||'',
+        date: a.querySelector('.d3-date')?.value||''
+    }));
+    const d4causes = Array.from(document.querySelectorAll('.d4-root-cause')).map(c => ({
+        type: c.querySelector('.d4-type')?.value||'',
+        title: c.querySelector('.d4-title')?.value||'',
+        desc:  c.querySelector('.d4-description')?.value||''
+    }));
+    const d5actions = Array.from(document.querySelectorAll('.d5-action')).map(a => ({
+        action: a.querySelector('.d5-action-text')?.value||'',
+        resp:   a.querySelector('.d5-responsible')?.value||'',
+        plan:   a.querySelector('.d5-plan-date')?.value||'',
+        verDate:a.querySelector('.d5-verification-date')?.value||'',
+        verPer: a.querySelector('.d5-verification-person')?.value||''
+    }));
+    const d6rows = Array.from(document.querySelectorAll('.d6-implementation')).map(i => ({
+        action: i.querySelector('.d6-action')?.value||'',
+        resp:   i.querySelector('.d6-responsible')?.value||'',
+        launch: i.querySelector('.d6-launch-date')?.value||'',
+        effFrom:i.querySelector('.d6-effective-from')?.value||'',
+        validOn:i.querySelector('.d6-validated-on')?.value||''
+    }));
+    const d7rows = Array.from(document.querySelectorAll('.d7-prevention')).map(p => ({
+        desc:     p.querySelector('.d7-description')?.value||'',
+        resp:     p.querySelector('.d7-responsible')?.value||'',
+        planned:  p.querySelector('.d7-planned')?.value||'',
+        handover: p.querySelector('.d7-handover')?.value||'',
+        assess:   p.querySelector('.d7-assessment')?.value||''
+    }));
+    const d8 = {
+        result: v('f8d_d8_result'), by: v('f8d_d8_assessmentBy'),
+        on: v('f8d_d8_performedOn'), discuss: v('f8d_d8_finalDiscussion')
+    };
+
+    /* ── 2. Fishbone SVG ─────────────────────────────────────────── */
+    let fishboneSvgHtml = '';
+    let fishboneProblem = _d4Links?.fishbone?.problem || '';
+    const _fishFrame = document.getElementById('d4PrevFrame_fishbone');
+    const _fishWrap  = document.getElementById('d4PrevWrap_fishbone');
+    if (_fishFrame?.contentDocument && _fishWrap?.style?.display !== 'none') {
+        try {
+            const svgEl = _fishFrame.contentDocument.getElementById('fishboneSvg')
+                       || _fishFrame.contentDocument.querySelector('svg');
+            if (svgEl) {
+                // Fix dimensions for proper rendering
+                const clone = svgEl.cloneNode(true);
+                const vb = svgEl.viewBox?.baseVal;
+                const bBox = svgEl.getBoundingClientRect();
+                const w = (vb?.width > 0 ? vb.width : bBox.width) || 1400;
+                const h = (vb?.height> 0 ? vb.height: bBox.height)||  700;
+                clone.setAttribute('width',  w);
+                clone.setAttribute('height', h);
+                clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+                fishboneSvgHtml = new XMLSerializer().serializeToString(clone);
+            }
+        } catch(e) { console.warn('Fishbone SVG capture:', e); }
+    }
+
+    /* ── 3. 5-why chain HTML ─────────────────────────────────────── */
+    function build5WhySection(secLabel, secColor, d) {
+        if (!d?.chains?.some(c => c.steps?.some(s => s.text?.trim()))) return '';
+        let rows = '';
+        d.chains.forEach((chain, ci) => {
+            const branchLabel = ci === 0 ? '' : ` (Dal ${ci+1})`;
+            chain.steps?.forEach((step, si) => {
+                if (!step.text?.trim()) return;
+                const rootBadge = step.isRoot
+                    ? `<span style="background:#ef4444;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;margin-left:8px;">Kök Neden</span>` : '';
+                const pinnedBadge = step.pinned
+                    ? `<span style="background:#8b5cf6;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px;margin-left:4px;">📌</span>` : '';
+                const indent = (si + (ci > 0 ? 1 : 0)) * 20;
+                rows += `<tr>
+                    <td style="padding:5px 8px;font-size:12px;color:#555;white-space:nowrap;width:80px;">Adım ${si+1}${branchLabel}</td>
+                    <td style="padding:5px 8px;padding-left:${indent+8}px;">
+                        <span style="font-weight:${step.isRoot?'700':'400'};color:${step.isRoot?'#b91c1c':'#1e293b'}">${esc(step.text)}</span>${rootBadge}${pinnedBadge}
+                    </td>
+                </tr>`;
+            });
+        });
+        const rcRow = (d.rcText && !['Teknik Kök Neden\n(Oluşum)','Teknik Kök Neden\n(Tespit Edilememe)','Sistemsel Kök Neden\n(Oluşum)','Sistemsel Kök Neden\n(Tespit Edilememe)'].includes(d.rcText))
+            ? `<tr style="background:#fef3c7"><td colspan="2" style="padding:5px 8px;font-size:12px;"><b>Kök Neden Özeti:</b> ${esc(d.rcText)}</td></tr>` : '';
+        return `<div class="section-block" style="margin-bottom:18px;">
+            <div class="sec-hdr" style="background:${secColor}">${esc(secLabel)}</div>
+            <table class="data-table" style="width:100%">${rows}${rcRow}</table>
+        </div>`;
+    }
+
+    let whyFiveHtml = '';
+    if (_d4WhyFiveData) {
+        const meta = _d4WhyFiveData.meta || {};
+        whyFiveHtml = `<div class="section-block">
+            <div class="ph-hdr" style="background:#1559b0">D4 – BAĞLI 5 NEDEN ANALİZİ</div>
+            ${meta.part ? `<div style="font-size:13px;font-weight:700;margin-bottom:2px;">${esc(meta.part)}</div>` : ''}
+            ${meta.customer ? `<div style="font-size:12px;color:#555;margin-bottom:8px;">${esc(meta.customer)}</div>` : ''}
+            ${build5WhySection('TCO — Teknik Kök Neden (Oluşum)',    '#f59e0b', _d4WhyFiveData.tech?.os)}
+            ${build5WhySection('TCN — Teknik Kök Neden (Tespit)',      '#3b82f6', _d4WhyFiveData.tech?.nd)}
+            ${build5WhySection('SCO — Sistemsel Kök Neden (Oluşum)',  '#10b981', _d4WhyFiveData.sys?.os)}
+            ${build5WhySection('SCN — Sistemsel Kök Neden (Tespit)',   '#8b5cf6', _d4WhyFiveData.sys?.nd)}
+        </div>`;
+    }
+
+    /* ── 4. HTML helpers ─────────────────────────────────────────── */
+    const phHdr = (label, color) =>
+        `<div class="ph-hdr" style="background:${color}">${esc(label)}</div>`;
+
+    const kv2 = (pairs) => `<table class="kv-table">${pairs.map(([k,v])=>
+        `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>`;
+
+    const kv4 = (pairs) => `<table class="kv-table">${pairs.map(([k1,v1,k2,v2])=>
+        `<tr><th>${esc(k1)}</th><td>${esc(v1)}</td><th>${esc(k2)}</th><td>${esc(v2)}</td></tr>`).join('')}</table>`;
+
+    const dataTable = (heads, rows, color) => {
+        if (!rows.length) return '';
+        const hCells = heads.map(h=>`<th>${esc(h)}</th>`).join('');
+        const rRows  = rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+        return `<table class="data-table">
+            <thead style="background:${color};color:#fff"><tr>${hCells}</tr></thead>
+            <tbody>${rRows}</tbody></table>`;
+    };
+
+    const sectionBlock = (hdrLabel, hdrColor, content) => content
+        ? `<div class="section-block">${phHdr(hdrLabel, hdrColor)}${content}</div>` : '';
+
+    /* ── 5. Build all sections ───────────────────────────────────── */
+
+    // HEAD
+    const headHtml = kv4([
+        ['Rapor No',   head.reportNo,   'Versiyon',      head.version],
+        ['Başlık',     head.title,      'Başlangıç',     head.startDate],
+        ['Konu',       head.subject,    'Tarih',         head.currentDate],
+        ['Müşteri',    head.customer,   'Durum',         head.status],
+        ['E-Posta',    head.email,      'Telefon',       head.phone],
+        ['Tedarikçi',  supplierName,    'Kaynak',        head.source],
+    ]);
+
+    // PRELIMINARY
+    const preHtml = kv4([
+        ['Parça No',         defect.partNumber,     'Parça Adı',    defect.partName],
+        ['Hatalı Miktar',    defect.defectQty,      'Kontrol Mik.', defect.checkedQty],
+        ['Hata Oranı',       defect.defectRate+'%', 'Tespit Noktası',defect.detectionPoint],
+    ]) + (defect.description ? kv2([['Hata Tanımı', defect.description]]) : '');
+
+    // D1
+    const d1Html = dataTable(
+        ['Ad Soyad','Departman','Görev','İletişim'],
+        d1members.map(m=>[m.name,m.dept,m.pos,m.contact]),
+        '#2e7d32'
+    );
+
+    // D2
+    const d2Html = kv2([
+        ['Semptom',         d2.symptom],
+        ['Problem',         d2.problem],
+        ['Hata Tipi',       d2.errorType],
+        ['Hata Yeri',       d2.errorLocation],
+        ['Risk Değerlendirme', d2.risk],
+        ['Risk Tarihi',     d2.riskDate],
+    ].filter(([,val])=>val));
+
+    // D3
+    const d3Html = dataTable(
+        ['Önlem Tanımı','Sorumlu','Tarih'],
+        d3actions.map(a=>[a.desc,a.resp,a.date]),
+        '#e65100'
+    );
+
+    // D4 root causes table
+    const TYPE_COLORS = {tco:'#f59e0b',tcn:'#3b82f6',sco:'#10b981',scn:'#8b5cf6'};
+    const d4RcHtml = d4causes.length ? `<table class="data-table">
+        <thead style="background:#c62828;color:#fff"><tr><th>Tip</th><th>Başlık</th><th>Açıklama</th></tr></thead>
+        <tbody>${d4causes.map(c=>{
+            const tc = TYPE_COLORS[c.type.toLowerCase()]||'#6b7280';
+            return `<tr><td><span style="background:${tc};color:#fff;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:700">${esc(c.type.toUpperCase())}</span></td>
+            <td style="font-weight:600">${esc(c.title)}</td><td>${esc(c.desc)}</td></tr>`;
+        }).join('')}</tbody></table>` : '';
+
+    // Fishbone
+    const fishboneHtml = fishboneSvgHtml
+        ? `<div style="margin-top:12px;border:1px solid #e5e7eb;border-radius:8px;padding:8px;background:#f8fafc;">
+            ${fishboneProblem ? `<div style="font-size:12px;color:#555;margin-bottom:6px;"><b>Problem:</b> ${esc(fishboneProblem)}</div>` : ''}
+            <div style="overflow:hidden;">${fishboneSvgHtml}</div>
+          </div>` : '';
+
+    // D5
+    const d5Html = dataTable(
+        ['Düzeltici Faaliyet','Sorumlu','Plan Tarihi','Doğrulama Tarihi','Doğrulayan'],
+        d5actions.map(a=>[a.action,a.resp,a.plan,a.verDate,a.verPer]),
+        '#6a1e9a'
+    );
+
+    // D6
+    const d6Html = dataTable(
+        ['Faaliyet','Sorumlu','Başlangıç','Yürürlük','Doğrulama'],
+        d6rows.map(r=>[r.action,r.resp,r.launch,r.effFrom,r.validOn]),
+        '#00838f'
+    );
+
+    // D7
+    const d7Html = dataTable(
+        ['Önlem','Sorumlu','Planlanan','Devir Tarihi','Değerlendirme'],
+        d7rows.map(r=>[r.desc,r.resp,r.planned,r.handover,r.assess]),
+        '#d84315'
+    );
+
+    // D8
+    const d8Html = kv2([
+        ['Sonuç',            d8.result],
+        ['Değerlendiren',    d8.by],
+        ['Gerçekleştirme',   d8.on],
+        ['Final Görüşme',    d8.discuss],
+    ].filter(([,val])=>val));
+
+    /* ── 6. Full HTML document ───────────────────────────────────── */
+    const today = new Date().toLocaleDateString('tr-TR');
+    const html = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>8D Raporu – ${esc(supplierName)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1e293b;background:#fff;padding:0}
+  @page{size:A4;margin:14mm 12mm}
+  .report-header{background:linear-gradient(135deg,#1e3a6e 0%,#2563eb 100%);color:#fff;padding:16px 20px;border-radius:0 0 8px 8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end}
+  .report-header h1{font-size:22px;font-weight:800;letter-spacing:0.5px}
+  .report-header .meta{font-size:12px;opacity:0.88;text-align:right;line-height:1.6}
+  .ph-hdr{color:#fff;font-size:12px;font-weight:700;padding:5px 10px;border-radius:4px 4px 0 0;letter-spacing:0.3px;margin-top:10px}
+  .sec-hdr{color:#fff;font-size:11px;font-weight:700;padding:4px 8px;border-radius:3px;margin:6px 0 2px 0}
+  .section-block{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:10px 10px 6px;margin-bottom:12px;page-break-inside:avoid}
+  .kv-table{width:100%;border-collapse:collapse;font-size:12px}
+  .kv-table th{background:#f0f4ff;font-weight:600;padding:5px 8px;border:1px solid #cbd5e1;white-space:nowrap;width:20%;color:#334155}
+  .kv-table td{padding:5px 8px;border:1px solid #cbd5e1;color:#1e293b}
+  .data-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:2px}
+  .data-table th{padding:5px 8px;text-align:left;font-size:11px;font-weight:600;border:1px solid rgba(255,255,255,0.3)}
+  .data-table td{padding:5px 8px;border:1px solid #e2e8f0;vertical-align:top}
+  .data-table tbody tr:nth-child(even){background:#f8fafc}
+  .page-break{page-break-before:always}
+  svg{max-width:100%;height:auto;display:block}
+  @media print{
+    .no-print{display:none!important}
+    body{padding:0}
+    .section-block{page-break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+
+<div class="report-header">
+  <div>
+    <div style="font-size:12px;opacity:0.8;text-transform:uppercase;letter-spacing:1px">Kalite Yönetim Sistemi</div>
+    <h1>8D Problem Çözme Raporu</h1>
+    <div style="font-size:13px;margin-top:4px;opacity:0.9">${esc(supplierName)}</div>
+  </div>
+  <div class="meta">
+    ${head.reportNo ? `<div>Rapor No: <b>${esc(head.reportNo)}</b></div>` : ''}
+    ${head.currentDate ? `<div>Tarih: <b>${esc(head.currentDate)}</b></div>` : ''}
+    ${head.status ? `<div>Durum: <b>${esc(head.status)}</b></div>` : ''}
+    <div style="margin-top:4px;font-size:10px;opacity:0.7">Oluşturma: ${today}</div>
+  </div>
+</div>
+
+${sectionBlock('HEAD DATA', '#1e3a6e', headHtml)}
+${sectionBlock('ÖN HATA BİLGİSİ', '#475569', preHtml)}
+${d1members.length ? sectionBlock('D1 – PROBLEM ÇÖZME EKİBİ', '#2e7d32', d1Html) : ''}
+${(d2.symptom||d2.problem) ? sectionBlock('D2 – PROBLEM TANIMI', '#0277bd', d2Html) : ''}
+${d3actions.length ? sectionBlock('D3 – ALTYAPI / KONTEYMENT ÖNLEMLERİ', '#e65100', d3Html) : ''}
+
+<div class="section-block">
+  ${phHdr('D4 – KÖK NEDEN ANALİZİ', '#c62828')}
+  ${d4RcHtml}
+  ${fishboneHtml ? `<div style="font-size:11px;font-weight:700;color:#c62828;margin:10px 0 4px">Balık Kılçığı Diyagramı</div>${fishboneHtml}` : ''}
+  ${whyFiveHtml}
+</div>
+
+${d5actions.length ? sectionBlock('D5 – DÜZELTİCİ FAALİYETLER', '#6a1e9a', d5Html) : ''}
+${d6rows.length ? sectionBlock('D6 – DÜZELTİCİ FAALİYET UYGULAMASI', '#00838f', d6Html) : ''}
+${d7rows.length ? sectionBlock('D7 – TEKRARLANMAYI ÖNLEYICI TEDBIRLER', '#d84315', d7Html) : ''}
+${d8.result ? sectionBlock('D8 – SONUÇ VE KAPANIŞ', '#388e3c', d8Html) : ''}
+
+<div style="margin-top:20px;font-size:10px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:8px">
+  Bu rapor 8D Problem Çözme Metodolojisi çerçevesinde hazırlanmıştır. • ${today}
+</div>
+
+<div class="no-print" style="position:fixed;bottom:20px;right:20px;display:flex;gap:8px;">
+  <button onclick="window.print()" style="background:#1e3a6e;color:#fff;border:none;padding:10px 22px;border-radius:6px;font-size:14px;cursor:pointer;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.25)">🖨️ Yazdır / PDF</button>
+  <button onclick="window.close()" style="background:#64748b;color:#fff;border:none;padding:10px 16px;border-radius:6px;font-size:14px;cursor:pointer">✕</button>
+</div>
+
+</body>
+</html>`;
+
+    /* ── 7. Open print window ─────────────────────────────────────── */
+    const pw = window.open('', '_blank', 'width=960,height=800,scrollbars=yes');
+    if (!pw) {
+        showAlert('⚠️ Pop-up engellendi! Lütfen tarayıcıda pop-up\'a izin verin.', 'error');
+        return;
+    }
+    pw.document.open();
+    pw.document.write(html);
+    pw.document.close();
+    pw.focus();
+    showAlert('✅ Rapor penceresi açıldı — "Yazdır / PDF" butonuna tıklayın.', 'success');
+}
+
+// legacy SVG helper kept for potential reuse
+async function _svgToDataUrl(svgEl) {
+    return new Promise(resolve => {
+        try {
+            const vb = svgEl.viewBox?.baseVal;
+            const bb = svgEl.getBoundingClientRect();
+            const w  = (vb?.width  > 0 ? vb.width  : bb.width)  || 1400;
+            const h  = (vb?.height > 0 ? vb.height : bb.height) ||  700;
+            const clone = svgEl.cloneNode(true);
+            clone.setAttribute('width',  w);
+            clone.setAttribute('height', h);
+            clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+            const xml  = new XMLSerializer().serializeToString(clone);
+            const blob = new Blob([xml], {type:'image/svg+xml'});
+            const url  = URL.createObjectURL(blob);
+            const img  = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = w; c.height = h;
+                c.getContext('2d').drawImage(img, 0, 0);
+                URL.revokeObjectURL(url);
+                resolve(c.toDataURL('image/jpeg', 0.92));
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            img.src = url;
+        } catch(e) { resolve(null); }
+    });
+}
+
+
+/* ================================================================
+   INIT
+================================================================ */
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await openDB();
+
+        // URL parametresi varsa → doğrudan yeni form aç (diğer sayfalardan gelen 8D bağlantısı)
+        const params    = new URLSearchParams(location.search);
+        const urlEditId  = params.get('editId');    // Mevcut raporu doğrudan aç
+        const urlSource  = params.get('source');
+        const urlKonu    = params.get('konu');
+        const urlProblem = params.get('problem');   // Balık Kılçığı ana problem başlığı
+
+        if (urlEditId) {
+            // Kayıtlı raporu aç
+            await new Promise(resolve => {
+                const tx  = db.transaction([STORE_8D],'readonly');
+                const req = tx.objectStore(STORE_8D).get(parseInt(urlEditId));
+                req.onsuccess = () => {
+                    if (req.result) {
+                        openReportForEdit(parseInt(urlEditId));
+                        // Bağlam baneri — source/konu/problem URL'den okunur
+                        const bSrc     = params.get('source');
+                        const bKonu    = params.get('konu');
+                        const bProblem = params.get('problem');
+                        const bannerMeta = {
+                            'Balık Kılçığı': {
+                                icon : '🐟',
+                                title: 'Balık Kılçığı Analizinden Açıldı',
+                                sub  : (bProblem ? 'Problem: ' + bProblem + '  ›  ' : '') + (bKonu ? 'Kök Neden: ' + bKonu : ''),
+                                href : 'balik-kilcigi.html'
+                            },
+                            'Kapsamlı Rapor': {
+                                icon : '📊',
+                                title: 'Kapsamlı Rapordan Açıldı',
+                                sub  : 'Uygunsuzluk Analizi verisi' + (bKonu ? '  ›  ' + bKonu : ''),
+                                href : 'kapsamli-rapor.html'
+                            },
+                            'Uygunsuzluk': {
+                                icon : '⚠️',
+                                title: 'Uygunsuzluk Analizinden Açıldı',
+                                sub  : 'Kayıt: #' + bKonu,
+                                href : 'uygunsuzluk-analizi.html'
+                            },
+                        };
+                        if (bSrc && bannerMeta[bSrc]) {
+                            const bm = bannerMeta[bSrc];
+                            document.getElementById('sourceBannerIcon').textContent  = bm.icon;
+                            document.getElementById('sourceBannerTitle').textContent = bm.title;
+                            document.getElementById('sourceBannerSub').textContent   = bm.sub;
+                            document.getElementById('sourceBannerLink').href         = bm.href;
+                            document.getElementById('sourceBanner').style.display   = 'flex';
+                        }
+                    } else {
+                        showAlert('❌ Rapor bulunamadı — yeni form açılıyor','error');
+                        showListView();
+                    }
+                    resolve();
+                };
+                req.onerror = () => { showListView(); resolve(); };
+            });
+            return;
+        }
+
+        if (urlSource && urlKonu) {
+            current8DData = null;
+            clear8DForm();
+            // clear8DForm() kaynağı sıfırlar, bu yüzden SONRA set ediyoruz
+            const srcEl = document.getElementById('meta_source');
+            if (srcEl) srcEl.value = urlSource;
+            document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${urlKonu}`;
+            document.getElementById('meta_month').value            = '';
+            document.getElementById('deleteFormBtn').style.display = 'none';
+            onSourceChange(urlKonu);   // konu dropdown'unu yükler ve seçer
+
+            // Kaynak bağlam baneri
+            const bannerMeta = {
+                'Balık Kılçığı': {
+                    icon : '🐟',
+                    title: 'Balık Kılçığı Analizinden Açıldı',
+                    sub  : (urlProblem ? 'Problem: ' + urlProblem + '  ›  ' : '') + 'Kök Neden: ' + urlKonu,
+                    href : 'balik-kilcigi.html'
+                },
+                'Uygunsuzluk': {
+                    icon : '⚠️',
+                    title: 'Uygunsuzluk Analizinden Açıldı',
+                    sub  : 'Kayıt: #' + urlKonu,
+                    href : 'uygunsuzluk-analizi.html'
+                },
+                'Kapsamlı Rapor': {
+                    icon : '📊',
+                    title: 'Kapsamlı Rapordan Açıldı',
+                    sub  : 'Uygunsuzluk Analizi verisi  ›  ' + urlKonu,
+                    href : 'kapsamli-rapor.html'
+                },
+            };
+            const bm = bannerMeta[urlSource];
+            if (bm) {
+                const banner = document.getElementById('sourceBanner');
+                document.getElementById('sourceBannerIcon').textContent  = bm.icon;
+                document.getElementById('sourceBannerTitle').textContent = bm.title;
+                document.getElementById('sourceBannerSub').textContent   = bm.sub;
+                document.getElementById('sourceBannerLink').href         = bm.href;
+                banner.style.display = 'flex';
+            }
+
+            showFormView(null);
+            return;
+        }
+
+        showListView();
+        // Supplier listesini arka planda hazırla
+        loadSupplierList('');
+    } catch(e) {
+        console.error('IndexedDB açılamadı:', e);
+        document.getElementById('reportListContainer').innerHTML = `
+            <div class="empty-state">
+                <div class="icon">⚠️</div>
+                <p>Veritabanı açılamadı.</p>
+                <p style="font-size:0.9em;margin-top:8px;color:#bbb;">Önce <a href="index.html">Ana Sayfayı</a> açın.</p>
+            </div>`;
+    }
+});
+</script>
+
+<!-- D4 BAĞLA MODAL -->
+<div id="d4LinkModal">
+  <div class="d4m-box">
+    <div class="d4m-header">
+      <span id="d4LMTitle" class="d4m-title"></span>
+      <button class="d4m-close" onclick="d4CloseLinkModal()">&#x2715;</button>
+    </div>
+    <div class="d4m-body" id="d4LMBody">
+      <button id="d4LMNewBtn" class="d4m-new-btn" onclick="d4CreateNew()">
+        &#10022; Yeni Oluştur — boş analize başla
+      </button>
+      <div class="d4m-separator">&#x2015; Kayıtlı analizler &#x2015;</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

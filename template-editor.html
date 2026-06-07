@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search);};</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COA Template Editor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        h1 {
+            color: #2c5f2d;
+            font-size: 24px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        input[type="text"], input[type="file"], select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #2c5f2d;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1d4120;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .editor-container {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .canvas-wrapper {
+            flex: 1;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            overflow: auto;
+            max-height: 800px;
+            background: #f9f9f9;
+            position: relative;
+        }
+        
+        #templateCanvas {
+            cursor: crosshair;
+            display: block;
+        }
+        
+        .regions-panel {
+            width: 350px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            padding: 15px;
+            max-height: 800px;
+            overflow-y: auto;
+        }
+        
+        .regions-panel h3 {
+            color: #2c5f2d;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .region-item {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        
+        .region-item:hover {
+            background: #e9ecef;
+            border-color: #2c5f2d;
+        }
+        
+        .region-item.selected {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+        
+        .region-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .region-title {
+            font-weight: 600;
+            color: #2c5f2d;
+        }
+        
+        .region-info {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            padding: 4px 8px;
+            font-size: 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .btn-delete:hover {
+            background: #c82333;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            color: #2c5f2d;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+        }
+        
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .instructions h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            color: #856404;
+        }
+        
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .page-nav {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            background: #e8f4fd;
+            border: 1px solid #b3d8f5;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #0066cc;
+        }
+
+        .page-nav button {
+            padding: 5px 12px;
+            font-size: 13px;
+            background: #0066cc;
+            color: white;
+            border-radius: 4px;
+            min-width: 32px;
+        }
+
+        .page-nav button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 COA Template Editor</h1>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-success" onclick="saveTemplate()">💾 Template Kaydet</button>
+                <button class="btn-primary" onclick="loadTemplate()">📂 Template Yükle</button>
+                <button class="btn-primary" onclick="window.open(DRIVE_TEMPLATES_FOLDER, '_blank')" style="background: #0066cc;">☁️ Drive'dan İndir</button>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h4>📋 Kullanım Talimatları:</h4>
+            <ol>
+                <li>Tedarikçi adı girin ve COA belgesini (PDF/PNG) yükleyin</li>
+                <li>Canvas üzerinde mouse ile sürükleyerek bölgeleri işaretleyin</li>
+                <li>Her bölge için TDS özellik adını ve bölge tipini seçin</li>
+                <li>Tüm bölgeleri işaretledikten sonra "Template Kaydet" butonuna tıklayın</li>
+                <li>Kaydedilen template'i Google Drive'a yükleyin (☁️ Drive'dan İndir butonu ile klasöre erişin)</li>
+                <li>Template'i tekrar kullanmak için "📂 Template Yükle" ile yükleyin - görsel ve bölgeler birebir gelecek!</li>
+            </ol>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Tedarikçi Adı:</label>
+                <input type="text" id="supplierName" placeholder="Örn: BASF" style="width: 200px;">
+            </div>
+            
+            <div class="control-group">
+                <label>COA Belgesi (PDF/PNG):</label>
+                <input type="file" id="fileInput" accept="image/*,application/pdf">
+            </div>
+            
+            <div class="control-group" style="align-self: flex-end;">
+                <button class="btn-danger" onclick="clearRegions()">🗑️ Tümünü Temizle</button>
+            </div>
+
+            <!-- Çok sayfalı PDF için sayfa navigasyonu -->
+            <div class="control-group page-nav" id="pageNav" style="align-self: flex-end;">
+                <button onclick="goToPage(currentPage - 1)" id="prevPageBtn">◀</button>
+                <span>Sayfa <span id="currentPageLabel">1</span> / <span id="totalPagesLabel">1</span></span>
+                <button onclick="goToPage(currentPage + 1)" id="nextPageBtn">▶</button>
+            </div>
+        </div>
+        
+        <div class="editor-container">
+            <div class="canvas-wrapper">
+                <canvas id="templateCanvas"></canvas>
+            </div>
+            
+            <div class="regions-panel">
+                <h3>📍 İşaretli Bölgeler (<span id="regionCount">0</span>)</h3>
+                <div id="regionsList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Region Edit Modal -->
+    <div id="regionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Bölge Bilgileri</h3>
+            </div>
+            
+            <div class="form-group">
+                <label>TDS Özellik Adı:</label>
+                <select id="propertyName">
+                    <option value="">-- Seçiniz --</option>
+                    <option value="Density">Density (Dansite)</option>
+                    <option value="hardness">Hardness (Sertlik)</option>
+                    <option value="Fire behavior">Fire Behavior (Yanma Davranışı)</option>
+                    <option value="Thermal conductivity">Thermal Conductivity (Isı İletkenliği)</option>
+                    <option value="Emission of VOC">Emission of VOC</option>
+                    <option value="custom">-- Özel Özellik --</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="customPropertyGroup" style="display: none;">
+                <label>Özel Özellik Adı:</label>
+                <input type="text" id="customPropertyName" placeholder="Özellik adını girin">
+            </div>
+            
+            <div class="form-group">
+                <label>Bölge Tipi:</label>
+                <select id="regionType">
+                    <option value="value">COA Değeri (Requirement Sütunu)</option>
+                    <option value="propertyName">Özellik Adı (Sol Sütun)</option>
+                </select>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="saveRegion()">✅ Kaydet</button>
+                <button class="btn-danger" onclick="closeModal()">❌ İptal</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let canvas, ctx;
+        let regions = [];
+        let pdfDoc = null;       // Yüklü PDF nesnesi (çok sayfa desteği)
+        let currentPage = 1;     // Aktif sayfa numarası
+        let totalPages = 1;      // Toplam sayfa sayısı
+        let currentRegion = null;
+        let isDrawing = false;
+        let startX, startY;
+        let selectedRegionIndex = null;
+        let imageObj = null;
+        let scaleFactor = 1;
+        let currentImageData = null; // Canvas görselini sakla
+        
+        // Google Drive COA Templates Folder Link
+        const DRIVE_TEMPLATES_FOLDER = 'https://drive.google.com/drive/folders/YOUR_FOLDER_ID'; // Buraya drive klasör linkini ekle
+        
+        // Initialize
+        window.onload = function() {
+            canvas = document.getElementById('templateCanvas');
+            ctx = canvas.getContext('2d');
+            
+            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            
+            document.getElementById('propertyName').addEventListener('change', function() {
+                const customGroup = document.getElementById('customPropertyGroup');
+                customGroup.style.display = this.value === 'custom' ? 'block' : 'none';
+            });
+        };
+        
+        async function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            if (file.type === 'application/pdf') {
+                await loadPDF(file);
+            } else {
+                await loadImage(file);
+            }
+        }
+        
+        async function loadPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            pdfDoc = await pdfjsLib.getDocument(arrayBuffer).promise;
+            totalPages = pdfDoc.numPages;
+            currentPage = 1;
+            await renderPDFPage(currentPage);
+            updatePageNav();
+        }
+
+        async function renderPDFPage(pageNum) {
+            if (!pdfDoc) return;
+            const page = await pdfDoc.getPage(pageNum);
+            
+            const viewport = page.getViewport({ scale: 2.0 });
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+            
+            await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+            
+            imageObj = new Image();
+            imageObj.src = canvas.toDataURL();
+            currentImageData = canvas.toDataURL('image/png');
+            scaleFactor = 1;
+
+            // Bölgeleri yeniden çiz
+            redrawCanvas();
+        }
+
+        async function goToPage(pageNum) {
+            if (!pdfDoc || pageNum < 1 || pageNum > totalPages) return;
+            currentPage = pageNum;
+            await renderPDFPage(currentPage);
+            updatePageNav();
+        }
+
+        function updatePageNav() {
+            const nav = document.getElementById('pageNav');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            document.getElementById('currentPageLabel').textContent = currentPage;
+            document.getElementById('totalPagesLabel').textContent = totalPages;
+            nav.style.display = totalPages > 1 ? 'flex' : 'none';
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+        }
+        
+        function loadImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imageObj = new Image();
+                imageObj.onload = function() {
+                    // Scale image to fit canvas
+                    const maxWidth = 1200;
+                    const maxHeight = 1000;
+                    
+                    let width = imageObj.width;
+                    let height = imageObj.height;
+                    
+                    if (width > maxWidth) {
+                        scaleFactor = maxWidth / width;
+                        width = maxWidth;
+                        height = height * scaleFactor;
+                    }
+                    
+                    if (height > maxHeight) {
+                        scaleFactor = maxHeight / height;
+                        height = maxHeight;
+                        width = width * scaleFactor;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    ctx.drawImage(imageObj, 0, 0, width, height);
+                    currentImageData = canvas.toDataURL('image/png'); // Görseli sakla
+                };
+                imageObj.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        function startDrawing(e) {
+            isDrawing = true;
+            const rect = canvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+        }
+        
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+            
+            // Redraw image and existing regions
+            redrawCanvas();
+            
+            // Draw current region being created
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+            ctx.setLineDash([]);
+        }
+        
+        function stopDrawing(e) {
+            if (!isDrawing) return;
+            isDrawing = false;
+            
+            const rect = canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            const width = endX - startX;
+            const height = endY - startY;
+            
+            // Only create region if it has minimum size
+            if (Math.abs(width) > 20 && Math.abs(height) > 20) {
+                currentRegion = {
+                    x: Math.min(startX, endX),
+                    y: Math.min(startY, endY),
+                    width: Math.abs(width),
+                    height: Math.abs(height)
+                };
+                
+                // Show modal to set region properties
+                showModal();
+            } else {
+                redrawCanvas();
+            }
+        }
+        
+        function redrawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (imageObj) {
+                ctx.drawImage(imageObj, 0, 0, canvas.width, canvas.height);
+            }
+            
+            // Draw all regions
+            regions.forEach((region, index) => {
+                ctx.strokeStyle = index === selectedRegionIndex ? '#28a745' : '#dc3545';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(region.x, region.y, region.width, region.height);
+                
+                // Draw label
+                ctx.fillStyle = 'rgba(220, 53, 69, 0.8)';
+                ctx.fillRect(region.x, region.y - 25, 150, 25);
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.fillText(region.propertyName || 'Unnamed', region.x + 5, region.y - 8);
+            });
+        }
+        
+        function showModal() {
+            document.getElementById('regionModal').classList.add('show');
+            document.getElementById('propertyName').value = '';
+            document.getElementById('regionType').value = 'value';
+            document.getElementById('customPropertyGroup').style.display = 'none';
+        }
+        
+        function closeModal() {
+            document.getElementById('regionModal').classList.remove('show');
+            currentRegion = null;
+            redrawCanvas();
+        }
+        
+        function saveRegion() {
+            let propertyName = document.getElementById('propertyName').value;
+            
+            if (propertyName === 'custom') {
+                propertyName = document.getElementById('customPropertyName').value.trim();
+            }
+            
+            if (!propertyName) {
+                alert('Lütfen özellik adı seçin!');
+                return;
+            }
+            
+            const regionType = document.getElementById('regionType').value;
+            
+            currentRegion.propertyName = propertyName;
+            currentRegion.type = regionType;
+            
+            regions.push(currentRegion);
+            
+            closeModal();
+            updateRegionsList();
+            redrawCanvas();
+        }
+        
+        function updateRegionsList() {
+            const list = document.getElementById('regionsList');
+            const count = document.getElementById('regionCount');
+            
+            count.textContent = regions.length;
+            
+            list.innerHTML = regions.map((region, index) => `
+                <div class="region-item ${index === selectedRegionIndex ? 'selected' : ''}" onclick="selectRegion(${index})">
+                    <div class="region-header">
+                        <span class="region-title">${region.propertyName}</span>
+                        <button class="btn-delete" onclick="deleteRegion(${index}); event.stopPropagation();">🗑️</button>
+                    </div>
+                    <div class="region-info">
+                        Tip: ${region.type === 'value' ? 'COA Değeri' : 'Özellik Adı'}<br>
+                        X: ${Math.round(region.x)}, Y: ${Math.round(region.y)}<br>
+                        W: ${Math.round(region.width)}, H: ${Math.round(region.height)}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function selectRegion(index) {
+            selectedRegionIndex = index;
+            updateRegionsList();
+            redrawCanvas();
+        }
+        
+        function deleteRegion(index) {
+            regions.splice(index, 1);
+            selectedRegionIndex = null;
+            updateRegionsList();
+            redrawCanvas();
+        }
+        
+        function clearRegions() {
+            if (confirm('Tüm bölgeleri silmek istediğinizden emin misiniz?')) {
+                regions = [];
+                selectedRegionIndex = null;
+                updateRegionsList();
+                redrawCanvas();
+            }
+        }
+        
+        function saveTemplate() {
+            const supplierName = document.getElementById('supplierName').value.trim();
+            
+            if (!supplierName) {
+                alert('Lütfen tedarikçi adı girin!');
+                return;
+            }
+            
+            if (regions.length === 0) {
+                alert('Lütfen en az bir bölge işaretleyin!');
+                return;
+            }
+            
+            const template = {
+                supplier: supplierName,
+                version: '1.0',
+                createdAt: new Date().toISOString(),
+                canvasWidth: canvas.width,
+                canvasHeight: canvas.height,
+                scaleFactor: scaleFactor,
+                imageData: currentImageData, // Canvas görselini kaydet
+                regions: regions.map(r => ({
+                    propertyName: r.propertyName,
+                    type: r.type,
+                    x: Math.round(r.x / scaleFactor),
+                    y: Math.round(r.y / scaleFactor),
+                    width: Math.round(r.width / scaleFactor),
+                    height: Math.round(r.height / scaleFactor)
+                }))
+            };
+            
+            // Download as JSON
+            const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `template_${supplierName.toLowerCase().replace(/\s+/g, '_')}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            alert('✅ Template başarıyla kaydedildi!');
+        }
+        
+        function loadTemplate() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const template = JSON.parse(e.target.result);
+                        
+                        document.getElementById('supplierName').value = template.supplier;
+                        
+                        // Görseli yükle
+                        if (template.imageData) {
+                            imageObj = new Image();
+                            imageObj.onload = function() {
+                                canvas.width = template.canvasWidth || imageObj.width;
+                                canvas.height = template.canvasHeight || imageObj.height;
+                                scaleFactor = template.scaleFactor || 1;
+                                currentImageData = template.imageData;
+                                
+                                // Regions'ı yükle
+                                regions = template.regions.map(r => ({
+                                    ...r,
+                                    x: r.x * scaleFactor,
+                                    y: r.y * scaleFactor,
+                                    width: r.width * scaleFactor,
+                                    height: r.height * scaleFactor
+                                }));
+                                
+                                updateRegionsList();
+                                redrawCanvas();
+                                
+                                alert('✅ Template yüklendi! Görsel ve tüm bölgeler geri yüklendi.');
+                            };
+                            imageObj.src = template.imageData;
+                        } else {
+                            // Eski format (sadece regions)
+                            regions = template.regions.map(r => ({
+                                ...r,
+                                x: r.x * scaleFactor,
+                                y: r.y * scaleFactor,
+                                width: r.width * scaleFactor,
+                                height: r.height * scaleFactor
+                            }));
+                            updateRegionsList();
+                            redrawCanvas();
+                            alert('⚠️ Template yüklendi ama görsel bulunamadı. Lütfen COA belgesini tekrar yükleyin.');
+                        }
+                    } catch (err) {
+                        alert('❌ Template yüklenemedi: ' + err.message);
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            input.click();
+        }
+    </script>
+</body>
+</html>

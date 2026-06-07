@@ -1,0 +1,2701 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search);};</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DÖF Yönetimi — Düzeltici Önleyici Faaliyetler</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh;}
+
+/* ── TOPBAR ── */
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;
+  background:linear-gradient(135deg,#1e3a5f,#0f766e);color:#fff;
+  box-shadow:0 2px 10px rgba(0,0,0,.22);flex-wrap:wrap;}
+.topbar h1{font-size:1.05rem;font-weight:800;white-space:nowrap;}
+.topbar .sp{flex:1;}
+.tbb{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.32);
+  color:#fff;border-radius:7px;padding:5px 13px;font-size:.76rem;font-weight:600;
+  cursor:pointer;transition:.15s;white-space:nowrap;}
+.tbb:hover{background:rgba(255,255,255,.27);}
+.tbb.ok{background:rgba(22,163,74,.5);border-color:rgba(22,163,74,.7);}
+.tbb.danger{background:rgba(220,38,38,.38);border-color:rgba(220,38,38,.6);}
+
+/* ── UPLOAD ZONE ── */
+.upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:40px 20px;background:#fff;border:2.5px dashed #bfdbfe;
+  border-radius:16px;margin:24px 18px;cursor:pointer;transition:.2s;text-align:center;}
+.upload-zone:hover,.upload-zone.drag{border-color:#2563eb;background:#eff6ff;}
+.upload-zone .uicon{font-size:3rem;}
+.upload-zone h2{font-size:1rem;font-weight:700;color:#1e293b;}
+.upload-zone p{font-size:.78rem;color:#64748b;}
+.upload-zone input[type=file]{display:none;}
+.upload-btn{background:#2563eb;color:#fff;border:none;border-radius:8px;
+  padding:9px 22px;font-size:.82rem;font-weight:700;cursor:pointer;transition:.15s;}
+.upload-btn:hover{background:#1d4ed8;}
+
+/* ── STATS BAR ── */
+.stats-bar{display:flex;gap:14px;flex-wrap:wrap;padding:10px 18px;
+  background:#fff;border-bottom:1px solid #e2e8f0;align-items:center;}
+.stat-chip{background:#f1f5f9;border:1px solid #e2e8f0;border-radius:20px;
+  padding:4px 14px;font-size:.72rem;font-weight:700;color:#475569;white-space:nowrap;}
+.stat-chip span{color:#2563eb;font-size:.88rem;}
+.filter-count{font-size:.72rem;color:#f59e0b;font-weight:700;
+  background:#fef3c7;border:1px solid #fde68a;border-radius:20px;padding:4px 12px;}
+
+/* ── FILTER BAR ── */
+.filter-bar{padding:10px 18px 6px;background:#f8faff;border-bottom:1px solid #e2e8f0;}
+.filter-bar-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+.filter-bar-top label{font-size:.72rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;}
+.filter-search{flex:1;min-width:200px;max-width:340px;border:1.5px solid #e2e8f0;
+  border-radius:7px;padding:5px 10px;font-size:.8rem;outline:none;}
+.filter-search:focus{border-color:#2563eb;}
+.filter-reset{background:#ef4444;color:#fff;border:none;border-radius:7px;
+  padding:5px 12px;font-size:.74rem;font-weight:700;cursor:pointer;}
+.filter-reset:hover{background:#dc2626;}
+.filter-toggle{background:#e2e8f0;color:#475569;border:none;border-radius:7px;
+  padding:5px 12px;font-size:.74rem;font-weight:600;cursor:pointer;}
+.filter-toggle:hover{background:#cbd5e1;}
+.filter-save-preset{background:#1e40af;color:#fff;border:none;border-radius:7px;
+  padding:5px 12px;font-size:.74rem;font-weight:700;cursor:pointer;}
+.filter-save-preset:hover{background:#1d4ed8;}
+#filterPresets{display:none;flex-wrap:wrap;gap:6px;align-items:center;
+  padding:6px 18px;background:#f0f4ff;border-bottom:1px solid #c7d2fe;}
+#filterPresets .fp-label{font-size:.68rem;color:#6366f1;font-weight:700;white-space:nowrap;}
+.fpreset-chip{display:inline-flex;align-items:center;background:#1e293b;
+  border:1.5px solid #6366f1;border-radius:20px;font-size:.72rem;color:#c7d2fe;
+  overflow:hidden;white-space:nowrap;}
+.fpreset-chip .pname{padding:4px 10px;cursor:pointer;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
+.fpreset-chip .pname:hover{background:rgba(99,102,241,.25);}
+.fpreset-chip .pdel{padding:4px 8px;color:#94a3b8;border-left:1px solid #334155;cursor:pointer;}
+.fpreset-chip .pdel:hover{background:#ef4444;color:#fff;}
+
+/* ── QUICK FILTERS ── */
+.quick-filters{display:flex;flex-wrap:wrap;gap:10px;padding:10px 18px 12px;
+  background:#f8faff;border-bottom:1px solid #e2e8f0;align-items:flex-end;}
+.qf{display:flex;flex-direction:column;gap:3px;}
+.qf label{font-size:.6rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.05em;}
+.qf select,.qf input[type=date]{
+  border:1.5px solid #cbd5e1;border-radius:7px;padding:5px 9px;
+  font-size:.78rem;outline:none;background:#fff;color:#1e293b;min-width:148px;}
+.qf select:focus,.qf input:focus{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.12);}
+.qf .date-pair{display:flex;gap:5px;align-items:center;}
+.qf .date-sep{font-size:.62rem;color:#94a3b8;white-space:nowrap;}
+
+.filter-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:6px;
+  padding-top:4px;}
+.fg{display:flex;flex-direction:column;gap:2px;}
+.fg label{font-size:.6rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;}
+.fg select,.fg input[type=text],.fg input[type=date]{
+  border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 7px;
+  font-size:.75rem;outline:none;background:#fff;color:#1e293b;}
+.fg select:focus,.fg input:focus{border-color:#2563eb;}
+
+/* ── TABLE ── */
+.table-outer{overflow:auto;max-height:calc(100vh - 210px);margin:0 0 24px;padding:0 18px;}
+.table-wrap{min-width:100%;}
+
+table{width:100%;border-collapse:collapse;font-size:.74rem;background:#fff;
+  border-radius:10px;box-shadow:0 1px 8px rgba(0,0,0,.07);}
+thead{position:sticky;top:0;z-index:10;}
+thead tr th{position:sticky;top:0;}
+th{background:linear-gradient(135deg,#1e3a5f,#0f766e);color:#fff;
+  padding:8px 10px;font-size:.64rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;white-space:nowrap;text-align:left;cursor:pointer;user-select:none;}
+th:hover{background:linear-gradient(135deg,#1e4a7f,#0e9f85);}
+th .sort-icon{margin-left:4px;opacity:.6;font-size:.6rem;}
+th.sort-asc .sort-icon::after{content:'▲';}
+th.sort-desc .sort-icon::after{content:'▼';}
+th:not(.sort-asc):not(.sort-desc) .sort-icon::after{content:'⇅';}
+
+tbody tr{border-bottom:1px solid #f1f5f9;transition:background .12s;}
+tbody tr:hover{background:#f0f9ff;}
+tbody tr:last-child{border-bottom:none;}
+td{padding:6px 10px;vertical-align:top;max-width:220px;word-break:break-word;}
+td.nowrap{white-space:nowrap;}
+.td-seri{font-weight:700;color:#1e3a5f;white-space:nowrap;}
+.td-baslik{min-width:220px;max-width:320px;}
+.td-members{font-size:.68rem;color:#475569;max-width:200px;}
+.td-date{white-space:nowrap;font-size:.72rem;}
+
+/* status badge */
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.62rem;font-weight:700;white-space:nowrap;}
+.badge-open{background:#fef3c7;color:#92400e;border:1px solid #fde68a;}
+.badge-closed{background:#dcfce7;color:#14532d;border:1px solid #86efac;}
+.badge-progress{background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;}
+.badge-late{background:#fee2e2;color:#7f1d1d;border:1px solid #fca5a5;}
+
+/* ── AI KATEGORIZE MODAL ── */
+.ai-cat-modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:9500;
+  align-items:center;justify-content:center;}
+.ai-cat-modal-bg.open{display:flex;}
+.ai-cat-box{background:#fff;border-radius:16px;padding:28px 30px 24px;width:min(660px,96vw);
+  max-height:92vh;overflow-y:auto;box-shadow:0 28px 70px rgba(0,0,0,.28);}
+.ai-cat-box h3{font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:14px;}
+.ai-cat-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;}
+
+/* provider tabs */
+.ai-ptabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.ai-ptab{border:1.5px solid #e2e8f0;background:#f8fafc;color:#475569;
+  border-radius:7px;padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer;transition:.15s;}
+.ai-ptab.active{background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;border-color:transparent;}
+.ai-ptab.or.active{background:linear-gradient(135deg,#6d28d9,#4f46e5);}
+.ai-ptab.gem.active{background:linear-gradient(135deg,#0369a1,#0891b2);}
+.ai-ptab.oai.active{background:linear-gradient(135deg,#059669,#0d9488);}
+
+/* key row */
+.ai-key-row{display:flex;gap:8px;align-items:center;margin-bottom:4px;}
+.ai-key-inp{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:6px 10px;
+  font-size:.78rem;outline:none;}
+.ai-key-inp:focus{border-color:#2563eb;}
+.ai-test-btn{background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:7px;
+  padding:6px 12px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;color:#475569;}
+.ai-test-btn:hover{background:#e2e8f0;}
+.ai-key-hint{font-size:.64rem;color:#94a3b8;margin-bottom:10px;}
+.ai-key-hint a{color:#2563eb;}
+.ai-model-sel{width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 8px;
+  font-size:.74rem;margin-bottom:10px;outline:none;}
+
+/* category list */
+.cat-section{margin-top:14px;}
+.cat-section label{font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;
+  letter-spacing:.05em;display:block;margin-bottom:8px;}
+.cat-tags{display:flex;flex-wrap:wrap;gap:6px;padding:8px;background:#f8fafc;
+  border:1.5px solid #e2e8f0;border-radius:8px;min-height:60px;max-height:200px;overflow-y:auto;}
+.cat-tag{display:inline-flex;align-items:center;gap:5px;background:#eff6ff;
+  border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:.72rem;font-weight:600;
+  color:#1e40af;white-space:nowrap;}
+.cat-tag .xtag{cursor:pointer;font-size:.8rem;color:#93c5fd;font-weight:900;line-height:1;
+  padding:0 2px;transition:.1s;}
+.cat-tag .xtag:hover{color:#ef4444;}
+.cat-add-row{display:flex;gap:7px;margin-top:8px;}
+.cat-add-inp{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:5px 9px;
+  font-size:.78rem;outline:none;}
+.cat-add-inp:focus{border-color:#2563eb;}
+.cat-add-btn{background:#2563eb;color:#fff;border:none;border-radius:7px;
+  padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.cat-add-btn:hover{background:#1d4ed8;}
+.cat-suggest-btn{background:#7c3aed;color:#fff;border:none;border-radius:7px;
+  padding:5px 14px;font-size:.75rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.cat-suggest-btn:hover{background:#6d28d9;}
+
+/* progress */
+.ai-progress-wrap{margin-top:14px;display:none;}
+.ai-progress-bar-bg{background:#e2e8f0;border-radius:20px;height:12px;overflow:hidden;}
+.ai-progress-bar{background:linear-gradient(90deg,#7c3aed,#2563eb);height:100%;
+  border-radius:20px;width:0%;transition:width .4s ease;}
+.ai-progress-txt{font-size:.7rem;color:#64748b;margin-top:4px;text-align:center;}
+.ai-status{font-size:.75rem;margin-top:8px;padding:8px 12px;border-radius:8px;
+  display:none;line-height:1.5;}
+.ai-status.ok{background:#dcfce7;color:#14532d;}
+.ai-status.err{background:#fee2e2;color:#7f1d1d;}
+.ai-status.info{background:#dbeafe;color:#1e40af;}
+
+/* action buttons */
+.ai-cat-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+.ai-run-btn{flex:1;padding:10px;border-radius:8px;border:none;
+  background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;
+  font-weight:800;font-size:.85rem;cursor:pointer;transition:background .4s ease;
+  position:relative;overflow:hidden;min-height:42px;}
+.ai-run-btn:hover{filter:brightness(1.08);}
+.ai-run-btn:disabled{cursor:not-allowed;}
+.ai-run-btn .btn-fill{
+  position:absolute;left:0;top:0;height:100%;
+  background:linear-gradient(135deg,#16a34a,#0891b2);
+  transition:width .5s ease;width:0%;border-radius:8px;z-index:0;}
+.ai-run-btn .btn-label{position:relative;z-index:1;pointer-events:none;}
+.ai-clear-btn{padding:10px 16px;border-radius:8px;border:none;
+  background:#f1f5f9;color:#475569;font-weight:700;font-size:.78rem;cursor:pointer;}
+.ai-clear-btn:hover{background:#e2e8f0;}
+
+/* AI kategori badge in table */
+.aibadge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:.62rem;
+  font-weight:700;white-space:nowrap;background:#ede9fe;color:#4c1d95;border:1px solid #c4b5fd;}
+.aibadge.empty{background:#f1f5f9;color:#94a3b8;border-color:#e2e8f0;font-weight:400;font-style:italic;}
+
+/* empty / loading */
+.empty{text-align:center;padding:60px 20px;color:#94a3b8;font-size:.9rem;}
+.empty .ei{font-size:3rem;display:block;margin-bottom:12px;}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9000;
+  align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:#fff;border-radius:14px;padding:28px 32px;max-width:640px;
+  width:92%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.25);}
+.modal h2{font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:14px;}
+.modal-close{float:right;background:none;border:none;font-size:1.2rem;cursor:pointer;color:#94a3b8;}
+.col-map-grid{display:grid;grid-template-columns:1fr 24px 1fr;gap:8px;align-items:center;
+  font-size:.76rem;margin-bottom:8px;}
+.col-map-grid .arrow{text-align:center;color:#64748b;}
+.col-map-grid select{border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 7px;
+  font-size:.75rem;outline:none;}
+.col-map-grid select:focus{border-color:#2563eb;}
+.map-field-label{font-weight:600;color:#1e293b;}
+.map-btn{display:block;width:100%;margin-top:16px;padding:10px;border-radius:8px;
+  border:none;background:#2563eb;color:#fff;font-weight:700;font-size:.84rem;cursor:pointer;}
+.map-btn:hover{background:#1d4ed8;}
+.map-hint{font-size:.65rem;color:#64748b;margin-top:10px;text-align:center;}
+
+/* scroll table */
+.table-outer{max-height:calc(100vh - 280px);overflow:auto;}
+
+/* ── SNAPSHOTS MODAL ── */
+.snap-modal-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9200;
+  align-items:center;justify-content:center;}
+.snap-modal-bg.open{display:flex;}
+.snap-box{background:#fff;border-radius:14px;padding:26px 28px 22px;width:min(560px,96vw);
+  max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.25);}
+.snap-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;}
+.snap-box .snap-sub{font-size:.7rem;color:#94a3b8;margin-bottom:16px;}
+.snap-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;}
+.snap-name-row{display:flex;gap:8px;margin-bottom:16px;}
+.snap-name-inp{flex:1;border:1.5px solid #e2e8f0;border-radius:7px;padding:7px 10px;
+  font-size:.8rem;outline:none;}
+.snap-name-inp:focus{border-color:#2563eb;}
+.snap-save-btn{background:#2563eb;color:#fff;border:none;border-radius:7px;
+  padding:7px 18px;font-size:.79rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.snap-save-btn:hover{background:#1d4ed8;}
+.snap-list{display:flex;flex-direction:column;gap:8px;}
+.snap-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:10px 14px;
+  display:flex;align-items:center;gap:10px;background:#f8fafc;transition:.15s;}
+.snap-item:hover{border-color:#bfdbfe;background:#eff6ff;}
+.snap-item-info{flex:1;min-width:0;}
+.snap-item-name{font-size:.82rem;font-weight:700;color:#1e293b;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.snap-item-meta{font-size:.66rem;color:#94a3b8;margin-top:2px;}
+.snap-load-btn{background:#16a34a;color:#fff;border:none;border-radius:7px;
+  padding:5px 13px;font-size:.73rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.snap-load-btn:hover{background:#15803d;}
+.snap-del-btn{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:7px;
+  padding:5px 10px;font-size:.73rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.snap-del-btn:hover{background:#fecaca;}
+.snap-empty{text-align:center;padding:30px;color:#94a3b8;font-size:.8rem;}
+.snap-toast{position:fixed;bottom:24px;right:24px;background:#1e293b;color:#fff;
+  border-radius:10px;padding:10px 20px;font-size:.8rem;font-weight:600;z-index:9999;
+  opacity:0;transform:translateY(12px);transition:.3s;pointer-events:none;}
+.snap-toast.show{opacity:1;transform:translateY(0);}
+
+/* ── ATTACHMENTS MODAL ── */
+.att-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9600;
+  align-items:center;justify-content:center;}
+.att-bg.open{display:flex;}
+.att-box{background:#fff;border-radius:14px;padding:26px 28px 22px;width:min(580px,96vw);
+  max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);}
+.att-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;}
+.att-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;}
+.att-sub{font-size:.72rem;color:#64748b;margin-bottom:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.att-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;}
+.att-upload-btn{background:#2563eb;color:#fff;border:none;border-radius:8px;
+  padding:8px 18px;font-size:.78rem;font-weight:700;cursor:pointer;}
+.att-upload-btn:hover{background:#1d4ed8;}
+.att-list{display:flex;flex-direction:column;gap:8px;}
+.att-item{border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 13px;
+  display:flex;align-items:center;gap:10px;background:#f8fafc;}
+.att-item:hover{border-color:#bfdbfe;}
+.att-item-icon{font-size:1.5rem;line-height:1;flex-shrink:0;}
+.att-item-info{flex:1;min-width:0;}
+.att-item-name{font-size:.8rem;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.att-item-meta{font-size:.65rem;color:#94a3b8;margin-top:2px;}
+.att-dl-btn{background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:7px;
+  padding:5px 11px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.att-dl-btn:hover{background:#bbf7d0;}
+.att-del-btn{background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:7px;
+  padding:5px 9px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap;}
+.att-del-btn:hover{background:#fecaca;}
+.att-empty{text-align:center;padding:28px;color:#94a3b8;font-size:.8rem;}
+.att-chip{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#059669,#0891b2);
+  color:#fff;border:none;border-radius:10px;padding:2px 9px;
+  font-size:.65rem;font-weight:800;cursor:pointer;white-space:nowrap;line-height:1.6;
+  box-shadow:0 2px 8px rgba(5,150,105,.45);}
+.att-chip:hover{filter:brightness(1.1);transform:scale(1.05);}
+.att-chip-empty{display:inline-flex;align-items:center;background:#f1f5f9;
+  color:#94a3b8;border:1px solid #e2e8f0;border-radius:10px;padding:1px 7px;
+  font-size:.62rem;cursor:pointer;line-height:1.6;}
+.att-chip-empty:hover{background:#e2e8f0;color:#475569;}
+/* all-files modal */
+.attall-bg{display:none;position:fixed;inset:0;background:rgba(15,23,42,.65);z-index:9700;
+  align-items:center;justify-content:center;}
+.attall-bg.open{display:flex;}
+.attall-box{background:#fff;border-radius:14px;padding:26px 28px 22px;width:min(720px,96vw);
+  max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);}
+.attall-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:4px;}
+.attall-close{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8;}
+.attall-search{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:7px 12px;
+  font-size:.8rem;margin-bottom:14px;outline:none;box-sizing:border-box;}
+.attall-search:focus{border-color:#2563eb;}
+.attall-row{border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 14px;
+  display:flex;align-items:center;gap:10px;background:#f8fafc;margin-bottom:7px;}
+.attall-row:hover{border-color:#bfdbfe;background:#eff6ff;}
+.attall-rowlabel{font-size:.67rem;font-weight:700;color:#0891b2;background:#ecfeff;
+  border:1px solid #a5f3fc;border-radius:8px;padding:2px 8px;white-space:nowrap;}
+/* topbar dosyalar badge */
+#allFilesBadge{display:inline-block;background:#ef4444;color:#fff;border-radius:9px;
+  padding:0 5px;font-size:.6rem;font-weight:800;margin-left:3px;line-height:1.6;vertical-align:middle;}
+
+/* ── DASHBOARD MODAL ── */
+.dash-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9800;
+  align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 12px 40px;}
+.dash-bg.open{display:flex;}
+.dash-box{background:#f8fafc;border-radius:18px;width:min(1380px,100%);padding:28px 28px 32px;
+  box-shadow:0 24px 60px rgba(0,0,0,.18);border:1px solid #e2e8f0;}
+.dash-header{display:flex;align-items:center;gap:10px;margin-bottom:24px;flex-wrap:wrap;}
+.dash-header h2{font-size:1.1rem;font-weight:900;color:#1e293b;flex:1;}
+.dash-scope{font-size:.72rem;color:#475569;background:#f1f5f9;border-radius:20px;padding:4px 14px;border:1px solid #e2e8f0;}
+.dash-pdf{background:#2563eb;border:none;color:#fff;border-radius:8px;padding:6px 14px;font-size:.78rem;cursor:pointer;font-weight:700;}
+.dash-pdf:hover{background:#1d4ed8;}
+.dash-close{background:#fff;border:1px solid #e2e8f0;color:#64748b;
+  border-radius:8px;padding:6px 14px;font-size:.78rem;cursor:pointer;font-weight:700;}
+.dash-close:hover{background:#fef2f2;color:#dc2626;border-color:#fca5a5;}
+.dash-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:24px;}
+.dash-kpi{background:#fff;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,.06);
+  border-radius:12px;padding:14px 18px;}
+.dash-kpi .kp-label{font-size:.62rem;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.dash-kpi .kp-value{font-size:1.55rem;font-weight:900;color:#111827;line-height:1;}
+.dash-kpi .kp-sub{font-size:.65rem;color:#9ca3af;margin-top:3px;}
+.dash-kpi.accent-green .kp-value{color:#059669;}
+.dash-kpi.accent-red .kp-value{color:#dc2626;}
+.dash-kpi.accent-amber .kp-value{color:#d97706;}
+.dash-kpi.accent-blue .kp-value{color:#2563eb;}
+.dash-kpi.accent-purple .kp-value{color:#7c3aed;}
+.dash-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;}
+.dc{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+.dc h4{font-size:.7rem;font-weight:800;color:#475569;text-transform:uppercase;
+  letter-spacing:.07em;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+.dc h4 .dci{font-size:.95rem;}
+.dc-c3{grid-column:span 3;}
+.dc-c4{grid-column:span 4;}
+.dc-c5{grid-column:span 5;}
+.dc-c6{grid-column:span 6;}
+.dc-c7{grid-column:span 7;}
+.dc-c8{grid-column:span 8;}
+.dc-c12{grid-column:span 12;}
+.dc canvas{display:block;width:100%!important;}
+@media(max-width:900px){
+  .dc-c3,.dc-c4,.dc-c5,.dc-c6,.dc-c7,.dc-c8{grid-column:span 12;}
+}
+.dash-top5{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;}
+.dash-top5 li{display:flex;align-items:center;gap:8px;font-size:.72rem;}
+.dash-top5 li .t5-label{flex:1;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+.dash-top5 li .t5-bar-bg{flex:2;background:#f3f4f6;border-radius:20px;height:7px;overflow:hidden;}
+.dash-top5 li .t5-bar{height:100%;border-radius:20px;background:linear-gradient(90deg,#7c3aed,#2563eb);}
+.dash-top5 li .t5-cnt{min-width:28px;text-align:right;color:#6b7280;font-size:.68rem;font-weight:700;}
+
+/* ── HEATMAP ── */
+.hm-wrap{overflow-x:auto;margin-top:8px;}
+.hm-table{border-collapse:collapse;font-size:.62rem;white-space:nowrap;}
+.hm-table th{background:#f1f5f9;color:#475569;padding:5px 8px;font-weight:700;
+  text-align:center;position:sticky;top:0;z-index:2;border-bottom:1px solid #e2e8f0;
+  letter-spacing:.04em;white-space:nowrap;}
+.hm-table th.hm-rowhead{position:sticky;left:0;z-index:3;text-align:left;background:#f1f5f9;
+  min-width:140px;max-width:180px;overflow:hidden;text-overflow:ellipsis;}
+.hm-table td{padding:4px 6px;text-align:center;min-width:38px;border:1px solid #e5e7eb;
+  font-weight:700;font-size:.65rem;cursor:default;transition:filter .1s;}
+.hm-table td:hover{filter:brightness(.9);outline:1px solid #374151;}
+.hm-row-label{background:#f8fafc;color:#374151;padding:5px 8px;text-align:left;
+  position:sticky;left:0;z-index:1;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+.hm-total-row td,.hm-total-row th{background:#eff6ff!important;color:#2563eb!important;font-weight:800;}
+.hm-dim-btn{background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;border-radius:6px;
+  padding:4px 12px;font-size:.7rem;font-weight:700;cursor:pointer;transition:.15s;}
+.hm-dim-btn.active{background:#2563eb;border-color:#3b82f6;color:#fff;}
+.hm-dim-btn:hover:not(.active){border-color:#94a3b8;color:#1e293b;}
+
+/* ── DASHBOARD PRINT TITLE (screen) ── */
+#dashPrintTitle{border-bottom:2px solid #e2e8f0;padding-bottom:14px;margin-bottom:20px;}
+#dashPrintTitle h1{font-size:1.05rem;font-weight:900;color:#111827;margin:0 0 5px;}
+#dashPrintTitle .pt-meta{font-size:.72rem;color:#6b7280;margin:0 0 8px;}
+#dashPrintTitle .pt-nofilter{font-size:.72rem;color:#94a3b8;font-style:italic;}
+#dashPrintTitle .pt-pills{display:flex;flex-wrap:wrap;gap:6px;}
+#dashPrintTitle .pt-pill{background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;padding:3px 10px;font-size:.7rem;color:#1d4ed8;font-weight:600;}
+#dashPrintTitle .pt-pill.date{background:#f0fdf4;border-color:#bbf7d0;color:#15803d;}
+
+/* ── PRINT / PDF ── */
+@media print{
+  body *{visibility:hidden;}
+  #dashModal,#dashModal *{visibility:visible;}
+  #dashModal{position:absolute;left:0;top:0;background:none!important;padding:0!important;overflow:visible!important;}
+  .dash-box{width:100%!important;max-height:none!important;overflow:visible!important;
+    box-shadow:none!important;border:none!important;border-radius:0!important;padding:10px!important;}
+  .dash-pdf,.dash-close,.hm-dim-btn,#hmMaxRows,#hmMaxRowsLabel{display:none!important;}
+  .dc{break-inside:avoid;box-shadow:none!important;}
+  .dash-grid{gap:10px!important;}
+  #dashPrintTitle{display:block!important;border-bottom:2px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px;}
+  #dashPrintTitle h1{font-size:1.2rem;font-weight:900;color:#111827;margin:0 0 6px;}
+  #dashPrintTitle .pt-meta{font-size:.75rem;color:#6b7280;margin:0 0 8px;}
+  #dashPrintTitle .pt-pills{display:flex;flex-wrap:wrap;gap:6px;}
+  #dashPrintTitle .pt-pill{background:#eff6ff;border:1px solid #bfdbfe;border-radius:20px;
+    padding:3px 10px;font-size:.7rem;color:#1d4ed8;font-weight:700;}
+  #dashPrintTitle .pt-pill.date{background:#f0fdf4;border-color:#bbf7d0;color:#15803d;}
+  @page{size:A3 landscape;margin:10mm;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ═══ -->
+<div class="topbar">
+  <div>
+    <div style="font-size:.62rem;opacity:.7;letter-spacing:.1em;text-transform:uppercase;">Kalite Yönetim Sistemi</div>
+    <h1>📋 DÖF — Düzeltici Önleyici Faaliyetler</h1>
+  </div>
+  <div class="sp"></div>
+  <button class="tbb" onclick="document.getElementById('excelInput').click()">📂 DÖF Excel Yükle</button>
+  <button class="tbb" style="background:rgba(14,116,144,.55);border-color:rgba(14,116,144,.7);" onclick="document.getElementById('musteriInput').click()">📋 Müşteri Şik. Ekle</button>
+  <input type="file" id="musteriInput" accept=".xlsx,.xls,.csv" onchange="handleMusteriFile(this)" style="display:none">
+  <button class="tbb" onclick="exportCSV()">⬇️ CSV İndir</button>
+  <button class="tbb" onclick="exportExcel()">⬇️ Excel İndir</button>
+  <button class="tbb ok" id="snapSaveBtn" style="display:none" onclick="saveSnapshot()">💾 Kaydet</button>
+  <button class="tbb" id="snapLoadBtn" onclick="openSnapModal()">🗂 Kayıtlar</button>
+  <button class="tbb danger" onclick="clearData()">🗑 Temizle</button>
+  <button class="tbb" id="allFilesBtn" onclick="openAllFilesModal()" style="background:rgba(5,150,105,.55);border-color:rgba(5,150,105,.7);">📎 Dosyalar<span id="allFilesBadge" style="display:none;"></span></button>
+  <button class="tbb" id="dashBtn" style="display:none;background:linear-gradient(135deg,rgba(16,185,129,.7),rgba(37,99,235,.7));" onclick="openDashboard()">📊 Dashboard</button>
+  <button class="tbb" id="aiCatBtn" style="display:none;background:linear-gradient(135deg,rgba(124,58,237,.85),rgba(37,99,235,.85));border-color:rgba(167,139,250,.5);" onclick="openAiCatModal()">🤖 AI Kategorize</button>
+  <input type="file" id="excelInput" accept=".xlsx,.xls,.csv" onchange="handleFile(this)" style="display:none">
+</div>
+
+<!-- ═══ UPLOAD ZONE (shown when no data) ═══ -->
+<div class="upload-zone" id="uploadZone"
+  ondragover="event.preventDefault();this.classList.add('drag')"
+  ondragleave="this.classList.remove('drag')"
+  ondrop="event.preventDefault();this.classList.remove('drag');handleDrop(event)"
+  onclick="document.getElementById('excelInput').click()">
+  <div class="uicon">📊</div>
+  <h2>DÖF Excel Dosyasını Yükleyin</h2>
+  <p>Dosyayı buraya sürükleyip bırakın ya da aşağıdaki butonu kullanın.<br>
+     Desteklenen format: <strong>.xlsx · .xls · .csv</strong></p>
+  <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('excelInput').click()">
+    📂 Dosya Seç
+  </button>
+</div>
+
+<!-- ═══ MAIN TABLE AREA (hidden until data loaded) ═══ -->
+<div id="mainArea" style="display:none;">
+
+  <!-- Stats -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-chip">Toplam: <span id="statTotal">0</span></div>
+    <div class="stat-chip">Görünen: <span id="statVisible">0</span></div>
+    <div class="stat-chip">Açık: <span id="statOpen">—</span></div>
+    <div class="stat-chip">Geciken: <span id="statLate">—</span></div>
+    <div id="activeFilterBadge" class="filter-count" style="display:none;"></div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-bar-top">
+      <label>Filtrele</label>
+      <input type="text" class="filter-search" id="globalSearch"
+        placeholder="Genel arama (tüm alanlarda)..." oninput="applyFilters()">
+      <button class="filter-reset" onclick="resetFilters()">✕ Sıfırla</button>
+      <button class="filter-save-preset" onclick="saveFilterPreset()">📌 Filtre Kaydet</button>
+      <button class="filter-toggle" onclick="toggleFilters()">⚙ Diğer Filtreler</button>
+    </div>
+    <!-- Saved filter presets -->
+    <div id="filterPresets"></div>
+    <!-- Quick filters — always visible -->
+    <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;">
+      <div class="quick-filters" id="quickFilters" style="flex:1;min-width:0;"></div>
+      <button onclick="resetFilters()" title="Tüm filtreleri sıfırla"
+        style="flex-shrink:0;height:36px;padding:0 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+        ✕ Filtreleri Sıfırla
+      </button>
+    </div>
+    <!-- Full column filter grid — toggled -->
+    <div class="filter-grid" id="filterGrid" style="display:none;"></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-outer">
+    <div class="table-wrap">
+      <table id="dofTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ AI KATEGORIZE MODAL ═══ -->
+<div class="ai-cat-modal-bg" id="aiCatModal">
+  <div class="ai-cat-box">
+    <button class="ai-cat-close" onclick="closeAiCatModal()">✕</button>
+    <h3>🤖 AI ile Başlık Kategorilendirme</h3>
+
+    <!-- Provider tabs -->
+    <div class="ai-ptabs">
+      <button class="ai-ptab active" id="dofTabGroq"   onclick="setDofProvider('groq')">🟠 Groq</button>
+      <button class="ai-ptab or"    id="dofTabOR"     onclick="setDofProvider('openrouter')">🟣 OpenRouter</button>
+      <button class="ai-ptab gem"   id="dofTabGemini" onclick="setDofProvider('gemini')">🔵 Gemini</button>
+      <button class="ai-ptab oai"   id="dofTabOAI"    onclick="setDofProvider('openai')">🟢 OpenAI</button>
+    </div>
+
+    <!-- Groq -->
+    <div id="dofKeyGroq">
+      <div class="ai-key-row">
+        <input class="ai-key-inp" id="dofKeyGroqInp" type="password" placeholder="gsk_...">
+        <button class="ai-test-btn" onclick="testDofAPI('groq')">🔬 Test</button>
+      </div>
+      <div class="ai-key-hint">Ücretsiz · <a href="https://console.groq.com" target="_blank">console.groq.com → API Keys</a></div>
+    </div>
+    <!-- Gemini -->
+    <div id="dofKeyGemini" style="display:none">
+      <div class="ai-key-row">
+        <input class="ai-key-inp" id="dofKeyGeminiInp" type="password" placeholder="AIzaSy...">
+        <button class="ai-test-btn" onclick="testDofAPI('gemini')">🔬 Test</button>
+      </div>
+      <div class="ai-key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key</a></div>
+      <select class="ai-model-sel" id="dofGeminiModel">
+        <option value="gemini-2.0-flash">✅ Gemini 2.0 Flash</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash Preview</option>
+      </select>
+    </div>
+    <!-- OpenAI -->
+    <div id="dofKeyOAI" style="display:none">
+      <div class="ai-key-row">
+        <input class="ai-key-inp" id="dofKeyOAIInp" type="password" placeholder="sk-proj-...">
+        <button class="ai-test-btn" onclick="testDofAPI('openai')">🔬 Test</button>
+      </div>
+      <div class="ai-key-hint"><a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com → API keys</a></div>
+      <select class="ai-model-sel" id="dofOaiModel">
+        <option value="gpt-4o-mini">✅ GPT-4o mini — Hızlı, ucuz</option>
+        <option value="gpt-4o">GPT-4o</option>
+        <option value="o4-mini">o4-mini</option>
+      </select>
+    </div>
+    <!-- OpenRouter -->
+    <div id="dofKeyOR" style="display:none">
+      <div class="ai-key-row">
+        <input class="ai-key-inp" id="dofKeyORInp" type="password" placeholder="sk-or-...">
+        <button class="ai-test-btn" onclick="testDofAPI('openrouter')">🔬 Test</button>
+      </div>
+      <div class="ai-key-hint">Ücretsiz modeller mevcut · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys</a></div>
+      <select class="ai-model-sel" id="dofOrModel">
+        <option value="deepseek/deepseek-r1:free">✅ DeepSeek R1 (ücretsiz)</option>
+        <option value="deepseek/deepseek-chat:free">DeepSeek V3 Chat (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
+        <option value="google/gemma-3-27b-it:free">Gemma 3 27B (ücretsiz)</option>
+        <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz)</option>
+      </select>
+    </div>
+
+    <!-- Category section -->
+    <div class="cat-section">
+      <label>Kategori Listesi <span style="font-weight:400;font-size:.65rem;color:#94a3b8;">— kaldırmak için × butonuna tıklayın</span></label>
+      <div class="cat-tags" id="catTagsContainer"></div>
+      <div class="cat-add-row">
+        <input class="cat-add-inp" id="catNewInp" placeholder="Yeni kategori ekle..." onkeydown="if(event.key==='Enter')addCatTag()">
+        <button class="cat-add-btn" onclick="addCatTag()">+ Ekle</button>
+        <button class="cat-suggest-btn" id="suggestBtn" onclick="suggestCategories()">💡 AI Öneri</button>
+      </div>
+    </div>
+
+    <!-- Progress -->
+
+    <div class="ai-status" id="aiCatStatus"></div>
+
+    <!-- Actions -->
+    <div class="ai-cat-actions">
+      <button class="ai-run-btn" id="aiRunBtn" onclick="startCategorization()">
+        <span class="btn-fill" id="aiRunFill"></span>
+        <span class="btn-label" id="aiRunLabel">🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">0</span> kayıt)</span>
+      </button>
+      <div style="display:flex;flex-direction:column;gap:4px;flex:0 0 auto;">
+        <button class="ai-run-btn" id="aiRetryBtn" onclick="retryCategorization()" style="background:linear-gradient(135deg,#0369a1,#0891b2);width:auto;padding:10px 16px;font-size:.78rem;">
+          <span class="btn-fill" id="aiRetryFill"></span>
+          <span class="btn-label" id="aiRetryLabel">🔄 Eksikleri Tamamla</span>
+        </button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#94a3b8;cursor:pointer;padding:0 4px;">
+          <input type="checkbox" id="retryIncludeIslenemedi" checked style="accent-color:#e11d48;cursor:pointer;">
+          <span>"İşlenemedi" olanları yeniden dene</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#94a3b8;cursor:pointer;padding:0 4px;">
+          <input type="checkbox" id="retryIncludeDiger" style="accent-color:#0891b2;cursor:pointer;">
+          <span>"Diğer" olanları da yeniden değerlendir</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:#f59e0b;cursor:pointer;padding:0 4px;border-top:1px solid #334155;margin-top:2px;padding-top:6px;">
+          <input type="checkbox" id="retryOnlyFiltered" style="accent-color:#f59e0b;cursor:pointer;">
+          <span>Sadece süzdüklerimi işle (<span id="retryFilteredCount">0</span> görünen)</span>
+        </label>
+      </div>
+      <button class="ai-clear-btn" onclick="clearAiCategories()">🗑 Temizle</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ DASHBOARD MODAL ═══ -->
+<div class="dash-bg" id="dashModal">
+  <div class="dash-box">
+    <div id="dashPrintTitle"></div>
+    <div class="dash-header">
+      <h2>📊 DÖF Analiz Dashboard'u</h2>
+      <span class="dash-scope" id="dashScope">Tüm kayıtlar</span>
+      <button class="dash-pdf" onclick="printDashboard()">🖨 PDF Al</button>
+      <button class="dash-close" onclick="closeDashboard()">✕ Kapat</button>
+    </div>
+    <div class="dash-kpis" id="dashKpis"></div>
+    <div class="dash-grid">
+      <div class="dc dc-c4"><h4><span class="dci">🎯</span> Tipi Dağılımı</h4><canvas id="dch_tipi" height="220"></canvas></div>
+      <div class="dc dc-c4"><h4><span class="dci">📦</span> Cinsi Dağılımı</h4><canvas id="dch_cinsi" height="220"></canvas></div>
+      <div class="dc dc-c4"><h4><span class="dci">🏷️</span> Kategori Dağılımı</h4><canvas id="dch_aikat" height="220"></canvas></div>
+      <div class="dc dc-c8"><h4><span class="dci">📅</span> Yıllara Göre DÖF Sayısı</h4><canvas id="dch_yil" height="200"></canvas></div>
+      <div class="dc dc-c4"><h4><span class="dci">🏢</span> Top Şubeler</h4><ul class="dash-top5" id="dch_sube_top"></ul></div>
+      <div class="dc dc-c12"><h4><span class="dci">📈</span> Aylık DÖF Trendi (Şikayet Tarihine Göre)</h4><canvas id="dch_trend" height="110"></canvas></div>
+      <div class="dc dc-c6"><h4><span class="dci">👤</span> Top Açan Kişiler</h4><canvas id="dch_acan" height="200"></canvas></div>
+      <div class="dc dc-c6"><h4><span class="dci">🏭</span> Cari (Müşteri) Dağılımı</h4><canvas id="dch_cari" height="200"></canvas></div>
+      <div class="dc dc-c12" id="dc_heatmap">
+        <h4 style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span class="dci">🟥</span> Isı Matrisi
+          <span style="margin-left:auto;display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+            <button class="hm-dim-btn active" id="hmBtnCari" onclick="setHmDim('cariAdi')">Cari</button>
+            <button class="hm-dim-btn" id="hmBtnStok" onclick="setHmDim('stokAdi')">Stok</button>
+            <button class="hm-dim-btn" id="hmBtnKat" onclick="setHmDim('_aiKategori')">Kategori</button>
+            <button class="hm-dim-btn" id="hmBtnSube" onclick="setHmDim('subeAdi')">Şube</button>
+            <span style="width:1px;height:18px;background:#334155;display:inline-block;margin:0 2px;"></span>
+            <button class="hm-dim-btn active" id="hmBtnAy" onclick="setHmCol('ay')">Ay/Yıl</button>
+            <button class="hm-dim-btn" id="hmBtnYil" onclick="setHmCol('yil')">Yıl</button>
+            <span style="width:1px;height:18px;background:#334155;display:inline-block;margin:0 2px;"></span>
+            <label style="font-size:.68rem;color:#94a3b8;font-weight:400;">Maks satır:</label>
+            <input id="hmMaxRows" type="number" value="20" min="5" max="100"
+              style="width:52px;background:#f8fafc;border:1px solid #e2e8f0;color:#374151;border-radius:5px;padding:2px 4px;font-size:.72rem;"
+              oninput="renderHeatmap()">
+          </span>
+        </h4>
+        <div class="hm-wrap"><div id="heatmapTable"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ALL FILES MODAL ═══ -->
+<div class="attall-bg" id="allFilesModal">
+  <div class="attall-box">
+    <button class="attall-close" onclick="closeAllFilesModal()">✕</button>
+    <h3>📎 Tüm Ekli Dosyalar</h3>
+    <p style="font-size:.72rem;color:#64748b;margin-bottom:12px;">Tüm satırlara eklenen dosyaların listesi. Tıklayarak indirebilir veya silebilirsiniz.</p>
+    <input class="attall-search" id="allFilesSearch" type="text" placeholder="Dosya adı veya satır ara..." oninput="renderAllFiles()">
+    <div id="allFilesList"></div>
+  </div>
+</div>
+
+<!-- ═══ ATTACHMENTS MODAL ═══ -->
+<div class="att-bg" id="attModal">
+  <div class="att-box">
+    <button class="att-close" onclick="closeAttachModal()">✕</button>
+    <h3>📎 Dokümanlar</h3>
+    <p class="att-sub" id="attModalSub"></p>
+    <div class="att-toolbar">
+      <input type="file" id="attFileInput" multiple
+        accept=".xlsx,.xls,.doc,.docx,.pdf,.jpg,.jpeg,.png,.gif,.webp"
+        style="display:none" onchange="handleAttachFiles(this)">
+      <button class="att-upload-btn" onclick="document.getElementById('attFileInput').click()">+ Dosya Ekle</button>
+      <span style="font-size:.68rem;color:#94a3b8;">Excel, Word, PDF, Resim</span>
+    </div>
+    <div class="att-list" id="attList"></div>
+  </div>
+</div>
+
+<!-- ═══ SNAPSHOTS MODAL ═══ -->
+<div class="snap-modal-bg" id="snapModal">
+  <div class="snap-box">
+    <button class="snap-close" onclick="closeSnapModal()">✕</button>
+    <h3>🗂 Kayıtlı Durumlar</h3>
+    <p class="snap-sub">IndexedDB'de saklanır — tarayıcı çerezlerinden bağımsız, kalıcıdır.</p>
+    <!-- Save form -->
+    <div class="snap-name-row">
+      <input class="snap-name-inp" id="snapNameInp" placeholder="Kayıt adı (isteğe bağlı)..." onkeydown="if(event.key==='Enter')saveSnapshot()">
+      <button class="snap-save-btn" onclick="saveSnapshot()">💾 Mevcut Tabloyu Kaydet</button>
+    </div>
+    <!-- List -->
+    <div class="snap-list" id="snapList"></div>
+  </div>
+</div>
+<div class="snap-toast" id="snapToast"></div>
+
+<!-- ═══ COLUMN MAPPING MODAL ═══ -->
+<div class="modal-bg" id="mapModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeMapModal()">✕</button>
+    <h2>📌 Kolon Eşleştirme</h2>
+    <p style="font-size:.74rem;color:#64748b;margin-bottom:16px;">
+      Excel'in hangi kolonu hangi DÖF alanına karşılık geliyor? Seçin.
+    </p>
+    <div id="mapGrid"></div>
+    <button class="map-btn" onclick="applyMapping()">✅ Uygula ve Yükle</button>
+    <p class="map-hint">Eşleştirmek istemediğiniz alanları boş bırakın.</p>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  FIELD DEFINITIONS
+// ─────────────────────────────────────────────
+const FIELDS = [
+  { key:'dofSeri',     label:'DÖF Seri',          type:'text',   aliases:['dof seri','döf seri','dof no','döf no','seri no','Şikayet form no','şikayet form no','complaint form no','şikayet form','Şikayet form','form no','şikayet no','Şikayet no'] },
+  { key:'dofS',        label:'DÖF S.',             type:'text',   aliases:['dof s','döf s','s.','durum no','dof sira','döf sira','dof sıra','döf sıra','sira','sıra','sıra no','sira no','no.','sequence'] },
+  { key:'baslik',      label:'Başlık',             type:'text',   aliases:['başlık','baslik','konu','title','açıklama','Şikayet konusu','şikayet konusu','complaint description','complaint subject','Şikayet konu'] },
+  { key:'acmaTarihi',  label:'Açma Tarihi',        type:'date',   aliases:['açma tarihi','acma tarihi','açılış tarihi','open date'] },
+  { key:'sikayetTar',  label:'Şikayet Tarihi',     type:'date',   aliases:['şikayet tarihi','sikayet tarihi','şikayet tar','sikayet'] },
+  { key:'tahminiKap',  label:'Tahmini Kapanış',    type:'date',   aliases:['tahmini kapanış','tahmini ka','tahmini kapanis','hedef tarih','kapanış'] },
+  { key:'acanKisi',    label:'Açan Kişi',          type:'select', aliases:['açan kişi','acan kisi','açan ki','acan ki','açan'] },
+  { key:'lider',       label:'Lider',              type:'select', aliases:['lider','sorumlu','leader'] },
+  { key:'uyeler',      label:'Üyeler',             type:'text',   aliases:['üyeler','uyeler','members','ekip','d.ö.f. uygulama sorumluları','dof uygulama sorumluları','uygulama sorumluları','responsible for implementing capa','responsible','implementing capa'] },
+  { key:'tipi',        label:'Tipi',               type:'select', aliases:['tipi','tip','type','tür','tur'] },
+  { key:'cinsi',       label:'Cinsi',              type:'select', aliases:['cinsi','cins','kind','kategori'] },
+  { key:'cariKodu',    label:'Cari Kodu',          type:'text',   aliases:['cari kodu','cari kod','müşteri kodu','musteri kodu'] },
+  { key:'cariAdi',     label:'Cari Adı',           type:'select', aliases:['cari adı','cari adi','müşteri adı','musteri adi','firma','müşteri','customer name','musteri'] },
+  { key:'stokKodu',    label:'Stok Kodu',          type:'text',   aliases:['stok kodu','stok kod','ürün kodu','urun kodu','malzeme kodu','parça kodu','parca kodu','part code','part no'] },
+  { key:'stokAdi',     label:'Stok Adı',           type:'select', aliases:['stok adı','stok adi','ürün adı','urun adi','malzeme','parça adı','parca adi','part name','part'] },
+  { key:'subeAdi',     label:'Şube Adı',           type:'select', aliases:['şube adı','sube adi','şube','departman','bölüm','bolum'] },
+];
+
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let _rawRows   = [];   // all parsed rows { key: value }
+let _filtered  = [];   // after filters
+let _sortCol   = null;
+let _sortDir   = 1;    // 1=asc, -1=desc
+let _rawHeaders = [];  // original excel headers
+let _rawData    = [];  // raw excel data rows (for mapping modal)
+let _mapping    = {};  // { fieldKey: excelColIndex }
+let _filterVals = {};  // { fieldKey: string }
+
+// ─────────────────────────────────────────────
+//  EXCEL HANDLING
+// ─────────────────────────────────────────────
+function handleDrop(e){
+  const file = e.dataTransfer.files[0];
+  if(file) parseFile(file);
+}
+function handleMusteriDrop(e){ const f=e.dataTransfer?.files?.[0]; if(f) parseMusteriFile(f); }
+function handleMusteriFile(input){ const f=input.files[0]; if(f){ parseMusteriFile(f); input.value=''; } }
+
+// Fixed column mapping for Müşteri Şikayetleri Excel
+const MUSTERI_MAP = {
+  dofSeri    : ['şikayet form no','Şikayet form no','complaint form no','şikayet form','Şikayet form','form no','şikayet no','Şikayet no'],
+  cariAdi    : ['müşteri adı','musteri adi','customer name','müşteri','musteri'],
+  stokKodu   : ['parça kodu','parca kodu','part code','part no'],
+  stokAdi    : ['parça adı','parca adi','part name','part description'],
+  baslik     : ['şikayet konusu','Şikayet konusu','complaint description','complaint subject','şikayet konu','Şikayet konu','konu'],
+  sikayetTar : ['şikayet tarihi','Şikayet tarihi','complaint date','sikayet tarihi'],
+  uyeler     : ['d.ö.f. uygulama sorumluları','dof uygulama sorumluları','uygulama sorumluları','responsible for implementing capa','responsible','müşteri temsilcisi','customer representative'],
+  lider      : ['müşteri temsilcisi','customer representative','temsilci'],
+  sikayetMiktar : ['şikayet miktarı','Şikayet miktarı','complaint amount','miktar'],
+};
+
+function parseMusteriFile(file){
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, dateNF:'dd.mm.yyyy'});
+    if(!rows.length){ alert('Dosya boş görünüyor.'); return; }
+
+    // Find header row
+    let headerRow = 0;
+    for(let i=0;i<Math.min(15,rows.length);i++){
+      if((rows[i]||[]).filter(c=>c!==null&&c!==undefined&&String(c).trim()).length > 2){
+        headerRow = i; break;
+      }
+    }
+    const headers = (rows[headerRow]||[]).map(h=>String(h||'').trim());
+    const dataRows = rows.slice(headerRow+1).filter(r=>(r||[]).some(c=>c!==null&&c!==undefined&&String(c).trim()));
+
+    // Normalize: lowercase + strip spaces/dashes/dots + Turkish→Latin
+    function normCol(s){
+      return String(s||'').toLowerCase()
+        .replace(/İ/g,'i').replace(/ı/g,'i').replace(/Ş/g,'s').replace(/ş/g,'s')
+        .replace(/Ğ/g,'g').replace(/ğ/g,'g').replace(/Ü/g,'u').replace(/ü/g,'u')
+        .replace(/Ö/g,'o').replace(/ö/g,'o').replace(/Ç/g,'c').replace(/ç/g,'c')
+        .replace(/[\s\-_\.\(\)\/\\:;,]+/g,'');
+    }
+
+    console.log('[MüşteriParser] Ham sütun başlıkları:', headers);
+
+    // Map headers → MUSTERI_MAP keys
+    // Each cell may contain "Turkish\nEnglish" — split and check each part
+    const colMap = {}; // fieldKey → colIndex
+    headers.forEach((h,i)=>{
+      // Split on newline in case cell has multi-line header (TR\nEN)
+      const parts = String(h||'').split(/[\n\r]+/).map(p=>normCol(p)).filter(Boolean);
+      if(!parts.length) return;
+      Object.entries(MUSTERI_MAP).forEach(([fk,aliases])=>{
+        if(colMap[fk]!==undefined) return;
+        const normAliases = aliases.map(a=>normCol(a));
+        if(parts.some(p=>normAliases.includes(p))) colMap[fk]=i;
+      });
+    });
+
+    console.log('[MüşteriParser] Normalize parçalar:', headers.map(h=>String(h||'').split(/[\n\r]+/).map(normCol)));
+    console.log('[MüşteriParser] Eşleşen sütunlar:', colMap);
+
+    if(!Object.keys(colMap).length){
+      const headerList = headers.filter(h=>h).join('\n  ');
+      alert('Müşteri Şikayetleri dosyasında tanınan sütun bulunamadı.\n\nDosyadaki sütunlar:\n  ' + headerList + '\n\nBeklenen: Şikayet Form No, Müşteri Adı, Parça Kodu, Şikayet Konusu...\n\n(Konsol\'da detay için F12)');
+      return;
+    }
+
+    const newRows = dataRows.map(row=>{
+      const obj={};
+      FIELDS.forEach(f=>{ obj[f.key]=''; });
+      Object.entries(colMap).forEach(([fk,ci])=>{
+        const v = row[ci];
+        if(v!==null&&v!==undefined) obj[fk]=String(v).trim();
+      });
+      obj._kaynakTipi = 'Müşteri Şikayeti';
+      // Açma tarihi yoksa şikayet tarihini kullan
+      if(!obj.acmaTarihi && obj.sikayetTar) obj.acmaTarihi = obj.sikayetTar;
+      if(!obj._rowId) obj._rowId = crypto.randomUUID();
+      return obj;
+    }).filter(r=>FIELDS.some(f=>r[f.key]&&r[f.key]));
+
+    if(!newRows.length){ alert('Geçerli satır bulunamadı.'); return; }
+
+    // If no DÖF data yet, start fresh; otherwise append
+    if(_rawRows.length===0){
+      _rawRows = newRows;
+      _filterVals = {};
+      initUI();
+    } else {
+      _rawRows = [..._rawRows, ...newRows];
+      buildFilterGrid();
+      refreshAiCatFilter();
+      syncFilterDOM();
+      applyFilters();
+      updateSnapBtn();
+    }
+    showToast(`✅ ${newRows.length} Müşteri Şikayeti eklendi. Toplam: ${_rawRows.length}`);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function deleteRow(rowId){
+  const idx = _rawRows.findIndex(r=>r._rowId===rowId);
+  if(idx===-1) return;
+  const label = _rawRows[idx].dofSeri || _rawRows[idx].baslik || 'Bu satır';
+  if(!confirm(`"${label}" silinsin mi?`)) return;
+  _rawRows.splice(idx,1);
+  buildFilterGrid();
+  refreshAiCatFilter();
+  syncFilterDOM();
+  applyFilters();
+  updateSnapBtn();
+  showToast('🗑 Satır silindi.');
+}
+
+function deleteRow(rowId){
+  const idx = _rawRows.findIndex(r=>r._rowId===rowId);
+  if(idx===-1) return;
+  const label = _rawRows[idx].dofSeri || _rawRows[idx].baslik || 'Bu satır';
+  if(!confirm(`"${label}" silinsin mi?`)) return;
+  _rawRows.splice(idx,1);
+  buildFilterGrid();
+  refreshAiCatFilter();
+  syncFilterDOM();
+  applyFilters();
+  updateSnapBtn();
+  showToast('🗑 Satır silindi.');
+}
+
+function editSubeAdi(e, ridx){
+  e.stopPropagation();
+  const row = _filtered[ridx];
+  if(!row) return;
+  const td = e.currentTarget;
+  const cur = row.subeAdi||'';
+  td.innerHTML = `<input id="subeInp_${ridx}" type="text" value="${esc(cur)}" style="width:100%;min-width:80px;background:#0f172a;color:#e2e8f0;border:1px solid #38bdf8;border-radius:5px;padding:3px 6px;font-size:.74rem;" onclick="event.stopPropagation()" onkeydown="applySubeAdi(event,${ridx})" onblur="applySubeAdi(event,${ridx})"> `;
+  setTimeout(()=>{ const i=document.getElementById('subeInp_'+ridx); if(i){i.focus();i.select();} },30);
+}
+function applySubeAdi(e, ridx){
+  if(e.type==='keydown' && e.key!=='Enter' && e.key!=='Escape') return;
+  const inp = document.getElementById('subeInp_'+ridx);
+  if(!inp) return;
+  const val = e.key==='Escape' ? (_filtered[ridx]?.subeAdi||'') : inp.value.trim();
+  if(_filtered[ridx]) _filtered[ridx].subeAdi = val;
+  buildFilterGrid();
+  refreshAiCatFilter();
+  syncFilterDOM();
+  applyFilters();
+  updateSnapBtn();
+}
+
+function handleFile(input){
+  const file = input.files[0];
+  if(file){ parseFile(file); input.value=''; }
+}
+function parseFile(file){
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, {type:'array', cellDates:true});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, dateNF:'dd.mm.yyyy'});
+    if(!rows.length){ alert('Dosya boş görünüyor.'); return; }
+
+    // Find header row — first row with >3 non-empty cells
+    let headerRow = 0;
+    for(let i=0;i<Math.min(10,rows.length);i++){
+      if((rows[i]||[]).filter(c=>c!==null&&c!==undefined&&String(c).trim()).length > 3){
+        headerRow = i; break;
+      }
+    }
+    _rawHeaders = (rows[headerRow]||[]).map(h=>String(h||'').trim());
+    _rawData = rows.slice(headerRow+1).filter(r=>(r||[]).some(c=>c!==null&&c!==undefined&&String(c).trim()));
+
+    // Auto-map
+    _mapping = {};
+    FIELDS.forEach(f=>{
+      const idx = _rawHeaders.findIndex(h=>{
+        const hn = h.toLowerCase().replace(/[\s\-_\.]/g,'');
+        return f.aliases.some(a=>a.replace(/[\s\-_\.]/g,'')===hn);
+      });
+      if(idx>=0) _mapping[f.key] = idx;
+    });
+
+    // Check if we got enough auto-mapped (>=4) fields
+    const mapped = Object.keys(_mapping).length;
+    if(mapped >= 4){
+      applyMappingDirect();
+    } else {
+      openMapModal();
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─────────────────────────────────────────────
+//  MAPPING MODAL
+// ─────────────────────────────────────────────
+function openMapModal(){
+  const grid = document.getElementById('mapGrid');
+  grid.innerHTML = FIELDS.map(f=>{
+    const cur = _mapping[f.key] !== undefined ? _mapping[f.key] : -1;
+    const opts = _rawHeaders.map((h,i)=>`<option value="${i}" ${cur===i?'selected':''}>${h}</option>`).join('');
+    return `<div class="col-map-grid">
+      <div class="map-field-label">${f.label}</div>
+      <div class="arrow">→</div>
+      <select id="map_${f.key}">
+        <option value="-1">-- Eşleştirme yok --</option>
+        ${opts}
+      </select>
+    </div>`;
+  }).join('');
+  document.getElementById('mapModal').classList.add('open');
+}
+function closeMapModal(){ document.getElementById('mapModal').classList.remove('open'); }
+function applyMapping(){
+  FIELDS.forEach(f=>{
+    const val = parseInt(document.getElementById('map_'+f.key)?.value||'-1');
+    if(val>=0) _mapping[f.key]=val; else delete _mapping[f.key];
+  });
+  closeMapModal();
+  applyMappingDirect();
+}
+
+function applyMappingDirect(){
+  _rawRows = _rawData.map(row=>{
+    const obj={};
+    FIELDS.forEach(f=>{
+      const idx = _mapping[f.key];
+      if(idx!==undefined && idx>=0){
+        const v = row[idx];
+        obj[f.key] = v!==null&&v!==undefined ? String(v).trim() : '';
+      } else {
+        obj[f.key]='';
+      }
+    });
+    return obj;
+  }).filter(r=>Object.values(r).some(v=>v));
+
+  if(!_rawRows.length){ alert('Veri yüklenemedi. Kolon eşleştirmeyi kontrol edin.'); openMapModal(); return; }
+  _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
+  _filterVals = {};
+  initUI();
+}
+
+// Quick filter keys — always visible above the table
+const QUICK_KEYS = ['tipi','cinsi','sikayetTar','cariAdi','subeAdi'];
+
+// ─────────────────────────────────────────────
+//  UI INIT
+// ─────────────────────────────────────────────
+function initUI(){
+  document.getElementById('uploadZone').style.display='none';
+  document.getElementById('mainArea').style.display='';
+  document.getElementById('aiCatBtn').style.display='';
+  document.getElementById('dashBtn').style.display='';
+  updateSnapBtn();
+  buildFilterGrid();
+  refreshAiCatFilter();
+  syncFilterDOM();
+  renderFilterPresets();
+  applyFilters();
+}
+
+function buildFilterGrid(){
+  // ── Quick filters (Tipi, Cinsi, Şikayet Tarihi, Cari Adı, Şube Adı) ──
+  const qEl = document.getElementById('quickFilters');
+  qEl.innerHTML = FIELDS.filter(f=>QUICK_KEYS.includes(f.key)).map(f=>{
+    if(f.type==='select'){
+      const vals = [...new Set(_rawRows.map(r=>r[f.key]).filter(Boolean))].sort();
+      const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      return `<div class="qf">
+        <label>${f.label}</label>
+        <select id="flt_${f.key}" onchange="onFilterChange('${f.key}',this.value)">
+          <option value="">— Tümü —</option>${opts}
+        </select>
+      </div>`;
+    } else if(f.type==='date'){
+      return `<div class="qf">
+        <label>${f.label}</label>
+        <div class="date-pair">
+          <input type="date" id="flt_${f.key}_from" onchange="onFilterChange('${f.key}_from',this.value)" title="Başlangıç tarihi">
+          <span class="date-sep">→</span>
+          <input type="date" id="flt_${f.key}_to"   onchange="onFilterChange('${f.key}_to',this.value)"   title="Bitiş tarihi">
+        </div>
+      </div>`;
+    }
+    return '';
+  }).join('');
+
+  // ── Full collapsible filter grid (remaining columns) ──
+  const gEl = document.getElementById('filterGrid');
+  gEl.innerHTML = FIELDS.filter(f=>!QUICK_KEYS.includes(f.key)).map(f=>{
+    if(f.type==='select'){
+      const vals = [...new Set(_rawRows.map(r=>r[f.key]).filter(Boolean))].sort();
+      const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+      return `<div class="fg">
+        <label>${f.label}</label>
+        <select id="flt_${f.key}" onchange="onFilterChange('${f.key}',this.value)">
+          <option value="">— Tümü —</option>${opts}
+        </select>
+      </div>`;
+    } else if(f.type==='date'){
+      return `<div class="fg">
+        <label>${f.label} (başlangıç)</label>
+        <input type="date" id="flt_${f.key}_from" onchange="onFilterChange('${f.key}_from',this.value)">
+        <label style="margin-top:4px;">${f.label} (bitiş)</label>
+        <input type="date" id="flt_${f.key}_to" onchange="onFilterChange('${f.key}_to',this.value)">
+      </div>`;
+    } else {
+      return `<div class="fg">
+        <label>${f.label}</label>
+        <input type="text" id="flt_${f.key}" placeholder="Ara..." oninput="onFilterChange('${f.key}',this.value)">
+      </div>`;
+    }
+  }).join('');
+}
+
+function onFilterChange(key, val){
+  if(val) _filterVals[key]=val.trim();
+  else delete _filterVals[key];
+  applyFilters();
+}
+
+// ─────────────────────────────────────────────
+//  FILTERING & SORTING
+// ─────────────────────────────────────────────
+function applyFilters(){
+  const global = (document.getElementById('globalSearch')?.value||'').toLowerCase();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  _filtered = _rawRows.filter(row=>{
+    // Global search
+    if(global && !Object.values(row).some(v=>v.toLowerCase().includes(global))) return false;
+    // Per-column filters
+    for(const [k,v] of Object.entries(_filterVals)){
+      if(!v) continue;
+      // Date range
+      if(k.endsWith('_from')||k.endsWith('_to')){
+        const fk = k.replace(/_from$/,'').replace(/_to$/,'');
+        const cellDate = parseDate(row[fk]);
+        if(!cellDate) return false;
+        if(k.endsWith('_from') && cellDate < new Date(v)) return false;
+        if(k.endsWith('_to')   && cellDate > new Date(v)) return false;
+        continue;
+      }
+      // AI Kategori select — exact match or empty
+      if(k === '_aiKategori'){
+        if(v === '__EMPTY__'){ if(row._aiKategori) return false; continue; }
+        if((row._aiKategori||'') !== v) return false;
+        continue;
+      }
+      const cell = (row[k]||'').toLowerCase();
+      const fv   = v.toLowerCase();
+      if(!cell.includes(fv)) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  if(_sortCol){
+    _filtered.sort((a,b)=>{
+      const av = a[_sortCol]||'', bv = b[_sortCol]||'';
+      const an = parseFloat(av), bn = parseFloat(bv);
+      if(!isNaN(an)&&!isNaN(bn)) return (an-bn)*_sortDir;
+      return av.localeCompare(bv,'tr')*_sortDir;
+    });
+  }
+
+  renderTable();
+  updateStats(today);
+  updateFilterBadge();
+}
+
+function toggleSort(key){
+  if(_sortCol===key) _sortDir*=-1;
+  else { _sortCol=key; _sortDir=1; }
+  applyFilters();
+}
+
+// ─────────────────────────────────────────────
+//  RENDER TABLE
+function editAiCat(e, ridx){
+  e.stopPropagation();
+  // Remove any existing popover
+  document.querySelectorAll('.aicat-pop').forEach(el=>el.remove());
+
+  const row = _filtered[ridx];
+  if(!row) return;
+
+  const pop = document.createElement('div');
+  pop.className = 'aicat-pop';
+  pop.style.cssText = 'position:fixed;z-index:9999;background:#1e293b;border:1px solid #334155;border-radius:8px;padding:10px;min-width:240px;box-shadow:0 8px 32px #0008;';
+
+  // Position near click
+  pop.style.left = Math.min(e.clientX, window.innerWidth-260)+'px';
+  pop.style.top  = Math.min(e.clientY+8, window.innerHeight-260)+'px';
+
+  const allCats = [...new Set([..._aiCategories, ..._rawRows.map(r=>r._aiKategori).filter(Boolean)])].sort();
+  const opts = allCats.map(c=>`<option value="${esc(c)}" ${c===row._aiKategori?'selected':''}>${esc(c)}</option>`).join('');
+
+  pop.innerHTML = `
+    <div style="font-size:.7rem;color:#94a3b8;margin-bottom:6px;">🟡 Kategori Seç / Düzenle</div>
+    <select id="aicatPopSel" style="width:100%;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:6px 8px;font-size:.82rem;margin-bottom:8px;">
+      <option value="">— Kategori seç —</option>
+      ${opts}
+    </select>
+    <div style="font-size:.68rem;color:#64748b;margin-bottom:4px;">ya da yeni kategori yaz:</div>
+    <div style="display:flex;gap:6px;">
+      <input id="aicatPopInp" type="text" placeholder="Yeni kategori..." value="${esc(row._aiKategori||'')}" style="flex:1;background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:6px;padding:5px 8px;font-size:.82rem;">
+      <button onclick="applyAiCat(${ridx})" style="background:#0891b2;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-size:.82rem;">Kaydet</button>
+    </div>`;
+
+  document.body.appendChild(pop);
+
+  // Sync select → input
+  pop.querySelector('#aicatPopSel').addEventListener('change', function(){
+    if(this.value) pop.querySelector('#aicatPopInp').value = this.value;
+  });
+  pop.querySelector('#aicatPopInp').addEventListener('keydown', function(ev){
+    if(ev.key==='Enter') applyAiCat(ridx);
+    if(ev.key==='Escape') pop.remove();
+  });
+
+  // Close on outside click
+  setTimeout(()=>document.addEventListener('click', function _c(ev){ if(!pop.contains(ev.target)){ pop.remove(); document.removeEventListener('click',_c); } }), 10);
+}
+
+function applyAiCat(ridx){
+  const row = _filtered[ridx];
+  if(!row) return;
+  const inp = document.querySelector('.aicat-pop #aicatPopInp');
+  const val = (inp?.value||'').trim();
+  if(!val) return;
+  row._aiKategori = val;
+  // Add to category list if new
+  if(!_aiCategories.includes(val)){ _aiCategories.push(val); }
+  _aiCatDone = true;
+  document.querySelectorAll('.aicat-pop').forEach(el=>el.remove());
+  refreshAiCatFilter();
+  applyFilters();
+}
+
+function renderTable(){
+  const thead = document.getElementById('tableHead');
+  const tbody = document.getElementById('tableBody');
+
+  const visibleFields = FIELDS.filter(f=>f.key!=='dofS' && _rawRows.some(r=>r[f.key]));
+  // Build a map from dofSeri (or index) to _aiKategori for safe lookup
+  const allFields = [
+    ..._aiCatDone
+      ? [...visibleFields, {key:'_aiKategori', label:'Kategori', type:'select'}]
+      : visibleFields,
+    {key:'_attach', label:'📎', type:'attach'},
+    {key:'_del', label:'', type:'del'}
+  ];
+
+  thead.innerHTML = '<tr>'+allFields.map(f=>{
+    if(f.key==='_attach') return `<th style="width:48px;text-align:center;cursor:default;">📎</th>`;
+    if(f.key==='_del') return `<th style="width:34px;cursor:default;"></th>`;
+    const sc = _sortCol===f.key ? (_sortDir===1?'sort-asc':'sort-desc') : '';
+    return `<th class="${sc}" onclick="toggleSort('${f.key}')">${f.label}<span class="sort-icon"></span></th>`;
+  }).join('')+'</tr>';
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  tbody.innerHTML = _filtered.map((row, ridx)=>{
+    let rowClass='';
+    const kap = parseDate(row.tahminiKap);
+    if(kap && kap < today && row.dofS && !/kapan|kapat|tamam|closed/i.test(row.dofS)){
+      rowClass=' style="background:#fff5f5;"';
+    }
+    const cells = allFields.map(f=>{
+      let cls='';
+      if(f.key==='_attach'){
+        const cnt = _attCounts[row._rowId]||0;
+        const label = row.dofSeri || row.baslik || 'Satır';
+        if(cnt>0){
+          return `<td style="text-align:center;"><span class="att-chip" onclick="openAttachModal('${row._rowId||''}','${esc(label)}')">📎 ${cnt}</span></td>`;
+        }
+        return `<td style="text-align:center;"><span class="att-chip-empty" title="Doküman ekle" onclick="openAttachModal('${row._rowId||''}','${esc(label)}')">📎</span></td>`;
+      }
+      if(f.key==='_del'){
+        return `<td style="text-align:center;"><button onclick="deleteRow('${row._rowId||''}')" title="Satırı sil" style="background:none;border:none;cursor:pointer;font-size:.95rem;opacity:.3;transition:.15s;padding:2px 5px;" onmouseover="this.style.opacity=1;this.style.color='#dc2626'" onmouseout="this.style.opacity=.3;this.style.color=''">🗑</button></td>`;
+      }
+      if(f.key==='_aiKategori'){
+        const v = row._aiKategori||'';
+        const badge = v
+          ? `<span class="aibadge" title="Düzenle" onclick="editAiCat(event,${ridx})" style="cursor:pointer;">${esc(v)}</span>`
+          : `<span class="aibadge empty" title="Kategori seç" onclick="editAiCat(event,${ridx})" style="cursor:pointer;">+</span>`;
+        return `<td>${badge}</td>`;
+      }
+      let v = esc(row[f.key]||'');
+      if(f.key==='dofSeri'){
+        const sira = (row.dofS||'').toString().trim();
+        v = esc(row.dofSeri||'') + (sira ? '-' + esc(sira) : '');
+        cls=' class="td-seri"';
+      }
+      else if(f.key==='subeAdi'){
+        return `<td class="td-sube" title="Düzenle" onclick="editSubeAdi(event,${ridx})" style="cursor:pointer;min-width:90px;">${v||'<span style="opacity:.4;font-size:.7rem;">+ ekle</span>'}</td>`;
+      }
+      else if(f.key==='baslik') cls=' class="td-baslik"';
+      else if(f.key==='uyeler') cls=' class="td-members"';
+      else if(f.type==='date') cls=' class="td-date"';
+      return `<td${cls}>${v}</td>`;
+    }).join('');
+    return `<tr${rowClass}>${cells}</tr>`;
+  }).join('');
+
+  if(!_filtered.length){
+    tbody.innerHTML='<tr><td colspan="'+allFields.length+'" class="empty"><span class="ei">🔍</span>Filtreyle eşleşen kayıt bulunamadı.</td></tr>';
+  }
+}
+
+// ─────────────────────────────────────────────
+//  STATS
+// ─────────────────────────────────────────────
+function updateStats(today){
+  document.getElementById('statTotal').textContent   = _rawRows.length;
+  document.getElementById('statVisible').textContent = _filtered.length;
+
+  const open  = _rawRows.filter(r=>r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS)).length;
+  const late  = _rawRows.filter(r=>{
+    const kap = parseDate(r.tahminiKap);
+    return kap && kap < today && r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS);
+  }).length;
+  document.getElementById('statOpen').textContent = open || '—';
+  document.getElementById('statLate').textContent = late || '—';
+}
+
+function updateFilterBadge(){
+  const cnt = Object.values(_filterVals).filter(Boolean).length +
+              ((document.getElementById('globalSearch')?.value||'').trim() ? 1 : 0);
+  const el = document.getElementById('activeFilterBadge');
+  if(cnt>0){ el.style.display=''; el.textContent=cnt+' filtre aktif'; }
+  else el.style.display='none';
+}
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function parseDate(s){
+  if(!s) return null;
+  // Try dd.mm.yyyy, dd/mm/yyyy, yyyy-mm-dd
+  const m1 = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+  if(m1) return new Date(+m1[3], +m1[2]-1, +m1[1]);
+  const m2 = s.match(/^(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})$/);
+  if(m2) return new Date(+m2[1], +m2[2]-1, +m2[3]);
+  const d = new Date(s);
+  return isNaN(d)?null:d;
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function toggleFilters(){
+  const g=document.getElementById('filterGrid');
+  g.style.display = g.style.display==='none' ? '' : 'none';
+}
+// ─────────────────────────────────────────────
+//  FILTER PRESETS  (localStorage)
+// ─────────────────────────────────────────────
+const FILTER_PRESETS_KEY = 'dof_filter_presets';
+function getFilterPresets(){ try{ return JSON.parse(localStorage.getItem(FILTER_PRESETS_KEY)||'[]'); }catch{ return []; } }
+
+function saveFilterPreset(){
+  const fv = JSON.parse(JSON.stringify(_filterVals));
+  const gs = document.getElementById('globalSearch')?.value||'';
+  if(!Object.keys(fv).length && !gs){ showToast('⚠️ Aktif filtre yok.'); return; }
+  // Build a descriptive auto-name
+  const parts = Object.entries(fv).map(([k,v])=>v).filter(Boolean);
+  const autoName = [...parts, gs].filter(Boolean).slice(0,3).join(' · ') || 'Filtre';
+  const name = prompt('Filtre adı:', autoName);
+  if(name === null) return;
+  const presets = getFilterPresets();
+  presets.push({ name: name.trim() || autoName, filterVals: fv, globalSearch: gs, savedAt: Date.now() });
+  localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets));
+  renderFilterPresets();
+  showToast('📌 Filtre kaydedildi: '+(name.trim()||autoName));
+}
+
+function deleteFilterPreset(idx){
+  const presets = getFilterPresets();
+  presets.splice(idx, 1);
+  localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets));
+  renderFilterPresets();
+}
+
+function applyFilterPreset(idx){
+  const p = getFilterPresets()[idx];
+  if(!p) return;
+  _filterVals = JSON.parse(JSON.stringify(p.filterVals));
+  if(document.getElementById('globalSearch')) document.getElementById('globalSearch').value = p.globalSearch||'';
+  syncFilterDOM();
+  applyFilters();
+  showToast('📌 Filtre yüklendi: '+p.name);
+}
+
+function renderFilterPresets(){
+  const el = document.getElementById('filterPresets');
+  if(!el) return;
+  const presets = getFilterPresets();
+  if(!presets.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='flex';
+  el.innerHTML = '<span class="fp-label">📌 Kayıtlı Filtreler:</span>'
+    + presets.map((p,i)=>`<span class="fpreset-chip">`
+      +`<span class="pname" onclick="applyFilterPreset(${i})" title="${esc(p.name)}">${esc(p.name)}</span>`
+      +`<span class="pdel" onclick="deleteFilterPreset(${i})" title="Sil">✕</span>`
+      +`</span>`).join('');
+}
+
+function syncFilterDOM(){
+  // Push _filterVals into DOM select/input elements after buildFilterGrid()
+  document.querySelectorAll('#quickFilters select,#filterGrid select').forEach(s=>{
+    const key = s.id.replace(/^flt_/,'');
+    s.value = _filterVals[key]||'';
+  });
+  document.querySelectorAll('#quickFilters input,#filterGrid input').forEach(i=>{
+    const key = i.id.replace(/^flt_/,'');
+    i.value = _filterVals[key]||'';
+  });
+}
+
+function resetFilters(){
+  _filterVals={};
+  document.getElementById('globalSearch').value='';
+  document.querySelectorAll('#quickFilters select').forEach(s=>s.value='');
+  document.querySelectorAll('#quickFilters input').forEach(i=>i.value='');
+  document.querySelectorAll('#filterGrid select').forEach(s=>s.value='');
+  document.querySelectorAll('#filterGrid input').forEach(i=>i.value='');
+  _sortCol=null; _sortDir=1;
+  applyFilters();
+}
+function clearData(){
+  if(!confirm('Tüm DÖF verisi temizlensin mi?')) return;
+  _rawRows=[]; _filtered=[]; _rawHeaders=[]; _rawData=[]; _mapping={}; _filterVals={};
+  document.getElementById('uploadZone').style.display='';
+  document.getElementById('mainArea').style.display='none';
+  document.getElementById('aiCatBtn').style.display='none';
+  updateSnapBtn();
+}
+
+// ─────────────────────────────────────────────
+//  EXPORT
+// ─────────────────────────────────────────────
+function exportCSV(){
+  if(!_filtered.length){ alert('Dışa aktarılacak veri yok.'); return; }
+  const visF = FIELDS.filter(f=>_rawRows.some(r=>r[f.key]));
+  const hdr = visF.map(f=>'"'+f.label+'"').join(';');
+  const rows = _filtered.map(r=>visF.map(f=>'"'+(r[f.key]||'').replace(/"/g,'""')+'"').join(';'));
+  const csv = '\uFEFF'+[hdr,...rows].join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='DOF_listesi_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+function exportExcel(){
+  if(!_filtered.length){ alert('Dışa aktarılacak veri yok.'); return; }
+  const visF = FIELDS.filter(f=>_rawRows.some(r=>r[f.key]));
+  const data = [visF.map(f=>f.label), ..._filtered.map(r=>visF.map(f=>r[f.key]||''))];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'DÖF');
+  XLSX.writeFile(wb, 'DOF_listesi_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+
+// ─────────────────────────────────────────────
+//  AI CATEGORIZATION
+// ─────────────────────────────────────────────
+const DEFAULT_CATEGORIES = [
+  'Müşteri Şikayeti','İç Proses Uygunsuzluğu','Hammadde Hatası','Ölçüsel Hata',
+  'Kalınlık / Yoğunluk Problemi','Görsel Kusur','Kesim Hatası','Laminasyon / Yapışma Hatası',
+  'Makine Arızası','Makine Ayar Hatası','Kalıp / Ekipman Problemi','Bakım Kaynaklı Problem',
+  'Yedek Parça Problemi','Personel Hatası','Sevkiyat / Lojistik Hatası','Paketleme Hatası',
+  'KPI / Hedef Sapması','İş Kazası (İSG)','Çevresel Uygunsuzluk',
+  'Sistem / İç Denetim Uygunsuzluğu','Dokümantasyon Hatası','Revizyon / Değişiklik Kaynaklı Hata'
+];
+let _aiCategories = [...DEFAULT_CATEGORIES];
+let _aiRunning = false;
+let _aiCatDone = false; // true after at least one batch categorized
+
+function openAiCatModal(){
+  if(!_rawRows.length){ alert('Önce Excel yükleyin.'); return; }
+  // Restore saved keys from localStorage
+  const kMap = { groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key' };
+  const elMap = { groq:'dofKeyGroqInp', gemini:'dofKeyGeminiInp', openai:'dofKeyOAIInp', openrouter:'dofKeyORInp' };
+  Object.entries(kMap).forEach(([p,lk])=>{
+    const v = localStorage.getItem(lk)||''; if(v) document.getElementById(elMap[p]).value=v;
+  });
+  const savedProv = localStorage.getItem('ai_provider')||'groq';
+  setDofProvider(savedProv);
+  renderCatTags();
+  document.getElementById('aiRunCount').textContent = _rawRows.length;
+  setAiCatStatus('');
+  document.getElementById('aiRunFill').style.width='0%';
+  document.getElementById('aiRunLabel').innerHTML='🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">'+_rawRows.length+'</span> kayıt)';
+  const fc = document.getElementById('retryFilteredCount');
+  if(fc) fc.textContent = _filtered.length;
+  document.getElementById('aiCatModal').classList.add('open');
+}
+function closeAiCatModal(){ if(_aiRunning) return; document.getElementById('aiCatModal').classList.remove('open'); }
+
+function setDofProvider(p){
+  localStorage.setItem('ai_provider', p);
+  ['groq','gemini','openai','openrouter'].forEach(pr=>{
+    const tabId = pr==='openrouter'?'dofTabOR':pr==='openai'?'dofTabOAI':pr==='gemini'?'dofTabGemini':'dofTabGroq';
+    const blkId = pr==='openrouter'?'dofKeyOR':pr==='openai'?'dofKeyOAI':pr==='gemini'?'dofKeyGemini':'dofKeyGroq';
+    document.getElementById(tabId).classList.toggle('active', pr===p);
+    document.getElementById(blkId).style.display = pr===p?'':'none';
+  });
+  // Save key from input when switching
+  saveDofKey();
+}
+function saveDofKey(){
+  const prov = localStorage.getItem('ai_provider')||'groq';
+  const elMap = { groq:'dofKeyGroqInp', gemini:'dofKeyGeminiInp', openai:'dofKeyOAIInp', openrouter:'dofKeyORInp' };
+  const lsMap = { groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key' };
+  const v = document.getElementById(elMap[prov])?.value?.trim();
+  if(v) localStorage.setItem(lsMap[prov], v);
+}
+
+function getDofKey(prov){
+  const lsMap = { groq:'groq_api_key', gemini:'gemini_api_key', openai:'oai_api_key', openrouter:'or_api_key' };
+  const elMap = { groq:'dofKeyGroqInp', gemini:'dofKeyGeminiInp', openai:'dofKeyOAIInp', openrouter:'dofKeyORInp' };
+  return localStorage.getItem(lsMap[prov]) || document.getElementById(elMap[prov])?.value?.trim() || '';
+}
+
+// ── Category tag UI ──
+function renderCatTags(){
+  const c = document.getElementById('catTagsContainer');
+  c.innerHTML = _aiCategories.map((cat,i)=>
+    `<span class="cat-tag">${esc(cat)}<span class="xtag" onclick="removeCatTag(${i})">×</span></span>`
+  ).join('');
+}
+function addCatTag(){
+  const inp = document.getElementById('catNewInp');
+  const v = inp.value.trim();
+  if(!v) return;
+  if(!_aiCategories.includes(v)) _aiCategories.push(v);
+  inp.value='';
+  renderCatTags();
+}
+function removeCatTag(i){ _aiCategories.splice(i,1); renderCatTags(); }
+
+function clearAiCategories(){
+  if(!confirm('AI kategori eşleştirmeleri silinsin mi?')) return;
+  _rawRows.forEach(r=>delete r._aiKategori);
+  _filtered.forEach(r=>delete r._aiKategori);
+  _aiCatDone = false;
+  refreshAiCatFilter();
+  renderTable();
+  setAiCatStatus('');
+}
+
+function setAiCatStatus(msg, type=''){
+  const el = document.getElementById('aiCatStatus');
+  if(!msg){ el.style.display='none'; return; }
+  el.className = 'ai-status '+(type||'info');
+  el.style.display='';
+  el.innerHTML = msg;
+}
+
+function setAiCatProgress(done, total){
+  if(total<=0) return;
+  const pct = Math.round(done/total*100);
+  document.getElementById('aiRunFill').style.width = pct+'%';
+  document.getElementById('aiRunLabel').textContent = pct===100
+    ? '✅ Tamamlandı! ('+total+' kayıt)'
+    : '⏳ '+pct+'% — '+done+' / '+total+' kayıt işlendi...';
+}
+
+// ── callAI (DÖF version — shares localStorage keys with 5-neden page) ──
+async function callDofAI(messages, maxTokens){
+  saveDofKey();
+  const provider = localStorage.getItem('ai_provider') || 'groq';
+  const temp = 0.1;
+
+  if(provider === 'openrouter'){
+    const key = getDofKey('openrouter');
+    if(!key) throw new Error('OpenRouter API key girilmedi');
+    const chosenOR = document.getElementById('dofOrModel')?.value || 'meta-llama/llama-3.3-70b-instruct:free';
+    const OR_FALLBACKS = [
+      chosenOR,'deepseek/deepseek-r1:free','deepseek/deepseek-chat:free',
+      'meta-llama/llama-3.3-70b-instruct:free','google/gemma-3-27b-it:free','qwen/qwen-2.5-72b-instruct:free'
+    ].filter((v,i,a)=>a.indexOf(v)===i);
+    const orPost = (model)=>fetch('https://openrouter.ai/api/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,
+        'HTTP-Referer':'https://github.com','X-Title':'DOF-Yonetimi'},
+      body:JSON.stringify({model,messages,temperature:temp,max_tokens:maxTokens})
+    });
+    let lastWas429=false, lastErr='';
+    for(const orModel of OR_FALLBACKS){
+      if(lastWas429) await new Promise(r=>setTimeout(r,12000));
+      lastWas429=false;
+      let resp=await orPost(orModel);
+      if(resp.status===429){ await new Promise(r=>setTimeout(r,15000)); resp=await orPost(orModel); }
+      if(resp.ok){ const d=await resp.json(); return d?.choices?.[0]?.message?.content||''; }
+      const oe=await resp.json().catch(()=>({}));
+      if(resp.status===401||resp.status===403) throw new Error('OpenRouter: API key geçersiz.');
+      if(resp.status===402) throw new Error('OpenRouter: Hesap bakiyesi yetersiz.');
+      if(resp.status===429||resp.status===404){ lastErr=resp.status+' '+orModel; lastWas429=resp.status===429; continue; }
+      throw new Error('OpenRouter ('+orModel+'): '+(oe?.error?.message||'HTTP '+resp.status));
+    }
+    throw new Error('OpenRouter: Hiçbir model çalışmadı. Son hata: '+lastErr);
+  } else if(provider === 'gemini'){
+    const key = getDofKey('gemini');
+    if(!key) throw new Error('Gemini API key girilmedi');
+    const chosenModel = document.getElementById('dofGeminiModel')?.value || 'gemini-2.0-flash';
+    const sysMsg = messages.find(m=>m.role==='system')?.content||'';
+    const userMsg = messages.find(m=>m.role==='user')?.content||'';
+    const combined = sysMsg ? sysMsg+'\n\n'+userMsg : userMsg;
+    const tryModels = ['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-flash-8b'].includes(chosenModel)
+      ? [chosenModel] : [chosenModel, 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    for(const model of tryModels){
+      for(const ver of ['v1beta','v1']){
+        let resp=await fetch(
+          `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`,
+          {method:'POST',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({contents:[{role:'user',parts:[{text:combined}]}],
+             generationConfig:{temperature:temp,maxOutputTokens:maxTokens}})}
+        );
+        if(resp.status===429||resp.status===503){ await new Promise(r=>setTimeout(r,4000)); resp=await fetch(
+          `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`,
+          {method:'POST',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({contents:[{role:'user',parts:[{text:combined}]}],
+             generationConfig:{temperature:temp,maxOutputTokens:maxTokens}})}); }
+        if(resp.ok){ const d=await resp.json(); return d?.candidates?.[0]?.content?.parts?.[0]?.text||''; }
+        const eb=await resp.json().catch(()=>({}));
+        if(resp.status===401||resp.status===403) throw new Error('Gemini: API key geçersiz.');
+        if(resp.status===404) continue;
+        throw new Error('Gemini ('+model+'): '+(eb?.error?.message||'HTTP '+resp.status));
+      }
+    }
+    throw new Error('Gemini: Modeller erişilemedi. Google Cloud Console\'da Generative Language API etkinleştirin.');
+  } else if(provider === 'openai'){
+    const key = getDofKey('openai');
+    if(!key) throw new Error('OpenAI API key girilmedi');
+    const oaiModel = document.getElementById('dofOaiModel')?.value || 'gpt-4o-mini';
+    const isOSeries = /^o\d/.test(oaiModel);
+    const body = {model:oaiModel, messages, max_tokens:maxTokens};
+    if(!isOSeries){ body.temperature=temp; body.response_format={type:'json_object'}; }
+    const resp = await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify(body)
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({}));
+      if(resp.status===429) throw new Error('⏳ OpenAI rate limit — bekleyip tekrar deneyin.');
+      if(resp.status===401) throw new Error('OpenAI: API key geçersiz.');
+      throw new Error('OpenAI ('+oaiModel+'): '+(e?.error?.message||'HTTP '+resp.status)); }
+    const d=await resp.json(); return d?.choices?.[0]?.message?.content||'';
+  } else {
+    const key = getDofKey('groq');
+    if(!key) throw new Error('Groq API key girilmedi');
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages,temperature:temp,
+        max_tokens:maxTokens,response_format:{type:'json_object'}})
+    });
+    if(!resp.ok){ const e=await resp.json().catch(()=>({}));
+      if(resp.status===429) throw new Error('⏳ Groq rate limit — bekleyip tekrar deneyin.');
+      throw new Error(e?.error?.message||'HTTP '+resp.status); }
+    const d=await resp.json(); return d?.choices?.[0]?.message?.content||'';
+  }
+}
+
+async function testDofAPI(prov){
+  const btnTarget = prov==='groq'?'dofTabGroq':prov==='gemini'?'dofTabGemini':prov==='openai'?'dofTabOAI':'dofTabOR';
+  const btn = document.getElementById(btnTarget);
+  const origText = btn.textContent;
+  btn.textContent = '⏳ Test...';
+  try{
+    await callDofAI([
+      {role:'user', content:'Reply with valid JSON: {"ok":true}'}
+    ], 20);
+    btn.textContent = '✅ OK!';
+    setAiCatStatus('API bağlantısı başarılı!', 'ok');
+  } catch(e){
+    btn.textContent = '❌ Hata';
+    setAiCatStatus('❌ '+e.message, 'err');
+  }
+  setTimeout(()=>btn.textContent=origText, 3000);
+}
+
+// ── Batch categorization ──
+async function categorizeBatch(titles){
+  const catList = _aiCategories.join('\n');
+  const titlesStr = titles.map((t,i)=>`${i+1}. ${t}`).join('\n');
+  const prompt = `Aşağıdaki DÖF başlıklarını verilen kategorilerden birine eşleştir.
+
+KATEGORİLER:
+${catList}
+Diğer
+
+BAŞLIKLAR:
+${titlesStr}
+
+Sadece JSON döndür, başka açıklama ekleme:
+{"results":["Kategori Adı","Kategori Adı",...]}
+
+Kural: Her başlık için EN UYGUN kategoriyi seç. Liste dışında bir şey yazma. Liste dışıysa "Diğer" yaz.`;
+
+  const raw = await callDofAI([
+    {role:'system', content:'Sen bir kalite yönetim uzmanısın. Sadece JSON formatında cevap ver.'},
+    {role:'user', content:prompt}
+  ], Math.max(200, titles.length*12));
+
+  // Parse JSON
+  let parsed;
+  try{
+    const cleaned = raw.replace(/```json|```/g,'').trim();
+    // find JSON object
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(m ? m[0] : cleaned);
+  } catch(e){
+    // Fallback: try to extract array directly
+    try{ parsed = {results: JSON.parse(raw.match(/\[[\s\S]*\]/)[0])}; }
+    catch(e2){ throw new Error('AI yanıtı JSON olarak ayrıştırılamadı: '+raw.slice(0,120)); }
+  }
+
+  const results = Array.isArray(parsed?.results) ? parsed.results
+    : Array.isArray(parsed) ? parsed : [];
+  return results;
+}
+
+async function startCategorization(){
+  if(_aiRunning) return;
+  if(!_rawRows.length){ setAiCatStatus('Veri yok.', 'err'); return; }
+  if(!_aiCategories.length){ setAiCatStatus('En az bir kategori ekleyin.', 'err'); return; }
+  saveDofKey();
+  _aiRunning = true;
+  document.getElementById('aiRunBtn').disabled = true;
+  document.getElementById('suggestBtn').disabled = true;
+  setAiCatStatus('⏳ Kategorilendirme başlatıldı...', 'info');
+
+  const BATCH = 15;           // smaller batches → fewer tokens per request
+  const INTER_DELAY = 1200;   // ms between batches
+  const MAX_RETRIES = 3;
+  const total = _rawRows.length;
+  let done = 0;
+  let failedBatches = 0;
+  setAiCatProgress(0, total);
+
+  try{
+    for(let i=0; i<_rawRows.length; i+=BATCH){
+      const batch  = _rawRows.slice(i, i+BATCH);
+      const titles = batch.map(r=>r.baslik||r.dofSeri||'(başlık yok)');
+      const batchLabel = `${i+1}–${Math.min(i+BATCH,total)}`;
+
+      // ── Per-batch retry loop ──
+      let results = null;
+      for(let attempt=1; attempt<=MAX_RETRIES; attempt++){
+        try{
+          setAiCatStatus(`⏳ İşleniyor: ${batchLabel} / ${total}${attempt>1?' (deneme '+attempt+')':''}`, 'info');
+          results = await categorizeBatch(titles);
+          break; // success
+        } catch(batchErr){
+          const msg = batchErr.message||'';
+          const isRateLimit = /429|rate.?limit|too many/i.test(msg);
+          if(attempt < MAX_RETRIES){
+            const wait = isRateLimit ? 30000 : attempt * 5000;
+            setAiCatStatus(`⚠️ Batch ${batchLabel} hata (${attempt}/${MAX_RETRIES}): ${msg.slice(0,80)}. ${Math.round(wait/1000)}s bekleniyor…`, 'info');
+            await new Promise(r=>setTimeout(r, wait));
+          } else {
+            // All retries failed — mark these rows as 'İşlenemedi' and continue
+            failedBatches++;
+            setAiCatStatus(`⚠️ Batch ${batchLabel} atlandı: ${msg.slice(0,100)}`, 'info');
+            results = null;
+          }
+        }
+      }
+
+      batch.forEach((r,idx)=>{
+        if(!results){
+          if(!r._aiKategori) r._aiKategori = 'İşlenemedi'; // keep existing if already set
+        } else {
+          const cat = results[idx] ? String(results[idx]).trim() : 'Diğer';
+          r._aiKategori = (cat !== 'Diğer' && !_aiCategories.includes(cat)) ? 'Diğer' : cat;
+        }
+      });
+
+      done += batch.length;
+      _aiCatDone = true;
+      setAiCatProgress(done, total);
+      applyFilters();
+
+      // Inter-batch delay
+      if(i+BATCH < _rawRows.length) await new Promise(r=>setTimeout(r, INTER_DELAY));
+    }
+
+    const summary = failedBatches > 0
+      ? `⚠️ Tamamlandı — ${total} kayıt işlendi, ${failedBatches} batch atlandı (AI hatası). Atlananlarda "İşlenemedi" yazıyor.`
+      : `✅ Tamamlandı! ${total} kayıt kategorilere ayrıldı.`;
+    setAiCatStatus(summary, failedBatches>0 ? 'info' : 'ok');
+    _aiCatDone = true;
+    refreshAiCatFilter();
+    applyFilters();
+  } catch(e){
+    setAiCatStatus('❌ Beklenmedik hata: '+e.message, 'err');
+  } finally{
+    _aiRunning = false;
+    document.getElementById('aiRunBtn').disabled = false;
+    document.getElementById('suggestBtn').disabled = false;
+    setTimeout(()=>{
+      document.getElementById('aiRunFill').style.width='0%';
+      document.getElementById('aiRunLabel').innerHTML='🤖 Tüm Satırları Kategorize Et (<span id="aiRunCount">'+_rawRows.length+'</span> kayıt)';
+    }, 3000);
+  }
+}
+
+async function retryCategorization(){
+  // Re-process only rows that have no category or failed
+  if(_aiRunning) return;
+  const includeDiger       = document.getElementById('retryIncludeDiger')?.checked;
+  const includeIslenemedi  = document.getElementById('retryIncludeIslenemedi')?.checked;
+  const onlyFiltered       = document.getElementById('retryOnlyFiltered')?.checked;
+  const pool = onlyFiltered ? _filtered : _rawRows;
+  const pending = pool.filter(r =>
+    !r._aiKategori ||
+    (includeIslenemedi && r._aiKategori === 'İşlenemedi') ||
+    (includeDiger && r._aiKategori === 'Diğer')
+  );
+  if(!pending.length){
+    setAiCatStatus(onlyFiltered
+      ? '✅ Süzdüklerin arasında işlenecek satır yok.'
+      : '✅ Tüm satırlar zaten kategorize edilmiş.', 'ok');
+    return;
+  }
+  if(!_aiCategories.length){ setAiCatStatus('En az bir kategori ekleyin.', 'err'); return; }
+  saveDofKey();
+  _aiRunning = true;
+  document.getElementById('aiRunBtn').disabled = true;
+  document.getElementById('aiRetryBtn').disabled = true;
+  document.getElementById('suggestBtn').disabled = true;
+
+  const BATCH = 15;
+  const INTER_DELAY = 1200;
+  const MAX_RETRIES = 3;
+  const total = pending.length;
+  let done = 0;
+  let failedBatches = 0;
+
+  const retryBar  = document.getElementById('aiRetryFill');
+  const retryLbl  = document.getElementById('aiRetryLabel');
+  const setRetryPct = (pct) => {
+    retryBar.style.width = pct+'%';
+    retryLbl.textContent = pct===100 ? '✅ Tamamlandı!' : `⏳ ${pct}% — ${done}/${total} eksik`;
+  };
+  setRetryPct(0);
+
+  try{
+    for(let i=0; i<pending.length; i+=BATCH){
+      const batch  = pending.slice(i, i+BATCH);
+      const titles = batch.map(r=>r.baslik||r.dofSeri||'(başlık yok)');
+      const batchLabel = `${i+1}–${Math.min(i+BATCH,total)}`;
+
+      let results = null;
+      for(let attempt=1; attempt<=MAX_RETRIES; attempt++){
+        try{
+          setAiCatStatus(`⏳ Eksik işleniyor: ${batchLabel} / ${total}${attempt>1?' (deneme '+attempt+')':''}`, 'info');
+          results = await categorizeBatch(titles);
+          break;
+        } catch(batchErr){
+          const msg = batchErr.message||'';
+          const isRateLimit = /429|rate.?limit|too many/i.test(msg);
+          if(attempt < MAX_RETRIES){
+            const wait = isRateLimit ? 30000 : attempt * 5000;
+            setAiCatStatus(`⚠️ ${batchLabel} hata (${attempt}/${MAX_RETRIES}). ${Math.round(wait/1000)}s bekleniyor…`, 'info');
+            await new Promise(r=>setTimeout(r, wait));
+          } else {
+            failedBatches++;
+            results = null;
+          }
+        }
+      }
+
+      batch.forEach((r,idx)=>{
+        if(results){
+          const cat = results[idx] ? String(results[idx]).trim() : 'Diğer';
+          r._aiKategori = (cat !== 'Diğer' && !_aiCategories.includes(cat)) ? 'Diğer' : cat;
+        }
+        // else leave as 'İşlenemedi'
+      });
+
+      done += batch.length;
+      _aiCatDone = true;
+      setRetryPct(Math.round(done/total*100));
+      applyFilters();
+      if(i+BATCH < pending.length) await new Promise(r=>setTimeout(r, INTER_DELAY));
+    }
+
+    const stillPending = _rawRows.filter(r=>!r._aiKategori||r._aiKategori==='İşlenemedi').length;
+    const summary = stillPending > 0
+      ? `⚠️ Tamamlandı — hâlâ ${stillPending} satır eksik. Tekrar deneyin.`
+      : '✅ Tüm eksikler tamamlandı!';
+    setAiCatStatus(summary, stillPending>0?'info':'ok');
+    refreshAiCatFilter();
+    applyFilters();
+  } catch(e){
+    setAiCatStatus('❌ Hata: '+e.message, 'err');
+  } finally{
+    _aiRunning = false;
+    document.getElementById('aiRunBtn').disabled = false;
+    document.getElementById('aiRetryBtn').disabled = false;
+    document.getElementById('suggestBtn').disabled = false;
+    setTimeout(()=>{ retryBar.style.width='0%'; retryLbl.textContent='🔄 Eksikleri Tamamla'; }, 3000);
+  }
+}
+
+async function suggestCategories(){
+  if(_aiRunning) return;
+  saveDofKey();
+  _aiRunning = true;
+  document.getElementById('suggestBtn').disabled = true;
+  setAiCatStatus('⏳ AI kategori önerileri hazırlanıyor...', 'info');
+  try{
+    const sample = _rawRows.slice(0,40).map(r=>r.baslik||'').filter(Boolean);
+    const existing = _aiCategories.join(', ');
+    const prompt = `Aşağıdaki DÖF başlıklarını incele ve mevcut kategorilerin dışında ek kategori önerisi yap.
+
+Mevcut kategoriler: ${existing}
+
+Örnek başlıklar:
+${sample.map((t,i)=>i+1+'. '+t).join('\n')}
+
+Sadece JSON döndür:
+{"suggestions":["Yeni Kategori 1","Yeni Kategori 2"]}
+Mevcut kategorileri tekrar önerme. En fazla 8 yeni kategori öner.`;
+    const raw = await callDofAI([
+      {role:'system', content:'Sen bir kalite yönetim uzmanısın. Sadece JSON formatında cevap ver.'},
+      {role:'user', content:prompt}
+    ], 300);
+    const cleaned = raw.replace(/```json|```/g,'').trim();
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(m ? m[0] : cleaned);
+    const suggs = Array.isArray(parsed?.suggestions) ? parsed.suggestions : [];
+    if(!suggs.length){ setAiCatStatus('AI yeni kategori önerisi bulamadı.', 'info'); return; }
+    // Add new suggestions to list
+    let added = 0;
+    suggs.forEach(s=>{ const t=String(s).trim(); if(t&&!_aiCategories.includes(t)){_aiCategories.push(t); added++;} });
+    renderCatTags();
+    setAiCatStatus(`✅ ${added} yeni kategori önerildi ve listeye eklendi: ${suggs.map(s=>String(s).trim()).join(', ')}`, 'ok');
+  } catch(e){
+    setAiCatStatus('❌ Hata: '+e.message, 'err');
+  } finally{
+    _aiRunning = false;
+    document.getElementById('suggestBtn').disabled = false;
+  }
+}
+
+function refreshAiCatFilter(){
+  const hasAiCat = _rawRows.some(r=>r._aiKategori);
+  const qEl = document.getElementById('quickFilters');
+  const existing = document.getElementById('flt__aiKategori');
+  if(!hasAiCat){ if(existing) existing.closest('.qf').remove(); return; }
+  const vals = [...new Set(_rawRows.map(r=>r._aiKategori).filter(Boolean))].sort();
+  const hasEmpty = _rawRows.some(r=>!r._aiKategori);
+  const emptyOpt = hasEmpty ? `<option value="__EMPTY__">(Boş)</option>` : '';
+  const opts = vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  if(!existing){
+    const div = document.createElement('div');
+    div.className='qf';
+    div.innerHTML=`<label>Kategori</label>
+      <select id="flt__aiKategori" onchange="onFilterChange('_aiKategori',this.value)">
+        <option value="">— Tümü —</option>${emptyOpt}${opts}
+      </select>`;
+    qEl.insertBefore(div, qEl.firstChild);
+  } else {
+    existing.innerHTML=`<option value="">— Tümü —</option>${emptyOpt}${opts}`;
+  }
+}
+
+// Close AI cat modal on backdrop
+document.getElementById('aiCatModal').addEventListener('click', function(e){ if(e.target===this && !_aiRunning) closeAiCatModal(); });
+
+// Close modal on backdrop click
+document.getElementById('mapModal').addEventListener('click', function(e){ if(e.target===this) closeMapModal(); });
+document.getElementById('snapModal').addEventListener('click', function(e){ if(e.target===this) closeSnapModal(); });
+
+// ─────────────────────────────────────────────
+//  INDEXED DB  —  dof_yonetimi_db / snapshots
+// ─────────────────────────────────────────────
+const IDB_NAME    = 'dof_yonetimi_db';
+const IDB_VER     = 2;
+const IDB_STORE   = 'snapshots';
+const ATT_STORE   = 'attachments';
+
+function idbOpen(){
+  return new Promise((res, rej)=>{
+    const req = indexedDB.open(IDB_NAME, IDB_VER);
+    req.onupgradeneeded = e =>{
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(IDB_STORE)){
+        const store = db.createObjectStore(IDB_STORE, {keyPath:'id', autoIncrement:true});
+        store.createIndex('savedAt','savedAt',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(ATT_STORE)){
+        const astore = db.createObjectStore(ATT_STORE, {keyPath:'id', autoIncrement:true});
+        astore.createIndex('rowId','rowId',{unique:false});
+      }
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function idbGetAll(){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx  = db.transaction(IDB_STORE,'readonly');
+    const req = tx.objectStore(IDB_STORE).getAll();
+    req.onsuccess = e => res(e.target.result.sort((a,b)=>b.savedAt-a.savedAt));
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function idbPut(record){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx  = db.transaction(IDB_STORE,'readwrite');
+    const req = tx.objectStore(IDB_STORE).add(record);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+
+async function idbDelete(id){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx  = db.transaction(IDB_STORE,'readwrite');
+    const req = tx.objectStore(IDB_STORE).delete(id);
+    req.onsuccess = () => res();
+    req.onerror   = e  => rej(e.target.error);
+  });
+}
+
+// ── Attachment IDB helpers ──
+let _attCounts = {}; // rowId → count (cache)
+
+async function attAdd(rowId, name, type, size, data){
+  const db = await idbOpen();
+  // find a human-readable label for this row
+  const matchRow = _rawRows.find(r=>r._rowId===rowId);
+  const rowLabel = matchRow ? (matchRow.dofSeri||matchRow.baslik||rowId) : rowId;
+  const id = await new Promise((res,rej)=>{
+    const tx  = db.transaction(ATT_STORE,'readwrite');
+    const req = tx.objectStore(ATT_STORE).add({rowId, rowLabel, name, type, size, data, addedAt:Date.now()});
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+  _attCounts[rowId] = (_attCounts[rowId]||0)+1;
+  return id;
+}
+async function attGetByRow(rowId){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const idx = db.transaction(ATT_STORE,'readonly').objectStore(ATT_STORE).index('rowId');
+    const req = idx.getAll(rowId);
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+}
+async function attGetOne(id){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const req = db.transaction(ATT_STORE,'readonly').objectStore(ATT_STORE).get(id);
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+}
+async function attDelete(id, rowId){
+  const db = await idbOpen();
+  await new Promise((res,rej)=>{
+    const tx  = db.transaction(ATT_STORE,'readwrite');
+    const req = tx.objectStore(ATT_STORE).delete(id);
+    req.onsuccess = ()=>res();
+    req.onerror   = e=>rej(e.target.error);
+  });
+  if(rowId && _attCounts[rowId]) _attCounts[rowId] = Math.max(0, (_attCounts[rowId]||1)-1);
+}
+async function loadAttachCounts(){
+  const db = await idbOpen();
+  const all = await new Promise((res,rej)=>{
+    const req = db.transaction(ATT_STORE,'readonly').objectStore(ATT_STORE).getAll();
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+  _attCounts = {};
+  all.forEach(a=>{ _attCounts[a.rowId] = (_attCounts[a.rowId]||0)+1; });
+  updateAttBadge();
+}
+
+function updateAttBadge(){
+  const total = Object.values(_attCounts).reduce((s,v)=>s+v, 0);
+  const el = document.getElementById('allFilesBadge');
+  if(!el) return;
+  if(total > 0){ el.textContent = total; el.style.display=''; }
+  else el.style.display='none';
+}
+
+async function openAllFilesModal(){
+  document.getElementById('allFilesModal').classList.add('open');
+  document.getElementById('allFilesSearch').value='';
+  await renderAllFiles();
+}
+function closeAllFilesModal(){
+  document.getElementById('allFilesModal').classList.remove('open');
+}
+async function renderAllFiles(){
+  const list = document.getElementById('allFilesList');
+  list.innerHTML='<div class="att-empty">⏳ Yükleniyor...</div>';
+  const db = await idbOpen();
+  const all = await new Promise((res,rej)=>{
+    const req = db.transaction(ATT_STORE,'readonly').objectStore(ATT_STORE).getAll();
+    req.onsuccess = e=>res(e.target.result.sort((a,b)=>b.addedAt-a.addedAt));
+    req.onerror   = e=>rej(e.target.error);
+  });
+  const q = (document.getElementById('allFilesSearch')?.value||'').toLowerCase();
+  const filtered = q ? all.filter(a=>a.name.toLowerCase().includes(q)||(a.rowLabel||'').toLowerCase().includes(q)) : all;
+  if(!filtered.length){ list.innerHTML='<div class="att-empty">📂 Dosya bulunamadı.</div>'; return; }
+  list.innerHTML = filtered.map(a=>{
+    const icon = attFileIcon(a.name);
+    const kb = a.size < 1024*1024 ? (a.size/1024).toFixed(0)+' KB' : (a.size/1048576).toFixed(1)+' MB';
+    const dt = new Date(a.addedAt).toLocaleString('tr-TR');
+    const rowLabel = a.rowLabel || a.rowId;
+    return `<div class="attall-row" id="aall_${a.id}">
+      <span style="font-size:1.4rem;">${icon}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:.8rem;font-weight:700;color:#1e293b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(a.name)}">${esc(a.name)}</div>
+        <div style="font-size:.65rem;color:#94a3b8;margin-top:2px;">${kb} &bull; ${dt}</div>
+      </div>
+      <span class="attall-rowlabel" title="${esc(rowLabel)}">${esc(rowLabel.length>28?rowLabel.slice(0,28)+'…':rowLabel)}</span>
+      <button class="att-dl-btn" onclick="downloadAttach(${a.id})">⬇️ İndir</button>
+      <button class="att-del-btn" onclick="deleteAttachAll(${a.id},'${a.rowId}')">✕</button>
+    </div>`;
+  }).join('');
+}
+async function deleteAttachAll(id, rowId){
+  if(!confirm('Bu dosya silinsin mi?')) return;
+  await attDelete(id, rowId);
+  document.getElementById('aall_'+id)?.remove();
+  const list = document.getElementById('allFilesList');
+  if(!list.querySelector('.attall-row')) list.innerHTML='<div class="att-empty">📂 Dosya bulunamadı.</div>';
+  updateAttBadge();
+  renderTable();
+}
+document.getElementById('allFilesModal').addEventListener('click', function(e){ if(e.target===this) closeAllFilesModal(); });
+
+// ── toast helper ──
+function showToast(msg){
+  const el = document.getElementById('snapToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(()=>el.classList.remove('show'), 2800);
+}
+
+// ── modal open/close ──
+async function openSnapModal(){
+  document.getElementById('snapModal').classList.add('open');
+  document.getElementById('snapNameInp').value = '';
+  await renderSnapList();
+}
+function closeSnapModal(){ document.getElementById('snapModal').classList.remove('open'); }
+
+async function renderSnapList(){
+  const list = document.getElementById('snapList');
+  list.innerHTML = '<div class="snap-empty">⏳ Yükleniyor...</div>';
+  let snaps = [];
+  try{ snaps = await idbGetAll(); } catch(e){ list.innerHTML='<div class="snap-empty">❌ IndexedDB hatası: '+e.message+'</div>'; return; }
+  if(!snaps.length){ list.innerHTML='<div class="snap-empty">📂 Henüz kayıtlı durum yok.</div>'; return; }
+  list.innerHTML = snaps.map(s=>{
+    const d   = new Date(s.savedAt);
+    const dt  = d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+    const aiBadge = s.rows.some(r=>r._aiKategori) ? ' • 🤖 AI kat.' : '';
+    return `<div class="snap-item" id="snap_${s.id}">
+      <div class="snap-item-info">
+        <div class="snap-item-name">${esc(s.name||'Kayıt #'+s.id)}</div>
+        <div class="snap-item-meta">${dt} • ${s.rows.length} kayıt${aiBadge}</div>
+      </div>
+      <button class="snap-load-btn" onclick="loadSnapshot(${s.id})">⬆️ Yükle</button>
+      <button class="snap-del-btn"  onclick="deleteSnapshot(${s.id})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+async function saveSnapshot(){
+  if(!_rawRows.length){ showToast('⚠️ Yüklenmiş veri yok.'); return; }
+  const rawName = document.getElementById('snapNameInp').value.trim();
+  const d = new Date();
+  const autoName = d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})
+    +' — '+(rawName || _rawRows.length+' kayıt');
+  const record = {
+    name        : rawName || autoName,
+    savedAt     : Date.now(),
+    rows        : JSON.parse(JSON.stringify(_rawRows)),
+    mapping     : JSON.parse(JSON.stringify(_mapping)),
+    aiCategories: JSON.parse(JSON.stringify(_aiCategories)),
+    filterVals  : JSON.parse(JSON.stringify(_filterVals)),
+    globalSearch: document.getElementById('globalSearch')?.value||'',
+  };
+  try{
+    await idbPut(record);
+    showToast('✅ Kayıt oluşturuldu: '+record.name);
+    await renderSnapList();
+    document.getElementById('snapNameInp').value='';
+  } catch(e){ showToast('❌ Kaydetme hatası: '+e.message); }
+}
+
+async function loadSnapshot(id){
+  const db = await idbOpen();
+  const rec = await new Promise((res,rej)=>{
+    const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(id);
+    req.onsuccess = e=>res(e.target.result);
+    req.onerror   = e=>rej(e.target.error);
+  });
+  if(!rec){ showToast('❌ Kayıt bulunamadı.'); return; }
+  _rawRows      = rec.rows;
+  _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
+  _mapping      = rec.mapping;
+  _aiCategories = rec.aiCategories || [...DEFAULT_CATEGORIES];
+  _aiCatDone    = _rawRows.some(r=>r._aiKategori);
+  _filterVals   = rec.filterVals ? JSON.parse(JSON.stringify(rec.filterVals)) : {};
+  _sortCol      = null; _sortDir = 1;
+  closeSnapModal();
+  initUI();
+  // Restore global search (syncFilterDOM handles _filterVals → selects/inputs)
+  if(rec.globalSearch) document.getElementById('globalSearch').value = rec.globalSearch;
+  applyFilters();
+  showToast('✅ Yüklendi: '+rec.name+(Object.keys(_filterVals).length||rec.globalSearch ? ' (filtre geri yüklendi)' : ''));
+}
+
+async function deleteSnapshot(id){
+  if(!confirm('Bu kayıt silinsin mi?')) return;
+  try{
+    await idbDelete(id);
+    document.getElementById('snap_'+id)?.remove();
+    const remaining = document.querySelectorAll('#snapList .snap-item').length;
+    if(!remaining) document.getElementById('snapList').innerHTML='<div class="snap-empty">📂 Henüz kayıtlı durum yok.</div>';
+    showToast('🗑 Kayıt silindi.');
+  } catch(e){ showToast('❌ Silme hatası: '+e.message); }
+}
+
+// Update snap-save badge when data is available
+function updateSnapBtn(){
+  const has = _rawRows.length > 0;
+  document.getElementById('snapSaveBtn').style.display = has ? '' : 'none';
+  document.getElementById('dashBtn').style.display    = has ? '' : 'none';
+}
+
+// ─────────────────────────────────────────────
+//  DASHBOARD
+// ─────────────────────────────────────────────
+const _dashCharts = {};
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#1e293b';
+Chart.defaults.font.family = "'Segoe UI', Arial, sans-serif";
+Chart.defaults.font.size   = 11;
+
+const PALETTE = [
+  '#7c3aed','#2563eb','#0891b2','#059669','#d97706',
+  '#dc2626','#7c3aed','#db2777','#0d9488','#8b5cf6',
+  '#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899',
+  '#14b8a6','#a855f7','#f97316','#84cc16','#06b6d4'
+];
+function mkColors(n){ return Array.from({length:n},(_,i)=>PALETTE[i%PALETTE.length]); }
+function freq(rows, key, top=20){
+  const m={};
+  rows.forEach(r=>{ const v=(r[key]||'').trim(); if(v){ m[v]=(m[v]||0)+1; } });
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,top);
+}
+function destroyDash(){
+  Object.values(_dashCharts).forEach(c=>{ try{c.destroy();}catch(e){} });
+  Object.keys(_dashCharts).forEach(k=>delete _dashCharts[k]);
+}
+function mkChart(id, type, labels, data, opts={}){
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  const colors = mkColors(labels.length);
+  const ds = {
+    data,
+    backgroundColor: type==='line' ? 'rgba(124,58,237,.18)' : colors,
+    borderColor    : type==='line' ? '#7c3aed' : colors,
+    borderWidth    : type==='line' ? 2.5 : 1,
+    borderRadius   : type==='bar' ? 5 : 0,
+    fill           : type==='line',
+    tension        : 0.4,
+    pointBackgroundColor: '#7c3aed',
+    pointRadius    : type==='line' ? 3 : 0,
+    hoverOffset    : 8,
+    ...opts.dataset
+  };
+  const base = {
+    type,
+    data:{ labels, datasets:[ds] },
+    options:{
+      responsive:true, maintainAspectRatio:true,
+      animation:{ duration:700, easing:'easeOutQuart' },
+      plugins:{
+        legend:{ display: ['doughnut','pie'].includes(type), position:'right',
+          labels:{ padding:10, boxWidth:12, font:{size:10}, color:'#374151' } },
+        tooltip:{
+          backgroundColor:'#ffffff', borderColor:'#e2e8f0', borderWidth:1,
+          titleColor:'#111827', bodyColor:'#374151',
+          titleFont:{size:11,weight:'bold'}, bodyFont:{size:11},
+          callbacks:{
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+              const pct = total ? ((ctx.parsed.y??ctx.parsed)/(type==='bar'||type==='line'?1:total)*100).toFixed(1) : 0;
+              return type==='bar'||type==='line'
+                ? ` ${ctx.formattedValue} kayıt`
+                : ` ${ctx.label}: ${ctx.formattedValue} (${pct}%)`;
+            }
+          }
+        }
+      },
+      scales: ['bar','line'].includes(type) ? {
+        x:{ grid:{color:'rgba(0,0,0,.06)'}, ticks:{color:'#374151', maxRotation:45} },
+        y:{ grid:{color:'rgba(0,0,0,.06)'}, ticks:{color:'#374151'}, beginAtZero:true }
+      } : {},
+      ...opts.chartOpts
+    }
+  };
+  _dashCharts[id] = new Chart(ctx, base);
+}
+function mkBarH(id, labels, data){
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  const colors = mkColors(labels.length);
+  _dashCharts[id] = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderColor:colors,
+      borderWidth:1, borderRadius:5 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:true,
+      animation:{duration:700,easing:'easeOutQuart'},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:'#ffffff', borderColor:'#e2e8f0', borderWidth:1,
+          titleColor:'#111827', bodyColor:'#374151',
+          callbacks:{ label: ctx => ` ${ctx.formattedValue} kayıt` }
+        }
+      },
+      scales:{
+        x:{ grid:{color:'rgba(0,0,0,.06)'}, ticks:{color:'#374151'}, beginAtZero:true },
+        y:{ grid:{display:false}, ticks:{color:'#374151', font:{size:10}} }
+      }
+    }
+  });
+}
+
+function openDashboard(){
+  if(!_filtered.length){ showToast('⚠️ Görüntülenecek veri yok.'); return; }
+  document.getElementById('dashModal').classList.add('open');
+  renderDashboard();
+}
+function buildDashTitle(reportDate){
+  const titleEl = document.getElementById('dashPrintTitle');
+  if(!titleEl) return;
+  const defaultDate = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
+  if(!reportDate) reportDate = defaultDate;
+  const scopeTxt = document.getElementById('dashScope')?.textContent || '';
+
+  const pills = [];
+  const dateGroups = {};
+  Object.entries(_filterVals).forEach(([k,v])=>{
+    if(!v) return;
+    if(k.endsWith('_from')||k.endsWith('_to')){
+      const base = k.replace(/_from$/,'').replace(/_to$/,'');
+      if(!dateGroups[base]) dateGroups[base]={from:'',to:''};
+      if(k.endsWith('_from')) dateGroups[base].from=v;
+      else dateGroups[base].to=v;
+    } else {
+      const field = FIELDS.find(f=>f.key===k);
+      const label = field ? field.label : k;
+      pills.push(`<span class="pt-pill">${esc(label)}: <strong>${esc(v)}</strong></span>`);
+    }
+  });
+  Object.entries(dateGroups).forEach(([base,{from,to}])=>{
+    const field = FIELDS.find(f=>f.key===base);
+    const label = field ? field.label : base;
+    const fmt = d => d ? new Date(d).toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'}) : '';
+    const range = from && to ? `${fmt(from)} – ${fmt(to)}` : from ? `${fmt(from)} sonrası` : `${fmt(to)} öncesi`;
+    pills.push(`<span class="pt-pill date">${esc(label)}: <strong>${range}</strong></span>`);
+  });
+
+  const pillsHtml = pills.length
+    ? `<div class="pt-pills">${pills.join('')}</div>`
+    : `<p class="pt-nofilter">Filtre uygulanmadı — tüm kayıtlar görüntüleniyor.</p>`;
+
+  titleEl.innerHTML = `
+    <h1>📊 DÖF Analiz Raporu</h1>
+    <p class="pt-meta">Oluşturma tarihi: <strong>${esc(reportDate)}</strong> | Kapsam: <strong>${esc(scopeTxt)}</strong></p>
+    ${pillsHtml}`;
+}
+
+function printDashboard(){
+  const defaultDate = new Date().toLocaleDateString('tr-TR',{day:'2-digit',month:'long',year:'numeric'});
+  const enteredDate = prompt('Rapor tarihi (düzenleyebilirsiniz):', defaultDate);
+  if(enteredDate === null) return; // iptal
+  buildDashTitle(enteredDate || defaultDate);
+  setTimeout(()=>{
+    window.print();
+    buildDashTitle(); // ekran görünümünü bugene döndür
+  }, 150);
+}
+function closeDashboard(){
+  document.getElementById('dashModal').classList.remove('open');
+  destroyDash();
+}
+
+function renderDashboard(){
+  destroyDash();
+  const rows = _filtered;
+
+  // Scope label
+  const isFiltered = rows.length < _rawRows.length;
+  document.getElementById('dashScope').textContent =
+    isFiltered ? `Filtreli: ${rows.length} / ${_rawRows.length} kayıt` : `Toplam: ${rows.length} kayıt`;
+  buildDashTitle();
+
+  // ── KPIs ──
+  const today = new Date(); today.setHours(0,0,0,0);
+  const open  = rows.filter(r=>r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS)).length;
+  const late  = rows.filter(r=>{
+    const kap=parseDate(r.tahminiKap);
+    return kap && kap<today && r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS);
+  }).length;
+  const catPct = rows.length ? Math.round(rows.filter(r=>r._aiKategori&&r._aiKategori!=='İşlenemedi').length/rows.length*100) : 0;
+  const uniqueCari = new Set(rows.map(r=>r.cariAdi).filter(Boolean)).size;
+  const uniqueSube = new Set(rows.map(r=>r.subeAdi).filter(Boolean)).size;
+
+  document.getElementById('dashKpis').innerHTML = `
+    <div class="dash-kpi"><div class="kp-label">Toplam DÖF</div><div class="kp-value">${rows.length}</div><div class="kp-sub">görüntülenen</div></div>
+    <div class="dash-kpi accent-amber"><div class="kp-label">Açık DÖF</div><div class="kp-value">${open}</div><div class="kp-sub">tamamlanmamış</div></div>
+    <div class="dash-kpi accent-red"><div class="kp-label">Geciken</div><div class="kp-value">${late}</div><div class="kp-sub">kapanış tarihi geçmiş</div></div>
+    <div class="dash-kpi accent-green"><div class="kp-label">Kapanan</div><div class="kp-value">${rows.length-open}</div><div class="kp-sub">${rows.length?Math.round((rows.length-open)/rows.length*100):0}% tamamlanma</div></div>
+    <div class="dash-kpi accent-purple"><div class="kp-label">Kategorize Edildi</div><div class="kp-value">${catPct}%</div><div class="kp-sub">kategorize edildi</div></div>
+    <div class="dash-kpi accent-blue"><div class="kp-label">Unique Cari</div><div class="kp-value">${uniqueCari}</div><div class="kp-sub">farklı müşteri</div></div>
+    <div class="dash-kpi"><div class="kp-label">Şube</div><div class="kp-value">${uniqueSube}</div><div class="kp-sub">farklı şube</div></div>`;
+
+  // ── Tipi Donut ──
+  const tipiData = freq(rows,'tipi',12);
+  mkChart('dch_tipi','doughnut', tipiData.map(d=>d[0]), tipiData.map(d=>d[1]));
+
+  // ── Cinsi Pie ──
+  const cinsiData = freq(rows,'cinsi',10);
+  mkChart('dch_cinsi','pie', cinsiData.map(d=>d[0]), cinsiData.map(d=>d[1]));
+
+  // ── AI Kategori Doughnut ──
+  const aiData = freq(rows,'_aiKategori',14);
+  if(aiData.length){
+    mkChart('dch_aikat','doughnut', aiData.map(d=>d[0]), aiData.map(d=>d[1]));
+  } else {
+    const c=document.getElementById('dch_aikat');
+    if(c) c.parentElement.querySelector('h4').insertAdjacentHTML('afterend','<p style="color:#64748b;font-size:.75rem;text-align:center;padding:40px 0;">Henüz kategorize edilmemiş.</p>');
+  }
+
+  // ── Yıllara göre Bar ──
+  const yilMap = {};
+  rows.forEach(r=>{
+    const d = parseDate(r.acmaTarihi||r.sikayetTar);
+    if(d){ const y=d.getFullYear(); yilMap[y]=(yilMap[y]||0)+1; }
+  });
+  const yilLabels = Object.keys(yilMap).sort();
+  mkChart('dch_yil','bar', yilLabels, yilLabels.map(y=>yilMap[y]));
+
+  // ── Top Şubeler mini list ──
+  const subeData = freq(rows,'subeAdi',8);
+  const maxSube = subeData[0]?.[1]||1;
+  document.getElementById('dch_sube_top').innerHTML = subeData.map(([n,c])=>`
+    <li>
+      <span class="t5-label" title="${esc(n)}">${esc(n)}</span>
+      <span class="t5-bar-bg"><span class="t5-bar" style="width:${Math.round(c/maxSube*100)}%"></span></span>
+      <span class="t5-cnt">${c}</span>
+    </li>`).join('')||'<li style="color:#64748b;font-size:.72rem;">Şube verisi yok</li>';
+
+  // ── Aylık Trend Line ──
+  const trendMap = {};
+  rows.forEach(r=>{
+    const d = parseDate(r.sikayetTar||r.acmaTarihi);
+    if(d){
+      const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      trendMap[key]=(trendMap[key]||0)+1;
+    }
+  });
+  const trendLabels = Object.keys(trendMap).sort().slice(-36); // last 3 years
+  const trendVals   = trendLabels.map(k=>trendMap[k]);
+  mkChart('dch_trend','line', trendLabels, trendVals);
+
+  // ── Top Açan Kişiler Horizontal Bar ──
+  const acanData = freq(rows,'acanKisi',10);
+  mkBarH('dch_acan', acanData.map(d=>d[0]), acanData.map(d=>d[1]));
+
+  // ── Top Cari Horizontal Bar ──
+  const cariData = freq(rows,'cariAdi',10);
+  mkBarH('dch_cari', cariData.map(d=>d[0].length>28?d[0].slice(0,28)+'…':d[0]), cariData.map(d=>d[1]));
+
+  // ── Heatmap ──
+  renderHeatmap();
+}
+
+// ───────────────────────
+//  HEATMAP
+// ───────────────────────
+let _hmDim = 'cariAdi';
+let _hmCol = 'ay';
+
+function setHmDim(dim){
+  _hmDim = dim;
+  ['Cari','Stok','Kat','Sube'].forEach(x=>document.getElementById('hmBtn'+x)?.classList.remove('active'));
+  const map = {cariAdi:'Cari', stokAdi:'Stok', _aiKategori:'Kat', subeAdi:'Sube'};
+  document.getElementById('hmBtn'+map[dim])?.classList.add('active');
+  renderHeatmap();
+}
+function setHmCol(col){
+  _hmCol = col;
+  document.getElementById('hmBtnAy')?.classList.toggle('active', col==='ay');
+  document.getElementById('hmBtnYil')?.classList.toggle('active', col==='yil');
+  renderHeatmap();
+}
+
+function renderHeatmap(){
+  const container = document.getElementById('heatmapTable');
+  if(!container) return;
+  const rows = _filtered;
+  const maxR = Math.max(5, parseInt(document.getElementById('hmMaxRows')?.value||20)||20);
+
+  // ─ collect date field ─
+  function getKey(r){
+    const d = parseDate(r.sikayetTar||r.acmaTarihi);
+    if(!d) return null;
+    if(_hmCol==='yil') return String(d.getFullYear());
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  }
+
+  // build col labels
+  const colSet = new Set();
+  rows.forEach(r=>{ const k=getKey(r); if(k) colSet.add(k); });
+  const cols = [...colSet].sort();
+  if(!cols.length){ container.innerHTML='<p style="color:#64748b;font-size:.76rem;text-align:center;padding:30px;">Tarih verisi bulunamadı.</p>'; return; }
+
+  // build row labels (top N by total count)
+  const rowTotals = {};
+  rows.forEach(r=>{
+    const rv = (r[_hmDim]||'').trim() || '(Boş)';
+    const ck = getKey(r);
+    if(!ck) return;
+    if(!rowTotals[rv]) rowTotals[rv]=0;
+    rowTotals[rv]++;
+  });
+  const rowLabels = Object.entries(rowTotals).sort((a,b)=>b[1]-a[1]).slice(0,maxR).map(e=>e[0]);
+  if(!rowLabels.length){ container.innerHTML='<p style="color:#64748b;font-size:.76rem;text-align:center;padding:30px;">Veri bulunamadı.</p>'; return; }
+
+  // build matrix
+  const mat = {};
+  rows.forEach(r=>{
+    const rv = (r[_hmDim]||'').trim()||'(Boş)';
+    if(!rowLabels.includes(rv)) return;
+    const ck = getKey(r);
+    if(!ck) return;
+    if(!mat[rv]) mat[rv]={};
+    mat[rv][ck] = (mat[rv][ck]||0)+1;
+  });
+
+  // col totals
+  const colTotals = {};
+  cols.forEach(c=>{ colTotals[c]=rowLabels.reduce((s,r)=>s+(mat[r]?.[c]||0),0); });
+
+  // max for color scaling
+  const allVals = rowLabels.flatMap(r=>cols.map(c=>mat[r]?.[c]||0));
+  const globalMax = Math.max(1, ...allVals);
+
+  function cellColor(v){
+    if(!v) return 'background:#f8fafc;color:#f8fafc;';
+    const t = v/globalMax;
+    if(t < 0.15) return `background:#dbeafe;color:#1e40af;`;
+    if(t < 0.30) return `background:#93c5fd;color:#1e3a8a;`;
+    if(t < 0.50) return `background:#3b82f6;color:#fff;`;
+    if(t < 0.70) return `background:#f97316;color:#fff;`;
+    if(t < 0.85) return `background:#ef4444;color:#fff;`;
+    return `background:#991b1b;color:#fecaca;`;
+  }
+
+  // format col header
+  function fmtCol(c){
+    if(_hmCol==='yil') return c;
+    const [y,m]=c.split('-');
+    const mn=['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'][parseInt(m)-1]||m;
+    return mn+'<br><span style="opacity:.55;">'+y+'</span>';
+  }
+
+  let html = `<table class="hm-table">
+    <thead><tr>
+      <th class="hm-rowhead">${{cariAdi:'Cari / Müşteri', stokAdi:'Stok / Ürün', _aiKategori:'Kategori', subeAdi:'Şube'}[_hmDim]||_hmDim}</th>
+      ${cols.map(c=>`<th>${fmtCol(c)}</th>`).join('')}
+      <th style="background:#1e293b;color:#60a5fa;">Toplam</th>
+    </tr></thead>
+    <tbody>`;
+
+  rowLabels.forEach(rl=>{
+    const rowTotal = cols.reduce((s,c)=>s+(mat[rl]?.[c]||0),0);
+    const shortLabel = rl.length>30 ? rl.slice(0,30)+'…' : rl;
+    html += `<tr>
+      <td class="hm-row-label" title="${esc(rl)}">${esc(shortLabel)}</td>
+      ${cols.map(c=>{
+        const v = mat[rl]?.[c]||0;
+        return `<td style="${cellColor(v)}" title="${esc(rl)} / ${c}: ${v}">${v||''}</td>`;
+      }).join('')}
+      <td style="background:#1e293b;color:#60a5fa;font-weight:800;">${rowTotal}</td>
+    </tr>`;
+  });
+
+  // totals row
+  const grandTotal = rowLabels.reduce((s,r)=>s+cols.reduce((ss,c)=>ss+(mat[r]?.[c]||0),0),0);
+  html += `<tr class="hm-total-row">
+    <th class="hm-rowhead" style="background:#1e293b;color:#60a5fa;">TOPLAM</th>
+    ${cols.map(c=>`<td>${colTotals[c]||''}</td>`).join('')}
+    <th style="background:#1e293b;color:#60a5fa;">${grandTotal}</th>
+  </tr>`;
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+//  ATTACHMENTS
+// ─────────────────────────────────────────────
+let _attRowId = null;
+
+async function openAttachModal(rowId, label){
+  if(!rowId){ showToast('⚠️ Bu satırın ID\u0027si yok. Veriyi kaydet/yeniden yükle.'); return; }
+  _attRowId = rowId;
+  const sub = document.getElementById('attModalSub');
+  sub.textContent = label || rowId;
+  sub.title = label || rowId;
+  document.getElementById('attModal').classList.add('open');
+  await renderAttachList();
+}
+function closeAttachModal(){
+  document.getElementById('attModal').classList.remove('open');
+  _attRowId = null;
+}
+async function renderAttachList(){
+  const list = document.getElementById('attList');
+  list.innerHTML = '<div class="att-empty">⏳ Yükleniyor...</div>';
+  const items = await attGetByRow(_attRowId);
+  if(!items.length){ list.innerHTML='<div class="att-empty">📂 Henüz dosya eklenmedi.</div>'; return; }
+  list.innerHTML = items.map(it=>{
+    const icon = attFileIcon(it.name);
+    const kb = it.size < 1024*1024 ? (it.size/1024).toFixed(0)+' KB' : (it.size/1048576).toFixed(1)+' MB';
+    const dt = new Date(it.addedAt).toLocaleString('tr-TR');
+    return `<div class="att-item" id="attit_${it.id}">
+      <span class="att-item-icon">${icon}</span>
+      <div class="att-item-info">
+        <div class="att-item-name" title="${esc(it.name)}">${esc(it.name)}</div>
+        <div class="att-item-meta">${kb} &bull; ${dt}</div>
+      </div>
+      <button class="att-dl-btn" onclick="downloadAttach(${it.id})">⬇️ İndir</button>
+      <button class="att-del-btn" onclick="deleteAttach(${it.id},'${it.rowId}')">✕</button>
+    </div>`;
+  }).join('');
+}
+async function handleAttachFiles(input){
+  const files = Array.from(input.files);
+  if(!files.length || !_attRowId) return;
+  for(const f of files){
+    const data = await attReadBase64(f);
+    await attAdd(_attRowId, f.name, f.type, f.size, data);
+  }
+  input.value='';
+  await renderAttachList();
+  updateAttBadge();
+  renderTable();
+  showToast('✅ '+files.length+' dosya eklendi.');
+}
+async function downloadAttach(id){
+  const rec = await attGetOne(id);
+  if(!rec) return;
+  const mime = rec.type || 'application/octet-stream';
+  const a = document.createElement('a');
+  a.href = 'data:'+mime+';base64,'+rec.data;
+  a.download = rec.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+async function deleteAttach(id, rowId){
+  if(!confirm('Bu dosya silinsin mi?')) return;
+  await attDelete(id, rowId);
+  const el = document.getElementById('attit_'+id);
+  el?.remove();
+  const list = document.getElementById('attList');
+  if(!list.querySelector('.att-item'))
+    list.innerHTML='<div class="att-empty">📂 Henüz dosya eklenmedi.</div>';
+  updateAttBadge();
+  renderTable();
+}
+function attReadBase64(file){
+  return new Promise((res,rej)=>{
+    const r = new FileReader();
+    r.onload = e => res(e.target.result.split(',')[1]);
+    r.onerror = e => rej(e.target.error);
+    r.readAsDataURL(file);
+  });
+}
+function attFileIcon(name){
+  const ext = (name||'').split('.').pop().toLowerCase();
+  if(['jpg','jpeg','png','gif','webp','bmp'].includes(ext)) return '🖼️';
+  if(ext==='pdf') return '📕';
+  if(['doc','docx'].includes(ext)) return '📝';
+  if(['xls','xlsx'].includes(ext)) return '📊';
+  return '📄';
+}
+document.getElementById('attModal').addEventListener('click', function(e){ if(e.target===this) closeAttachModal(); });
+
+// Startup: load attachment counts
+loadAttachCounts();
+
+// Close dashboard on backdrop click
+document.getElementById('dashModal').addEventListener('click', function(e){ if(e.target===this) closeDashboard(); });
+</script>
+</body>
+</html>

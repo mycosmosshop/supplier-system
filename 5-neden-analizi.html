@@ -1,0 +1,2826 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search);};</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>5 Neden Analizi</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1e293b;min-height:100vh;}
+
+.topbar{display:flex;align-items:center;gap:10px;padding:10px 18px;
+  background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;
+  box-shadow:0 2px 10px rgba(0,0,0,.22);flex-wrap:wrap;}
+.topbar h1{font-size:1.1rem;font-weight:800;}
+.topbar .sp{flex:1;}
+.tbb{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.32);
+  color:#fff;border-radius:7px;padding:5px 13px;font-size:.76rem;font-weight:600;
+  cursor:pointer;transition:.15s;white-space:nowrap;}
+.tbb:hover{background:rgba(255,255,255,.27);}
+.tbb.danger{background:rgba(220,38,38,.38);border-color:rgba(220,38,38,.6);}
+.tbb.ok{background:rgba(22,163,74,.46);border-color:rgba(22,163,74,.7);}
+
+.meta-bar{display:flex;gap:10px;flex-wrap:wrap;padding:9px 18px;background:#fff;
+  border-bottom:1px solid #e2e8f0;align-items:flex-end;}
+.mf{display:flex;flex-direction:column;gap:2px;flex:1;min-width:150px;}
+.mf label{font-size:.62rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;}
+.mf input,.mf select{border:1.5px solid #e2e8f0;border-radius:6px;padding:4px 8px;
+  font-size:.8rem;outline:none;transition:.2s;}
+.mf input:focus,.mf select:focus{border-color:#2563eb;}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:6px 18px;background:#f8faff;
+  border-bottom:1px solid #e2e8f0;font-size:.71rem;align-items:center;color:#475569;}
+.li{display:flex;align-items:center;gap:5px;}
+.lb{width:22px;height:13px;border-radius:2px;border:2px solid;}
+.lb.n{background:#fff;border-color:#94a3b8;}
+.lb.r{background:#fff5f5;border-color:#dc2626;border-style:dashed;}
+
+/* ── CANVAS ── */
+.canvas-outer{overflow:auto;padding:18px 18px 48px;background:#eef2f7;}
+.track-wrap{margin-bottom:52px;}
+.track-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.tbadge{font-size:.7rem;font-weight:800;color:#fff;border-radius:6px;
+  padding:3px 11px;text-transform:uppercase;letter-spacing:.07em;}
+.tbadge.os{background:#2563eb;} .tbadge.nd{background:#7c3aed;}
+.tsub{font-size:.68rem;font-style:italic;color:#94a3b8;}
+
+/* ── DIAGRAM CANVAS ── */
+.diag{position:relative;overflow:visible;}
+.diag svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;}
+
+/* ── PROBLEM BOX ── */
+.pbox{position:absolute;border:2.5px solid #2563eb;border-radius:8px;
+  background:#eef4ff;padding:8px 10px;}
+.pbox.nd-t{border-color:#7c3aed;background:#f4f0ff;}
+.plbl{font-size:.58rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:4px;color:#2563eb;}
+.pbox.nd-t .plbl{color:#7c3aed;}
+.pbox textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
+  font-size:.82rem;font-weight:500;color:#1e293b;font-family:inherit;line-height:1.45;
+  min-height:36px;overflow:hidden;}
+
+/* ── STEP BOX ── */
+.sbox{position:absolute;border:2px solid #cbd5e1;border-radius:8px;
+  background:#fff;padding:7px 10px;
+  box-shadow:0 1px 5px rgba(0,0,0,.06);transition:border .15s,box-shadow .15s;}
+.sbox:hover{border-color:#93c5fd;box-shadow:0 2px 8px rgba(37,99,235,.13);}
+.sbox.is-root{border-color:#dc2626;border-style:dashed;border-width:2.5px;background:#fff7f7;}
+.stag{position:absolute;top:-9px;left:8px;font-size:.57rem;font-weight:800;
+  padding:1px 7px;border-radius:10px;background:#dc2626;color:#fff;white-space:nowrap;}
+.sbox textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
+  font-size:.83rem;font-weight:500;color:#1e293b;font-family:inherit;line-height:1.45;
+  min-height:36px;margin-top:14px;padding-left:2px;overflow:hidden;}
+.sbox.is-root textarea{margin-top:18px;}
+.sacts{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap;}
+.sa{font-size:.56rem;padding:2px 5px;border-radius:4px;border:1px solid;
+  cursor:pointer;font-weight:700;background:#fff;transition:.12s;white-space:nowrap;}
+/* wizard chips */
+.wiz-opts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;}
+.wiz-chip{padding:6px 16px;border-radius:20px;border:2px solid #e2e8f0;
+  font-size:.82rem;font-weight:700;cursor:pointer;background:#fff;color:#475569;transition:.15s;}
+.wiz-chip:hover{border-color:#93c5fd;color:#2563eb;}
+.wiz-chip.sel{border-color:#2563eb;background:#2563eb;color:#fff;}
+.sa.add{color:#2563eb;border-color:#bfdbfe;background:#eff6ff;}
+.sa.add:hover{background:#2563eb;color:#fff;}
+.sa.root{color:#dc2626;border-color:#fca5a5;background:#fff5f5;}
+.sa.root:hover{background:#dc2626;color:#fff;}
+.sa.fork{color:#7c3aed;border-color:#ddd6fe;background:#f5f3ff;}
+.sa.fork:hover{background:#7c3aed;color:#fff;}
+.sa.del{color:#94a3b8;border-color:#e2e8f0;}
+.sa.del:hover{background:#ef4444;color:#fff;border-color:#ef4444;}
+
+/* ── ROOT CAUSE BOX ── */
+.rcb{position:absolute;border:2.5px dashed #dc2626;border-radius:10px;
+  background:#fff5f5;padding:10px 12px;text-align:center;}
+.rcb .ri{font-size:1.1rem;}
+.rcb .rl{font-size:.6rem;font-weight:800;text-transform:uppercase;
+  color:#dc2626;letter-spacing:.04em;margin:4px 0 2px;}
+.rcb textarea{width:100%;border:none;outline:none;resize:none;background:transparent;
+  font-size:.78rem;font-weight:600;color:#b91c1c;font-family:inherit;text-align:center;
+  line-height:1.4;min-height:30px;}
+
+/* ── STEP NUMBER LABEL ── */
+.step-num-lbl{
+  position:absolute;top:-1px;left:-1px;
+  font-size:.57rem;font-weight:800;color:#fff;
+  background:#2563eb;
+  border-radius:7px 0 6px 0;   /* top-left follows box corner, cut diagonally into box */
+  padding:2px 6px;letter-spacing:.04em;
+  pointer-events:none;line-height:1.4;
+  z-index:2;
+}
+.step-num-lbl.nd-lbl{background:#7c3aed;}
+
+/* ── PIN BUTTON ── */
+.pin-btn{position:absolute;top:3px;right:4px;background:none;border:none;
+  cursor:pointer;font-size:.75rem;line-height:1;padding:2px 3px;border-radius:4px;
+  opacity:.28;transition:.15s;color:#64748b;}
+.pin-btn:hover{opacity:1;background:#fef3c7;}
+.pin-btn.pinned{opacity:1;color:#f59e0b;filter:drop-shadow(0 0 3px #fcd34d);}
+.sbox.is-pinned{border-color:#f59e0b !important;background:#fffbeb !important;}
+.pbox.is-pinned{border-color:#f59e0b !important;background:#fffbeb !important;}
+.rcb.is-pinned{border-color:#f59e0b !important;background:#fffbeb !important;}
+
+/* ── STEP ADD BTN ── */
+.add-step-btn{display:inline-flex;align-items:center;gap:5px;
+  font-size:.72rem;font-weight:700;color:#2563eb;background:#eff6ff;
+  border:1.5px dashed #93c5fd;border-radius:8px;padding:5px 13px;
+  cursor:pointer;margin-top:6px;transition:.15s;}
+.add-step-btn:hover{background:#dbeafe;}
+.add-step-btn.nd{color:#7c3aed;background:#f5f3ff;border-color:#c4b5fd;}
+.add-step-btn.nd:hover{background:#ede9fe;}
+
+/* ── LOAD MODAL ── */
+.load-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);
+  z-index:9800;align-items:center;justify-content:center;}
+.load-modal.open{display:flex;}
+.load-box{background:#fff;border-radius:14px;padding:22px 24px 18px;
+  max-width:520px;width:96%;box-shadow:0 8px 40px rgba(0,0,0,.22);
+  max-height:80vh;display:flex;flex-direction:column;}
+.load-box h3{font-size:.92rem;font-weight:800;margin-bottom:14px;color:#1e293b;
+  display:flex;align-items:center;gap:8px;}
+.load-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.load-row{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;
+  transition:.15s;}
+.load-row:hover{border-color:#93c5fd;background:#eff6ff;}
+.load-info{flex:1;min-width:0;}
+.load-name{font-size:.82rem;font-weight:700;color:#1e293b;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.load-meta{font-size:.67rem;color:#94a3b8;margin-top:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;}
+.load-btns{display:flex;gap:6px;flex-shrink:0;}
+.load-btn{padding:5px 12px;border:none;border-radius:7px;font-size:.76rem;
+  font-weight:700;cursor:pointer;transition:.15s;}
+.load-btn.ok{background:#2563eb;color:#fff;}
+.load-btn.ok:hover{background:#1d4ed8;}
+.load-btn.del{background:#fee2e2;color:#dc2626;}
+.load-btn.del:hover{background:#dc2626;color:#fff;}
+.load-close-row{display:flex;justify-content:flex-end;margin-top:14px;}
+.load-close-btn{padding:6px 18px;border:none;border-radius:8px;background:#f1f5f9;
+  color:#64748b;font-size:.8rem;font-weight:700;cursor:pointer;}
+.load-close-btn:hover{background:#e2e8f0;}
+
+/* ── UYGUNSUZLUK SEÇİM MODALI ── */
+.uyg-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.48);
+  z-index:9900;align-items:flex-start;justify-content:center;padding-top:36px;overflow-y:auto;}
+.uyg-modal.open{display:flex;}
+.uyg-box{background:#fff;border-radius:14px;padding:20px 22px 14px;
+  width:min(980px,96vw);max-height:86vh;display:flex;flex-direction:column;
+  box-shadow:0 12px 50px rgba(0,0,0,.28);}
+.uyg-header{display:flex;align-items:center;gap:10px;margin-bottom:11px;flex-wrap:wrap;}
+.uyg-header h3{font-size:.92rem;font-weight:800;color:#1e293b;margin:0;flex:1;min-width:160px;}
+.uyg-search{flex:2;min-width:180px;padding:7px 12px;border:1.5px solid #e2e8f0;
+  border-radius:8px;font-size:.82rem;outline:none;font-family:inherit;}
+.uyg-search:focus{border-color:#2563eb;}
+.uyg-hint{font-size:.7rem;color:#94a3b8;margin-bottom:8px;}
+.uyg-table-wrap{flex:1;overflow:auto;border:1.5px solid #e2e8f0;border-radius:10px;}
+.uyg-table{width:100%;border-collapse:collapse;font-size:.76rem;}
+.uyg-table thead tr{background:#f1f5f9;position:sticky;top:0;z-index:1;}
+.uyg-table th{padding:8px 10px;text-align:left;font-weight:700;color:#475569;
+  border-bottom:2px solid #e2e8f0;white-space:nowrap;}
+.uyg-table td{padding:7px 10px;border-bottom:1px solid #f1f5f9;color:#1e293b;
+  max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.uyg-tr{cursor:pointer;transition:.12s;}
+.uyg-tr:hover{background:#eff6ff;}
+.uyg-tr:hover td{color:#1d4ed8;}
+.uyg-count{font-size:.68rem;color:#94a3b8;text-align:right;margin-top:7px;}
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#1e293b;color:#fff;padding:9px 22px;border-radius:10px;
+  font-size:.82rem;font-weight:600;opacity:0;transition:.3s;pointer-events:none;z-index:99999;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  z-index:9000;align-items:center;justify-content:center;}
+.mo.open{display:flex;}
+.mb{background:#fff;border-radius:14px;padding:22px 24px 18px;
+  max-width:420px;width:95%;box-shadow:0 8px 40px rgba(0,0,0,.2);}
+.mb h3{font-size:.92rem;font-weight:800;margin-bottom:12px;color:#1e293b;}
+.mb textarea{width:100%;min-height:80px;border:1.5px solid #e2e8f0;
+  border-radius:8px;padding:8px 10px;font-size:.82rem;resize:vertical;
+  font-family:inherit;outline:none;}
+.mb textarea:focus{border-color:#2563eb;}
+.mbts{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+.mbt{padding:6px 17px;border-radius:7px;font-size:.8rem;font-weight:700;
+  cursor:pointer;border:none;}
+.mbt.c{background:#f1f5f9;color:#64748b;}
+.mbt.s{background:#2563eb;color:#fff;}
+.mbt.s:hover{background:#1d4ed8;}
+
+/* ── AI PANEL ── */
+.ai-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.48);
+  z-index:9500;align-items:center;justify-content:center;}
+.ai-modal.open{display:flex;}
+.ai-box{background:#fff;border-radius:16px;padding:24px 26px 20px;
+  max-width:480px;width:96%;box-shadow:0 10px 50px rgba(0,0,0,.22);}
+.ai-box h3{font-size:.95rem;font-weight:800;color:#1e293b;margin-bottom:3px;
+  display:flex;align-items:center;gap:8px;}
+.ai-subtitle{font-size:.68rem;color:#94a3b8;margin-bottom:10px;}
+.ai-subtitle a{color:#2563eb;text-decoration:none;}
+/* Provider tabs */
+.ai-provider-tabs{display:flex;gap:6px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f1f5f9;}
+.ai-ptab{flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;background:#f8fafc;
+  cursor:pointer;font-size:.78rem;font-weight:700;color:#64748b;transition:all .15s;}
+.ai-ptab:hover{border-color:#93c5fd;color:#1d4ed8;}
+.ai-ptab.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8;}
+.ai-ptab.active.gem{background:#0f9d58;border-color:#0f9d58;}
+.ai-ptab.active.or{background:#7c3aed;border-color:#7c3aed;}
+.ai-ptab.active.oai{background:#10a37f;border-color:#10a37f;}
+.or-model-sel{width:100%;margin-top:6px;padding:5px 8px;border:1.5px solid #e2e8f0;border-radius:7px;
+  font-size:.78rem;color:#374151;background:#f8fafc;cursor:pointer;}
+.or-model-sel:focus{outline:none;border-color:#7c3aed;}
+/* API test button */
+.key-row{display:flex;gap:6px;align-items:center;}
+.key-row .ai-key{flex:1;margin:0;}
+.api-test-btn{padding:6px 10px;border:1.5px solid #e2e8f0;border-radius:7px;background:#f8fafc;
+  font-size:.75rem;font-weight:700;color:#64748b;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.api-test-btn:hover{border-color:#2563eb;color:#2563eb;}
+.api-test-btn.ok{background:#dcfce7;border-color:#16a34a;color:#16a34a;}
+.api-test-btn.err{background:#fee2e2;border-color:#dc2626;color:#dc2626;}
+.api-test-btn.loading{opacity:.6;pointer-events:none;}
+/* wizard */
+.wiz-dots{display:flex;gap:6px;align-items:center;margin-bottom:16px;}
+.wiz-dot{width:22px;height:4px;border-radius:2px;background:#e2e8f0;transition:.2s;}
+.wiz-dot.active{background:#2563eb;}
+.wiz-dot.done{background:#93c5fd;}
+.wiz-q{font-size:.78rem;font-weight:700;color:#1e293b;margin-bottom:5px;}
+.wiz-hint{font-size:.66rem;color:#94a3b8;margin-bottom:8px;}
+.ai-ta{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;
+  padding:8px 10px;font-size:.82rem;resize:none;font-family:inherit;
+  outline:none;min-height:64px;color:#1e293b;box-sizing:border-box;}
+.ai-ta:focus{border-color:#2563eb;}
+.ai-input{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;
+  padding:8px 10px;font-size:.82rem;font-family:inherit;outline:none;
+  color:#1e293b;box-sizing:border-box;}
+.ai-input:focus{border-color:#2563eb;}
+.ai-label{font-size:.64rem;font-weight:700;color:#64748b;text-transform:uppercase;
+  letter-spacing:.05em;margin-bottom:4px;display:block;margin-top:12px;}
+.ai-key{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;
+  padding:7px 10px;font-size:.78rem;font-family:monospace;outline:none;color:#1e293b;
+  box-sizing:border-box;}
+.ai-key:focus{border-color:#2563eb;}
+.key-hint{font-size:.61rem;color:#94a3b8;margin-top:3px;}
+.key-hint a{color:#2563eb;text-decoration:none;}
+.ai-actions{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:14px;}
+.ai-actions-right{display:flex;gap:8px;}
+.aib{padding:7px 16px;border-radius:8px;font-size:.8rem;font-weight:700;
+  cursor:pointer;border:none;transition:.15s;}
+.aib.cancel{background:#f1f5f9;color:#64748b;}
+.aib.cancel:hover{background:#e2e8f0;}
+.aib.back{background:#f1f5f9;color:#475569;}
+.aib.back:hover{background:#e2e8f0;}
+.aib.next{background:#2563eb;color:#fff;}
+.aib.next:hover{opacity:.88;}
+.aib.gen{background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;
+  display:flex;align-items:center;gap:6px;}
+.aib.gen:hover{opacity:.88;}
+.aib.gen:disabled{opacity:.5;cursor:not-allowed;}
+.ai-status{font-size:.74rem;color:#64748b;display:flex;align-items:center;gap:6px;}
+.ai-spinner{width:14px;height:14px;border:2px solid #e2e8f0;
+  border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;}
+.tbb-prog{position:relative;overflow:hidden;}
+.tbb-prog::after{content:'';position:absolute;left:0;top:0;height:100%;
+  background:rgba(255,255,255,.28);width:var(--prog,0%);transition:width .3s;}
+.tbb-pct{font-size:.65rem;opacity:.85;margin-left:4px;}
+
+/* ── CONSIDERATION TABS ── */
+.consid-tabs{display:flex;background:#fff;border-bottom:2px solid #e2e8f0;padding:0 18px;}
+.ctab{padding:11px 24px;border:none;background:none;cursor:pointer;font-size:.85rem;
+  font-weight:700;color:#64748b;border-bottom:3px solid transparent;margin-bottom:-2px;
+  transition:all .2s;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+.ctab:hover{color:#1e3a5f;background:#f0f7ff;}
+.ctab.active{color:#1e3a5f;border-bottom-color:#2563eb;background:#f0f7ff;}
+.ctab .cbadge{font-size:.7rem;background:#e0e7ff;color:#2563eb;border-radius:12px;
+  padding:1px 8px;font-weight:700;}
+.ctab.active .cbadge{background:#2563eb;color:#fff;}
+.consid-panel{display:none;}
+.consid-panel.active{display:block;}
+.consid-banner{display:flex;align-items:flex-start;gap:10px;background:#eff6ff;
+  border-left:4px solid #2563eb;padding:8px 18px;font-size:.73rem;color:#1d4ed8;line-height:1.5;}
+.consid-banner.sys{background:#faf5ff;border-left-color:#7c3aed;color:#5b21b6;}
+.consid-banner .cbi{font-size:1.2rem;flex-shrink:0;}
+.consid-banner strong{font-size:.78rem;display:block;margin-bottom:1px;}
+
+/* ── SIDE LAYOUT: diagram left, actions table right ── */
+.panel-body{display:flex;align-items:flex-start;gap:0;}
+.diagram-side{flex:1;min-width:0;overflow-x:auto;}
+.actions-side{
+  width:480px;flex-shrink:0;
+  border-left:2px solid #e2e8f0;
+  background:#fff;
+  display:flex;flex-direction:column;
+  position:sticky;top:0;
+  align-self:flex-start;
+  max-height:calc(100vh - 120px);
+  overflow-y:auto;
+}
+
+/* ── CORRECTIVE ACTIONS TABLE ── */
+.ca-hdr{
+  background:linear-gradient(135deg,#1d4ed8,#2563eb);
+  color:#fff;font-size:.72rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.06em;
+  padding:9px 14px;text-align:center;
+}
+.ca-hdr.sys-hdr{background:linear-gradient(135deg,#5b21b6,#7c3aed);}
+.ca-row-hdr{
+  display:grid;
+  grid-template-columns:28px 20px 1fr 26px 76px 88px 92px;
+  background:#f8faff;
+  border-bottom:2px solid #e2e8f0;
+  padding:4px 0;
+}
+.ca-col{
+  font-size:.6rem;font-weight:800;color:#64748b;
+  text-transform:uppercase;letter-spacing:.04em;
+  display:flex;align-items:center;justify-content:center;
+  padding:2px 4px;
+}
+.ca-row{
+  display:grid;
+  grid-template-columns:28px 20px 1fr 26px 76px 88px 92px;
+  border-bottom:1px solid #f1f5f9;
+  min-height:44px;
+  transition:background .15s;
+}
+.ca-row:hover{background:#fafbff;}
+.ca-row.act-pinned{background:#fffbeb !important;border-left:2.5px solid #f59e0b;}
+.ca-lbl{
+  font-size:.65rem;font-weight:800;color:#64748b;
+  display:flex;align-items:center;justify-content:center;
+  background:#f8faff;border-right:1px solid #e2e8f0;
+}
+/* action pin button */
+.ca-pin-btn{
+  border:none;background:none;cursor:pointer;
+  font-size:.75rem;padding:1px 2px;
+  display:flex;align-items:center;justify-content:center;
+  opacity:.22;transition:.15s;color:#64748b;
+  border-right:1px solid #f1f5f9;
+}
+.ca-pin-btn:hover{opacity:1;background:#fef3c7;}
+.ca-pin-btn.pinned{opacity:1;color:#f59e0b;filter:drop-shadow(0 0 2px #fcd34d);}
+.ca-input{
+  border:none;outline:none;resize:none;background:transparent;
+  font-size:.76rem;color:#1e293b;font-family:inherit;
+  padding:6px 7px;width:100%;line-height:1.4;
+  min-height:44px;
+}
+.ca-input:focus{background:#f0f7ff;}
+.ca-ai-btn{
+  border:none;background:none;cursor:pointer;
+  font-size:.85rem;padding:0 3px;
+  display:flex;align-items:center;justify-content:center;
+  border-left:1px solid #f1f5f9;
+  border-right:1px solid #f1f5f9;
+  color:#f59e0b;transition:.15s;
+}
+.ca-ai-btn:hover{background:#fef3c7;}
+.ca-ai-btn.loading{animation:spin .6s linear infinite;pointer-events:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ca-bulk-wrap{display:flex;justify-content:flex-end;padding:5px 8px 3px;}
+.ca-bulk-btn{
+  display:inline-flex;align-items:center;gap:4px;
+  border:none;cursor:pointer;
+  background:linear-gradient(135deg,#f59e0b,#d97706);
+  color:#fff;font-size:.72rem;font-weight:700;
+  padding:4px 11px;border-radius:6px;
+  letter-spacing:.03em;transition:.2s;white-space:nowrap;
+}
+.ca-bulk-btn:hover{background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 2px 8px #f59e0b60;}
+.ca-bulk-btn:disabled{opacity:.55;cursor:not-allowed;}
+.ca-cell{
+  border-left:1px solid #f1f5f9;
+  display:flex;align-items:center;padding:4px 5px;
+}
+.ca-sinput{
+  border:none;outline:none;background:transparent;
+  font-size:.74rem;color:#1e293b;font-family:inherit;
+  width:100%;padding:2px 2px;
+}
+.ca-sinput[type=date]{font-size:.68rem;color:#475569;}
+/* Durum select */
+.ca-status{
+  border:none;outline:none;background:transparent;
+  font-size:.7rem;color:#1e293b;font-family:inherit;
+  width:100%;padding:2px 4px;cursor:pointer;
+  border-radius:5px;transition:.15s;
+  -webkit-appearance:auto;appearance:auto;
+  min-width:0;box-sizing:border-box;
+}
+.ca-status:focus{outline:1.5px solid #93c5fd;}
+.ca-status[data-v="bekliyor"]{background:#f1f5f9;color:#64748b;}
+.ca-status[data-v="devam"]{background:#dbeafe;color:#1d4ed8;}
+.ca-status[data-v="tamam"]{background:#dcfce7;color:#15803d;}
+.ca-status[data-v="iptal"]{background:#fee2e2;color:#dc2626;}
+.ca-section-lbl{
+  font-size:.62rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.06em;padding:5px 10px;
+  border-bottom:1px solid #e2e8f0;
+}
+.ca-section-lbl.os-lbl{background:#eff6ff;color:#1d4ed8;border-left:3px solid #2563eb;}
+.ca-section-lbl.nd-lbl{background:#f5f3ff;color:#5b21b6;border-left:3px solid #7c3aed;}
+
+/* ── PRINT META BAR (screen hidden, print visible) ── */
+.print-meta{
+  display:none;
+  gap:0;
+  padding:6px 14px;
+  background:#f1f5f9;
+  border-bottom:2px solid #cbd5e1;
+  font-size:.71rem;
+  color:#1e293b;
+  flex-wrap:wrap;
+}
+.print-meta .pm-item{
+  display:flex;align-items:center;gap:4px;
+  padding:2px 14px 2px 0;
+  border-right:1px solid #cbd5e1;
+  margin-right:14px;
+}
+.print-meta .pm-item:last-child{border-right:none;margin-right:0;}
+.print-meta .pm-lbl{color:#64748b;font-weight:400;}
+.print-meta .pm-val{font-weight:700;}
+
+/* Print mode: hide non-selected panels */
+body.print-tech-only #panel-sys { display:none !important; }
+body.print-sys-only  #panel-tech { display:none !important; }
+
+@media print{
+  /* — Page format: A4 portrait — */
+  @page { size: A4 portrait; margin: 8mm 10mm; }
+
+  /* — Preserve colors — */
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+
+  /* — Hide interactive UI — */
+  .topbar,.meta-bar,.legend,.sacts,.add-step-btn,.tbb,
+  .consid-tabs,.ca-bulk-wrap,.ca-pin-btn,.ca-ai-btn,.pin-btn,
+  #printModal{
+    display:none !important;
+  }
+
+  body{background:#fff !important;margin:0;padding:0;width:100%;}
+
+  /* — Show panels, each on its own page (hidden ones already removed above) — */
+  .consid-panel{display:block !important; break-after:page; width:100%;}
+  .consid-panel:last-of-type{break-after:auto;}
+
+  /* — Banner: compact — */
+  .consid-banner{padding:4px 10px !important;font-size:.64rem !important;line-height:1.35 !important;}
+  .consid-banner .cbi{font-size:.9rem !important;}
+  .consid-banner strong{font-size:.7rem !important;}
+
+  /* — Print meta bar — */
+  .print-meta{display:flex !important;font-size:.62rem !important;padding:4px 10px !important;}
+
+  /* — Stack diagram on top, actions below — */
+  .panel-body{display:block !important;width:100%;}
+
+  /* — Diagram: zoom will be set dynamically by beforeprint JS per canvas — */
+  .diagram-side{overflow:visible !important;width:100%;}
+  .canvas-outer{
+    overflow:visible !important;
+    background:#f8fafc !important;
+    padding:2px 4px 0 !important;
+  }
+  .track-wrap{margin-bottom:16px !important;}
+
+  /* — Boxes: let height grow to fit all text (JS sets exact heights in beforeprint) — */
+  .sbox,.pbox,.rcb{
+    overflow:visible !important;
+  }
+  .sbox textarea,.pbox textarea,.rcb textarea{
+    overflow:visible !important;
+  }
+
+  /* — Actions: full width, compact, readable — */
+  .actions-side{
+    position:static !important;
+    width:100% !important;
+    max-height:none !important;
+    overflow:visible !important;
+    border-left:none !important;
+    border-top:3px solid #2563eb;
+    margin-top:0;
+    break-before:auto;
+  }
+  /* Hide pin col (2nd) and AI col (4th) → show: # · Faaliyet · Sorumlu · Termin · Durum */
+  .ca-row-hdr,.ca-row{
+    grid-template-columns:30px 1fr 88px 78px 82px !important;
+  }
+  .ca-row-hdr>:nth-child(2),.ca-row-hdr>:nth-child(4),
+  .ca-row>.ca-pin-btn,.ca-row>.ca-ai-btn{
+    display:none !important;
+  }
+  .ca-col,.ca-lbl{font-size:.62rem !important;}
+  .ca-input{font-size:.62rem !important;resize:none !important;height:auto !important;
+    border:none !important;background:transparent !important;overflow:visible !important;
+    white-space:pre-wrap !important;word-break:break-word !important;}
+  .ca-sinput{font-size:.62rem !important;}
+  /* Print: Durum select → plain text badge */
+  .ca-status{
+    -webkit-appearance:none;appearance:none;
+    font-size:.62rem !important;font-weight:700;
+    pointer-events:none;padding:1px 4px !important;
+    border-radius:4px;
+  }
+  .ca-row{min-height:22px !important;break-inside:avoid;}
+  .ca-hdr{font-size:.68rem !important;padding:5px 10px !important;}
+  .ca-section-lbl{font-size:.60rem !important;padding:3px 8px !important;}
+}
+
+/* ═══ EMBED MODE ═══ */
+body.embed-mode .topbar       { display:none !important; }
+body.embed-mode .meta-bar     { display:none !important; }
+body.embed-mode .legend       { display:none !important; }
+body.embed-mode .consid-tabs  { display:none !important; }
+body.embed-mode .actions-side { display:none !important; }
+body.embed-mode .consid-banner { display:none !important; }
+body.embed-mode .print-meta    { display:none !important; }
+body.embed-mode .add-step-btn  { display:none !important; }
+body.embed-mode .sacts         { display:none !important; }
+body.embed-mode .pin-btn       { display:none !important; }
+body.embed-mode body, body.embed-mode { margin:0; overflow:auto; background:#fff; }
+body.embed-mode .consid-panel { display:block !important; }
+body.embed-mode .panel-body   { flex-direction:column; }
+body.embed-mode .diagram-side { overflow:auto; }
+body.embed-mode .canvas-outer {
+  background:#fff !important;
+  background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+  min-height:100vh;
+  padding:14px 14px 40px;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span style="font-size:1.3rem">🔍</span>
+  <h1>5 Neden Analizi</h1>
+  <div class="sp"></div>
+  <button class="tbb" style="background:linear-gradient(135deg,rgba(124,58,237,.7),rgba(37,99,235,.7));border-color:rgba(167,139,250,.5);" onclick="openAiModal()">🤖 AI ile Oluştur</button>
+  <button class="tbb" id="yenileTech" style="background:linear-gradient(135deg,#059669,#0891b2);" onclick="aiRefresh('tech')" title="Technical iz adımlarını AI ile yeniden oluştur">🔄 Teknik Yenile</button>
+  <button class="tbb" id="yenileSys" style="background:linear-gradient(135deg,#7c3aed,#a21caf);" onclick="aiRefresh('sys')" title="Systemic iz adımlarını AI ile yeniden oluştur">🔄 Sistemsel Yenile</button>
+  <button class="tbb" style="background:linear-gradient(135deg,#0f766e,#0e7490);border-color:rgba(94,234,212,.35);" onclick="openUygModal()">📋 Uygunsuzluktan Seç</button>
+  <button class="tbb ok"    onclick="saveData()">💾 Kaydet</button>
+  <button class="tbb"       onclick="loadData()">📂 Yükle</button>
+  <button class="tbb"       onclick="openPrintDialog()">🖨️ Yazdır / PDF</button>
+  <button class="tbb danger" onclick="resetAll()">🗑 Sıfırla</button>
+</div>
+
+<!-- ═══ PRINT SELECTION MODAL ═══ -->
+<div id="printModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:28px 32px;max-width:380px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.28);">
+    <div style="font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:6px;">🖨️ Yazdır / PDF</div>
+    <div style="font-size:.74rem;color:#64748b;margin-bottom:20px;">Hangi bölümü yazdırmak istiyorsunuz?</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="executePrint('both')"   style="padding:11px 18px;border-radius:9px;border:2px solid #2563eb;background:#eff6ff;color:#1d4ed8;font-weight:700;font-size:.85rem;cursor:pointer;text-align:left;">📄 Teknik + Sistemsel <span style="font-size:.68rem;font-weight:400;color:#64748b;">(2 sayfa)</span></button>
+      <button onclick="executePrint('tech')"   style="padding:11px 18px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#1e293b;font-weight:600;font-size:.85rem;cursor:pointer;text-align:left;">🔧 Yalnızca Teknik</button>
+      <button onclick="executePrint('sys')"    style="padding:11px 18px;border-radius:9px;border:2px solid #e2e8f0;background:#fff;color:#1e293b;font-weight:600;font-size:.85rem;cursor:pointer;text-align:left;">🏗️ Yalnızca Sistemsel</button>
+      <button onclick="closePrintDialog()"     style="padding:8px 18px;border-radius:9px;border:none;background:transparent;color:#94a3b8;font-size:.8rem;cursor:pointer;margin-top:2px;">İptal</button>
+    </div>
+  </div>
+</div>
+
+<div class="meta-bar">
+  <div class="mf"><label>Problem / Parça No</label><input id="mPart" placeholder="örn: Part# 12345 – Vida"></div>
+  <div class="mf"><label>Müşteri / Proje</label><input id="mCustomer" placeholder="örn: Arçelik A.Ş."></div>
+  <div class="mf" style="max-width:155px"><label>Tarih</label><input id="mDate" type="date"></div>
+  <div class="mf"><label>Analist</label><input id="mAnalyst" placeholder="örn: Kalite Müdürü"></div>
+  <div class="mf" style="max-width:172px"><label>Durum</label>
+    <select id="mStatus">
+      <option>🔄 Devam Ediyor</option>
+      <option>✅ Tamamlandı</option>
+      <option>🔍 İncelemede</option>
+    </select>
+  </div>
+</div>
+
+<div class="legend">
+  <strong>Gösterim:</strong>
+  <div class="li"><div class="lb n"></div><span>Neden adımı</span></div>
+  <div class="li"><div class="lb r"></div><span>Kök neden (son adım)</span></div>
+  <span style="color:#94a3b8;font-size:.65rem">
+    | ➕ Adım Ekle → zincire yeni neden ekler &nbsp;·&nbsp;
+    🪢 Paralel Dal → aynı noktadan bağımsız bir zincir başlatır (5N literatüründeki "branching") &nbsp;·&nbsp;
+    Çift tıkla → büyük metin editörü
+  </span>
+</div>
+
+<!-- ── CONSIDERATION TABS NAV ── -->
+<div class="consid-tabs">
+  <button class="ctab active" id="ctab-tech" onclick="switchConsid('tech',this)">
+    🔧 Technical Consideration <span class="cbadge">Teknik</span>
+  </button>
+  <button class="ctab" id="ctab-sys" onclick="switchConsid('sys',this)">
+    🏗️ Systemic Consideration <span class="cbadge">Sistemsel</span>
+  </button>
+</div>
+
+<!-- ════ PANEL: TECHNICAL ════ -->
+<div class="consid-panel active" id="panel-tech">
+  <div class="consid-banner">
+    <span class="cbi">🔧</span>
+    <div>
+      <strong>Technical Consideration — Teknik Değerlendirme</strong>
+      Ürünün, prosesin veya ekipmanın teknik olarak neden hataya yol açtığını inceler:
+      Parametre yanlışlığı · Makine ayarı · Malzeme spesifikasyonu · Tolerans aşımı · Ölçüm sistemi hatası
+      <em style="font-style:normal;font-weight:700;"> → "Hata nasıl oluştu?"</em>
+    </div>
+  </div>
+  <div class="print-meta" id="print-meta-tech">
+    <div class="pm-item"><span class="pm-lbl">Analiz:</span><span class="pm-val">Teknik — 5 Neden Analizi</span></div>
+    <div class="pm-item"><span class="pm-lbl">Parça / Problem:</span><span class="pm-val" id="pmt-part"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Müşteri:</span><span class="pm-val" id="pmt-customer"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Tarih:</span><span class="pm-val" id="pmt-date"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Analist:</span><span class="pm-val" id="pmt-analyst"></span></div>
+  </div>
+  <div class="panel-body">
+    <div class="diagram-side">
+      <div class="canvas-outer" id="co-tech">
+        <!-- Oluşum track - Technical -->
+        <div class="track-wrap">
+          <div class="track-hdr">
+            <span class="tbadge os">🔴 Oluşum</span>
+            <span class="tsub">Neden problem oluştu? — her adım öncekinin nedenidir</span>
+          </div>
+          <div class="diag" id="tech_osDiag"><svg id="tech_osSvg"></svg></div>
+          <button class="add-step-btn" onclick="addStep('tech','os')">➕ Adım Ekle</button>
+        </div>
+        <!-- Tespit track - Technical -->
+        <div class="track-wrap">
+          <div class="track-hdr">
+            <span class="tbadge nd">🟣 Tespit Edilememe</span>
+            <span class="tsub">Problem neden fark edilmedi? (Teknik kontrol mekanizması)</span>
+          </div>
+          <div class="diag" id="tech_ndDiag"><svg id="tech_ndSvg"></svg></div>
+          <button class="add-step-btn nd" onclick="addStep('tech','nd')">➕ Adım Ekle</button>
+        </div>
+      </div>
+    </div>
+    <div class="actions-side" id="actions-tech"></div>
+  </div>
+</div>
+
+<!-- ════ PANEL: SYSTEMIC ════ -->
+<div class="consid-panel" id="panel-sys">
+  <div class="consid-banner sys">
+    <span class="cbi">🏗️</span>
+    <div>
+      <strong>Systemic Consideration — Sistemsel Değerlendirme</strong>
+      Bu teknik hatanın neden sistem tarafından engellenemediğini inceler:
+      Kontrol planı yeterliliği · PFMEA risk tespiti · Operatör eğitimi · Denetim frekansı · Yönetim sistemi açığı
+      <em style="font-style:normal;font-weight:700;"> → "Sistem neden yakalayamadı?"</em>
+    </div>
+  </div>
+  <div class="print-meta" id="print-meta-sys">
+    <div class="pm-item"><span class="pm-lbl">Analiz:</span><span class="pm-val">Sistemsel — 5 Neden Analizi</span></div>
+    <div class="pm-item"><span class="pm-lbl">Parça / Problem:</span><span class="pm-val" id="pms-part"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Müşteri:</span><span class="pm-val" id="pms-customer"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Tarih:</span><span class="pm-val" id="pms-date"></span></div>
+    <div class="pm-item"><span class="pm-lbl">Analist:</span><span class="pm-val" id="pms-analyst"></span></div>
+  </div>
+  <div class="panel-body">
+    <div class="diagram-side">
+      <div class="canvas-outer" id="co-sys">
+        <!-- Oluşum track - Systemic -->
+        <div class="track-wrap">
+          <div class="track-hdr">
+            <span class="tbadge os">🔴 Oluşum</span>
+            <span class="tsub">Sistem neden hatanın oluşmasına izin verdi? — PFMEA / prosedür / organizasyon açıkları</span>
+          </div>
+          <div class="diag" id="sys_osDiag"><svg id="sys_osSvg"></svg></div>
+          <button class="add-step-btn" onclick="addStep('sys','os')">➕ Adım Ekle</button>
+        </div>
+        <!-- Tespit track - Systemic -->
+        <div class="track-wrap">
+          <div class="track-hdr">
+            <span class="tbadge nd">🟣 Tespit Edilememe</span>
+            <span class="tsub">Sistem neden kaçırmaya izin verdi? — Kontrol planı, iç denetim, reaksiyon planı eksiklikleri</span>
+          </div>
+          <div class="diag" id="sys_ndDiag"><svg id="sys_ndSvg"></svg></div>
+          <button class="add-step-btn nd" onclick="addStep('sys','nd')">➕ Adım Ekle</button>
+        </div>
+      </div>
+    </div>
+    <div class="actions-side" id="actions-sys"></div>
+  </div>
+</div>
+
+<!-- AI MODAL -->
+<div class="ai-modal" id="aiModal">
+  <div class="ai-box">
+    <h3>🤖 AI ile 5 Neden Analizi Oluştur</h3>
+    <!-- Provider selector -->
+    <div class="ai-provider-tabs">
+      <button class="ai-ptab active" id="tabGroq"   onclick="setProvider('groq')">🟠 Groq</button>
+      <button class="ai-ptab or"  id="tabOR"     onclick="setProvider('openrouter')">🟣 OpenRouter</button>
+      <button class="ai-ptab gem" id="tabGemini" onclick="setProvider('gemini')">🔵 Gemini</button>
+      <button class="ai-ptab oai" id="tabOAI"    onclick="setProvider('openai')">🟢 OpenAI</button>
+    </div>
+
+    <!-- wizard progress dots -->
+    <div class="wiz-dots" id="wizDots"></div>
+
+    <!-- step content -->
+    <div id="wizStep"></div>
+
+    <!-- API key blocks (one shown at a time) -->
+    <div id="keyBlockGroq">
+      <label class="ai-label">Groq API Key</label>
+      <div class="key-row">
+        <input class="ai-key" id="aiKey" type="password" placeholder="gsk_...">
+        <button class="api-test-btn" id="testBtnGroq" onclick="testAPI('groq')">&#128301; Test</button>
+      </div>
+      <div class="key-hint">Ücretsiz · <a href="https://console.groq.com" target="_blank">console.groq.com → API Keys →</a></div>
+    </div>
+    <div id="keyBlockGemini" style="display:none">
+      <label class="ai-label">Google AI Studio API Key</label>
+      <div class="key-row">
+        <input class="ai-key" id="aiKeyGemini" type="password" placeholder="AIzaSy...">
+        <button class="api-test-btn" id="testBtnGemini" onclick="testAPI('gemini')">&#128301; Test</button>
+      </div>
+      <div class="key-hint">Ücretsiz · <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com → Get API key →</a></div>
+      <select class="or-model-sel" id="geminiModel" onchange="localStorage.setItem('gemini_model',this.value)">
+        <option value="gemini-2.0-flash">✅ Gemini 2.0 Flash — Güçlü, ücretsiz</option>
+        <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite — Hızlı, ücretsiz</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash — Eski key'lerle çalışır</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro — Eski key'lerle çalışır</option>
+        <option value="gemini-2.5-flash-preview-04-17">Gemini 2.5 Flash Preview</option>
+        <option value="gemini-2.5-pro-preview-03-25">Gemini 2.5 Pro Preview (ücretli)</option>
+      </select>
+    </div>
+    <div id="keyBlockOAI" style="display:none">
+      <label class="ai-label">OpenAI API Key</label>
+      <div class="key-row">
+        <input class="ai-key" id="aiKeyOAI" type="password" placeholder="sk-proj-...">
+        <button class="api-test-btn" id="testBtnOAI" onclick="testAPI('openai')">&#128301; Test</button>
+      </div>
+      <div class="key-hint">Ücretsiz değil · <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com → API keys →</a></div>
+      <select class="or-model-sel" id="oaiModel" onchange="localStorage.setItem('oai_model',this.value)">
+        <option value="gpt-4o-mini">✅ GPT-4o mini — Hızlı, ucuz</option>
+        <option value="gpt-4o">GPT-4o — Güçlü</option>
+        <option value="o4-mini">o4-mini — Akıl yürütme</option>
+        <option value="o3-mini">o3-mini — Akıl yürütme (eski)</option>
+        <option value="gpt-4.1-mini">GPT-4.1 mini</option>
+        <option value="gpt-4.1">GPT-4.1</option>
+      </select>
+    </div>
+    <div id="keyBlockOR" style="display:none">
+      <label class="ai-label">OpenRouter API Key</label>
+      <div class="key-row">
+        <input class="ai-key" id="aiKeyOR" type="password" placeholder="sk-or-...">
+        <button class="api-test-btn" id="testBtnOR" onclick="testAPI('openrouter')">&#128301; Test</button>
+      </div>
+      <div class="key-hint">Kart gerekmez · Ücretsiz modeller dengesiz olabilir · <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai → Keys →</a></div>
+      <select class="or-model-sel" id="orModel">
+        <option value="deepseek/deepseek-r1:free">✅ DeepSeek R1 (ücretsiz)</option>
+        <option value="deepseek/deepseek-chat:free">DeepSeek V3 Chat (ücretsiz)</option>
+        <option value="meta-llama/llama-3.3-70b-instruct:free">Llama 3.3 70B (ücretsiz)</option>
+        <option value="google/gemma-3-27b-it:free">Gemma 3 27B (ücretsiz)</option>
+        <option value="qwen/qwen-2.5-72b-instruct:free">Qwen 2.5 72B (ücretsiz)</option>
+        <option value="mistralai/mistral-7b-instruct:free">Mistral 7B (ücretsiz)</option>
+        <option value="microsoft/phi-3-mini-128k-instruct:free">Phi-3 Mini 128K (ücretsiz)</option>
+      </select>
+    </div>
+
+    <div id="aiStatus" style="margin-top:10px;min-height:18px;"></div>
+
+    <div class="ai-actions">
+      <button class="aib cancel" onclick="closeAiModal()">İptal</button>
+      <div class="ai-actions-right">
+        <button class="aib back" id="wizBack" onclick="wizNav(-1)">← Geri</button>
+        <button class="aib next" id="wizNext" onclick="wizNav(1)">İleri →</button>
+        <button class="aib gen" id="aiGenBtn" onclick="aiGenerate()" style="display:none">✨ Analizi Oluştur</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  5 NEDEN   –  STAIRCASE LAYOUT
+//  Referans: Her "Neden?" kutusu öncekinden sağa ve
+//  biraz aşağıya kayar → merdiven efekti.
+//  "Paralel Dal": Aynı noktadan bağımsız ikinci bir
+//  doğrusal zincir başlar, ana zincirin altında yürür.
+//
+//  Veri modeli:
+//  track:
+//    problem : string
+//    rcText  : string
+//    chains  : Chain[]        ← chains[0] = ana zincir, chains[1..] = paralel dallar
+//
+//  Chain:
+//    startAfterStep : number | null  (hangi ana adımdan dallandığı, null=ana)
+//    steps          : Step[]
+//
+//  Step: { id, text, isRoot }
+// ══════════════════════════════════════════════════════
+
+const BOX_W    = 175;
+const BOX_H    = 92;
+const PROB_W   = 170;
+const PROB_H   = 84;
+const RCB_W    = 155;
+const RCB_H    = 108;
+const H_GAP    = 80;    // horizontal gap between box right and next box left (arrow space)
+const V_STEP   = 72;    // how much lower each main-chain step is vs the previous
+const BRANCH_V = 28;    // extra vertical gap between branches at same column
+const COL_W    = BOX_W + H_GAP;   // full column stride
+
+let _activeTab = 'tech';   // 'tech' | 'sys'
+
+function switchConsid(tab, btn){
+  _activeTab = tab;
+  document.querySelectorAll('.consid-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  btn.classList.add('active');
+}
+
+let _S = {
+  meta: {},
+  tech: {
+    os: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Oluşum)',
+          problemPinned:false, rcPinned:false,
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
+    nd: { problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden\n(Tespit Edilememe)',
+          problemPinned:false, rcPinned:false,
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
+    actions: { os:{}, nd:{} }
+  },
+  sys: {
+    os: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Oluşum)',
+          problemPinned:false, rcPinned:false,
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
+    nd: { problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden\n(Tespit Edilememe)',
+          problemPinned:false, rcPinned:false,
+          chains: [ { startAfter:null, steps:[ mkStep() ] } ] },
+    actions: { os:{}, nd:{} }
+  }
+};
+
+function mkStep(t){ return {id:uid(), text:t||'', isRoot:false, pinned:false}; }
+function uid(){ return 'n'+Math.random().toString(36).slice(2,9); }
+
+// ══════════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════════
+function addStep(tab, tk){
+  _S[tab][tk].chains[0].steps.push(mkStep());
+  renderTrack(tab, tk);
+  renderActionTable(tab);
+}
+
+function deleteStep(tab, tk, chainIdx, stepIdx){
+  const chain = _S[tab][tk].chains[chainIdx];
+  const step = chain && chain.steps[stepIdx];
+  // Remove action linked to this step id
+  if(step && _S[tab].actions && _S[tab].actions[tk])
+    delete _S[tab].actions[tk][step.id];
+  chain.steps.splice(stepIdx,1);
+  if(chain.steps.length===0){
+    if(chainIdx===0) chain.steps.push(mkStep());
+    else _S[tab][tk].chains.splice(chainIdx,1);
+  }
+  renderTrack(tab, tk);
+  renderActionTable(tab);
+}
+
+function addParallelBranch(tab, tk, afterMainStepIdx){
+  _S[tab][tk].chains.push({ startAfter: afterMainStepIdx, steps: [mkStep()] });
+  renderTrack(tab, tk);
+  renderActionTable(tab);
+}
+
+function addBranchStep(tab, tk, chainIdx){
+  _S[tab][tk].chains[chainIdx].steps.push(mkStep());
+  renderTrack(tab, tk);
+  renderActionTable(tab);
+}
+
+// Returns the flat (getAllSteps) index of a step at [chainIdx][stepIdx]. -1 if not found.
+function _flatStepIdx(tab, tk, chainIdx, stepIdx){
+  const all = getAllSteps(tab, tk);
+  const chain = _S[tab][tk].chains[chainIdx];
+  if(!chain || !chain.steps[stepIdx]) return -1;
+  const stepId = chain.steps[stepIdx].id;
+  return all.findIndex(s => s.id === stepId);
+}
+
+function toggleRoot(tab, tk, chainIdx, stepIdx){
+  const s = _S[tab][tk].chains[chainIdx].steps[stepIdx];
+  s.isRoot = !s.isRoot;
+  renderTrack(tab, tk);
+}
+
+// ══════════════════════════════════════════════════════
+//  LAYOUT  – merdiven (staircase)
+// ══════════════════════════════════════════════════════
+function doLayout(tab, tk){
+  const track = _S[tab][tk];
+  const items = [];   // { type, data, x, y, w, h, cx, cy }
+  const conns = [];   // { x1,y1,x2,y2, dashed, label }
+
+  const mainChain = track.chains[0];
+  const mainLen   = mainChain.steps.length;
+
+  // ── Main chain: step[i] at col i+1, y = i*V_STEP  (merdiven: right+down) ──
+  const mainItems = [];
+  for(let i=0;i<mainLen;i++){
+    const x  = (i+1)*COL_W;
+    const y  = i*V_STEP;
+    const cx = x+BOX_W, cy = y+BOX_H/2;
+    mainItems.push({ type:'step', chain:0, stepIdx:i, flatIdx:i,
+      data:mainChain.steps[i], x, y, w:BOX_W, h:BOX_H, cx, cy, tab, tk });
+    items.push(mainItems[i]);
+  }
+
+  // Problem box aligned to first main step
+  const probCY = mainItems.length ? mainItems[0].cy : BOX_H/2;
+  const probY  = probCY - PROB_H/2;
+  items.unshift({ type:'prob', tk, x:0, y:probY, w:PROB_W, h:PROB_H, cx:PROB_W, cy:probCY });
+
+  // Connectors: prob→step[0], step[i]→step[i+1]  forward direction (left→right / Neden?)
+  if(mainItems.length>0)
+    conns.push({ x1:PROB_W, y1:probCY, x2:mainItems[0].x, y2:mainItems[0].cy, label:'why' });
+  for(let i=0;i<mainItems.length-1;i++)
+    conns.push({ x1:mainItems[i].cx,  y1:mainItems[i].cy,
+                 x2:mainItems[i+1].x, y2:mainItems[i+1].cy, label:'why' });
+
+  // ── Parallel branch chains ──
+  // Each branch starts BELOW its fork step, continues staircase (right+down)
+  // colBottomY tracks the lowest Y used at each column (main + branches)
+  const colBottomY = {};
+  // allPlaced holds every step item placed so far (main + branches) for fork lookup
+  const allPlaced = [...mainItems];
+
+  for(const it of mainItems){
+    const col = Math.round(it.x / COL_W);
+    colBottomY[col] = Math.max(colBottomY[col]||0, it.y + it.h);
+  }
+
+  const allBranchLastItems = [];   // last step of each branch chain (for RCB connectors)
+
+  for(let ci=1; ci<track.chains.length; ci++){
+    const chain    = track.chains[ci];
+    const sa       = chain.startAfter ?? 0;   // column index of the fork step
+    const forkCol  = sa;
+    const startCol = sa;                      // branch STARTS at same column as fork (below it)  
+
+    // Find the actual fork anchor from all placed items at forkCol
+    const forkCandidates = allPlaced.filter(it => Math.round(it.x / COL_W) === forkCol);
+    const forkAnchor = forkCandidates.length
+      ? forkCandidates.reduce((a,b) => b.cy > a.cy ? b : a)
+      : { cx: forkCol * COL_W + BOX_W/2, cy: probCY, y: probCY - BOX_H/2, h: BOX_H };
+
+    // branchTopY: directly below the fork anchor, also below anything already at startCol
+    let branchTopY = forkAnchor.y + forkAnchor.h + BRANCH_V;
+    if(colBottomY[startCol] !== undefined)
+      branchTopY = Math.max(branchTopY, colBottomY[startCol] + BRANCH_V);
+
+    const brItems = [];
+
+    // flat index offset for this branch chain
+    let _brOffset = mainLen;
+    for(let j=1;j<ci;j++) _brOffset += track.chains[j].steps.length;
+
+    for(let si=0; si<chain.steps.length; si++){
+      // Merdiven: each branch step also goes right+down like main chain
+      const x  = (startCol + si) * COL_W;
+      const y  = branchTopY + si * V_STEP;
+      const cx = x+BOX_W, cy = y+BOX_H/2;
+      const it = { type:'step', chain:ci, stepIdx:si, flatIdx:_brOffset+si,
+        data:chain.steps[si], x, y, w:BOX_W, h:BOX_H, cx, cy, tab, tk, isBranch:true };
+      brItems.push(it);
+      items.push(it);
+      allPlaced.push(it);
+      const col = Math.round(x/COL_W);
+      colBottomY[col] = Math.max(colBottomY[col]||0, y+BOX_H);
+    }
+
+    // Fork connector: straight DOWN from bottom-center of fork anchor to top-center of first branch step
+    if(brItems.length)
+      conns.push({ x1:forkAnchor.cx - BOX_W/2, y1:forkAnchor.cy + BOX_H/2,
+                   x2:brItems[0].cx - BOX_W/2,  y2:brItems[0].y, label:'', dashed:true });
+    // Branch internal connectors (forward direction)
+    for(let si=0; si<brItems.length-1; si++)
+      conns.push({ x1:brItems[si].cx,  y1:brItems[si].cy,
+                   x2:brItems[si+1].x, y2:brItems[si+1].cy, label:'why' });
+
+    if(brItems.length) allBranchLastItems.push(brItems[brItems.length-1]);
+
+    // "+ Dal Adımı" button: positioned inline to the right of last branch step
+    if(brItems.length){
+      const last = brItems[brItems.length-1];
+      items.push({ type:'addBranchStep', ci, tab, tk,
+        x: last.cx + H_GAP * 0.3,
+        y: last.y });   // renderer adds BOX_H/2 offset itself
+    }
+  }
+
+  // ── Root cause box ──
+  // Always placed to the right of the RIGHTMOST step (main or branch),
+  // so it's always visually at the bottom-right end of the staircase.
+  const allStepItems = [...mainItems, ...allBranchLastItems];
+  let rcbX, rcbY;
+  if(allStepItems.length){
+    // The anchor is whichever step has the largest cx (= rightmost edge)
+    const anchor = allStepItems.reduce((a,b) => b.cx > a.cx ? b : a);
+    rcbX = anchor.cx + H_GAP;
+    rcbY = anchor.cy - RCB_H/2;
+  } else {
+    rcbX = COL_W; rcbY = 0;
+  }
+
+  // Main chain → RCB connector
+  if(mainItems.length){
+    const last = mainItems[mainItems.length-1];
+    conns.push({ x1:last.cx, y1:last.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'why', toRcb:true });
+    // "+ Dal Adımı" button for main chain's last step (in the gap before RCB)
+    items.push({ type:'addBranchStep', ci:0, tab, tk,
+      x: last.cx + H_GAP * 0.3,
+      y: last.y });
+  }
+  // Each branch last step → RCB connector (dashed)
+  for(const bl of allBranchLastItems)
+    conns.push({ x1:bl.cx, y1:bl.cy, x2:rcbX, y2:rcbY+RCB_H/2, label:'', dashed:true });
+
+  items.push({ type:'rcb', tab, tk, x:rcbX, y:rcbY, w:RCB_W, h:RCB_H });
+
+  // Canvas size
+  const xs = items.map(i=>i.x+(i.w||BOX_W));
+  const ys = items.map(i=>i.y+(i.h||BOX_H));
+  const W = Math.max(...xs) + 40;
+  const H = Math.max(...ys) + 30;
+  return { items, conns, W, H };
+}
+
+// ══════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════
+function render(){
+  renderTrack('tech','os'); renderTrack('tech','nd');
+  renderTrack('sys','os');  renderTrack('sys','nd');
+  renderActionTable('tech');
+  renderActionTable('sys');
+}
+
+function renderTrack(tab, tk){
+  const diagId = tab+'_'+tk+'Diag';
+  const svgId  = tab+'_'+tk+'Svg';
+  const diag   = document.getElementById(diagId);
+  const svg    = document.getElementById(svgId);
+  if(!diag || !svg) return;
+  // Clear all children except svg
+  Array.from(diag.childNodes).forEach(c=>{ if(c!==svg) diag.removeChild(c); });
+  svg.innerHTML = '';
+
+  const {items, conns, W, H} = doLayout(tab, tk);
+  diag.style.width  = W+'px';
+  diag.style.height = H+'px';
+  svg.setAttribute('width', W);
+  svg.setAttribute('height', H);
+
+  const uid = tab+'_'+tk;
+  svg.innerHTML = `<defs>
+    <marker id="ab_${uid}"  markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+    </marker>
+    <marker id="abr_${uid}" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#8b5cf6"/>
+    </marker>
+    <filter id="glow_${uid}" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>`;
+
+  for(const c of conns) drawConn(svg, c, uid);
+  for(const it of items){
+    if(it.type==='prob')          renderProbBox(diag, it, tab, tk);
+    else if(it.type==='step')     renderStepBox(diag, it, tab, tk);
+    else if(it.type==='rcb')      renderRcbBox(diag, it, tab, tk);
+    else if(it.type==='addBranchStep') renderAddBranchBtn(diag, it, tab, tk);
+  }
+}
+
+function drawConn(svg, c, tk){
+  const dy = c.y2 - c.y1;
+  const isDiag  = Math.abs(dy) > 6;
+  const isViolet = !!c.dashed;
+  const color    = isViolet ? '#8b5cf6' : '#3b82f6';
+  const marker   = isViolet ? `url(#abr_${tk})` : `url(#ab_${tk})`;
+  const sw       = isViolet ? '1.8' : '2.2';
+
+  let d;
+  // Label anchor points
+  let lqx, lqy, lax, lay;
+
+  if(c.dashed && !c.label){
+    // Fork connector: vertical drop from bottom-center of fork box to top-center of branch box
+    // x1 ≈ x2 (same column). Go straight down.
+    d = `M${c.x1},${c.y1} L${c.x1},${c.y2} L${c.x2},${c.y2}`;
+  } else if(isDiag){
+    // Staircase connector: right → down → right (elbow at midX)
+    // Source exits right-center (x1,y1), target enters left-center (x2,y2)
+    const midX = Math.round((c.x1 + c.x2) / 2);
+    d = `M${c.x1},${c.y1} L${midX},${c.y1} L${midX},${c.y2} L${c.x2},${c.y2}`;
+    lqx = c.x1 + 6;  lqy = c.y1 - 5;          // "Neden?" near source
+    lax = c.x2 - 36; lay = c.y2 - 5;           // "Çünkü" near target
+  } else {
+    // Horizontal connector: straight line
+    d = `M${c.x1},${c.y1} L${c.x2},${c.y2}`;
+    lqx = c.x1 + 6;  lqy = c.y1 - 5;
+    lax = c.x2 - 36; lay = c.y2 - 5;
+  }
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d', d);
+  path.setAttribute('fill','none');
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', sw);
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('stroke-linecap', 'round');
+  if(c.dashed) path.setAttribute('stroke-dasharray','7,4');
+  path.setAttribute('marker-end', marker);
+  svg.appendChild(path);
+
+  if(c.label==='why' && !c.toRcb){
+    svgTxt(svg, lqx, lqy, 'Neden?', '#1d4ed8', true,  10);
+    svgTxt(svg, lax, lay,  'Çünkü',  '#6b7280', false,  9);
+  }
+}
+
+function svgTxt(svg, x, y, t, fill, bold, size){
+  const el = document.createElementNS('http://www.w3.org/2000/svg','text');
+  el.setAttribute('x',x); el.setAttribute('y',y);
+  el.setAttribute('fill',fill); el.setAttribute('font-size',size);
+  el.setAttribute('font-family','Segoe UI,Arial,sans-serif');
+  if(bold) el.setAttribute('font-weight','700');
+  el.textContent = t;
+  svg.appendChild(el);
+}
+
+function renderProbBox(diag, it, tab, tk){
+  const pinned = !!_S[tab][tk].problemPinned;
+  const d = div('pbox'+(tk==='nd'?' nd-t':'')+(pinned?' is-pinned':''), it.x, it.y, it.w, it.h);
+  d.innerHTML = `<div class="plbl">Problem Tanımı</div>
+    <textarea placeholder="Problemi yazın…"></textarea>
+    <button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>`;
+  const ta = d.querySelector('textarea');
+  ta.value = _S[tab][tk].problem;
+  ta.oninput = e => { _S[tab][tk].problem = e.target.value; autoResize(ta); };
+  d.querySelector('.pin-btn').onclick = ()=>{ _S[tab][tk].problemPinned = !_S[tab][tk].problemPinned; renderTrack(tab, tk); };
+  diag.appendChild(d);
+  autoResize(ta);  // after DOM insertion so scrollHeight is correct
+}
+
+function renderStepBox(diag, it, tab, tk){
+  const node = it.data;
+  const pinned = !!node.pinned;
+  const prefix = tk === 'os' ? 'A' : 'B';
+  const numLbl = it.flatIdx !== undefined ? prefix + (it.flatIdx + 1) : '';
+  const el   = div('sbox'+(node.isRoot?' is-root':'')+(pinned?' is-pinned':''), it.x, it.y, it.w, it.h);
+  el.innerHTML = (numLbl?`<span class="step-num-lbl${tk==='nd'?' nd-lbl':''}">${numLbl}</span>`:'')+
+                 (node.isRoot?`<span class="stag">🎯 Kök Neden</span>`:'') +
+    `<button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>
+     <textarea placeholder="Nedeni yazın…"></textarea>
+     <div class="sacts">
+       <button class="sa del" title="Sil">🗑</button>
+       <button class="sa add" title="Bu adımdan zincire devam et (sağa uzat)">➕ Adım</button>
+       <button class="sa fork" title="Bu noktadan paralel bağımsız bir zincir başlat (dal)">🪢 Paralel Dal</button>
+       <button class="sa root">${node.isRoot?'🎯 Kök ✓':'🎯 Kök Neden'}</button>
+     </div>`;
+  el.querySelector('.pin-btn').onclick = ()=>{ node.pinned = !node.pinned; renderTrack(tab, tk); };
+
+  const ta = el.querySelector('textarea');
+  ta.value = node.text;
+  ta.oninput = e => {
+    node.text = e.target.value;
+    autoResize(ta);
+    // Update matching faaliyet row placeholder live (no full re-render needed)
+    const fta = document.querySelector('.ca-input[data-stepid="'+node.id+'"]');
+    if(fta){
+      fta.placeholder = node.text ? node.text.slice(0,40)+'…' : 'Faaliyet yazın…';
+      fta.title = node.text ? '💡 Neden: '+node.text : '';
+    }
+  };
+  el.querySelector('.del').onclick = ()=> deleteStep(tab, tk, it.chain, it.stepIdx);
+  el.querySelector('.root').onclick = ()=> toggleRoot(tab, tk, it.chain, it.stepIdx);
+
+  el.querySelector('.add').onclick = ()=>{
+    // Insert new step right after current step in this chain
+    _S[tab][tk].chains[it.chain].steps.splice(it.stepIdx+1, 0, mkStep());
+    renderTrack(tab, tk);
+    renderActionTable(tab);
+  };
+  el.querySelector('.fork').onclick = ()=>{
+    // column of the clicked step:
+    //   main chain step[i]  → col = i+1
+    //   branch chain (startAfter=S) step[j] → col = S+j
+    let forkAt;
+    if(it.chain === 0){
+      forkAt = it.stepIdx + 1;   // main step i lives at column i+1
+    } else {
+      const sa = _S[tab][tk].chains[it.chain].startAfter ?? 0;
+      forkAt = sa + it.stepIdx;  // branch step j of chain(startAfter=S) lives at col S+j
+    }
+    addParallelBranch(tab, tk, forkAt);
+  };
+
+  diag.appendChild(el);
+  autoResize(ta);  // after DOM insertion so scrollHeight is correct
+}
+
+function renderRcbBox(diag, it, tab, tk){
+  const tabLabel = tab==='tech' ? 'Teknik' : 'Sistemsel';
+  const trkLabel = tk==='os' ? 'Kök Neden (Oluşum)' : 'Kök Neden (Tespit)';
+  const pinned = !!_S[tab][tk].rcPinned;
+  const el = div('rcb'+(pinned?' is-pinned':''), it.x, it.y, it.w, it.h);
+  el.innerHTML = `<div class="ri">⬇️</div>
+    <div class="rl">${tabLabel} ${trkLabel}</div>
+    <textarea placeholder="Kök neden…"></textarea>
+    <button class="pin-btn${pinned?' pinned':''}" title="${pinned?'Sabiti kaldır':'Sabitle'}">&#128204;</button>`;
+  const rcTa = el.querySelector('textarea');
+  rcTa.value = _S[tab][tk].rcText;
+  rcTa.oninput = e => { _S[tab][tk].rcText = e.target.value; autoResize(e.target); };
+  el.querySelector('.pin-btn').onclick = ()=>{ _S[tab][tk].rcPinned = !_S[tab][tk].rcPinned; renderTrack(tab, tk); };
+  diag.appendChild(el);
+  autoResize(rcTa);  // after DOM insertion so scrollHeight is correct
+}
+
+function renderAddBranchBtn(diag, it, tab, tk){
+  // Small "add step to this branch" button
+  const b = document.createElement('button');
+  b.className = 'add-step-btn'+(tk==='nd'?' nd':'');
+  b.style.cssText = `position:absolute;left:${it.x}px;top:${it.y+BOX_H/2}px;font-size:.64rem;padding:3px 9px;`;
+  b.textContent = '➕ Dal Adımı';
+  b.onclick = () => addBranchStep(tab, tk, it.ci);
+  diag.appendChild(b);
+}
+
+function div(cls, x, y, w, h){
+  const el = document.createElement('div');
+  el.className = cls;
+  el.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${w}px;min-height:${h}px;`;
+  return el;
+}
+
+function autoResize(ta){
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
+// ══════════════════════════════════════════════════════
+//  INDEXED DB
+// ══════════════════════════════════════════════════════
+const DB='KaliteRaporDB', ST='payloads';
+function idbOpen(){
+  return new Promise((ok,err)=>{
+    const r=indexedDB.open(DB,5);
+    r.onupgradeneeded=e=>{ const db=e.target.result; if(!db.objectStoreNames.contains(ST)) db.createObjectStore(ST); };
+    r.onsuccess=e=>ok(e.target.result);
+    r.onerror=e=>err(e.target.error);
+  });
+}
+function idbPutKeyed(key,d){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readwrite').objectStore(ST).put(d,key); r.onsuccess=()=>ok(); r.onerror=e=>er(e.target.error); })); }
+function idbGetByKey(key){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readonly').objectStore(ST).get(key); r.onsuccess=e=>ok(e.target.result); r.onerror=e=>er(e.target.error); })); }
+function idbGetAllEntries(){ return idbOpen().then(db=>new Promise((ok,er)=>{
+  const tx=db.transaction(ST,'readonly'); const store=tx.objectStore(ST);
+  const keys=[]; const vals=[];
+  store.openCursor().onsuccess=e=>{
+    const c=e.target.result;
+    if(c){ if(c.key.toString().startsWith('5neden_')){ keys.push(c.key); vals.push(c.value); } c.continue(); }
+    else ok(keys.map((k,i)=>({key:k,data:vals[i]})));
+  };
+  tx.onerror=e=>er(e.target.error);
+})); }
+function idbDeleteByKey(key){ return idbOpen().then(db=>new Promise((ok,er)=>{ const r=db.transaction(ST,'readwrite').objectStore(ST).delete(key); r.onsuccess=()=>ok(); r.onerror=e=>er(e.target.error); })); }
+
+// ══════════════════════════════════════════════════════
+//  UYGUNSUZLUK VERİSİNDEN SEÇ
+//  UygunsuzlukDB → cache → 'data'  (uygunsuzluk-analizi.html'nin IDB'si)
+// ══════════════════════════════════════════════════════
+let _uygRows = [];
+
+function openUygModal(){
+  document.getElementById('uygModal').classList.add('open');
+  document.getElementById('uygSearch').value = '';
+  document.getElementById('uygCount').textContent = '';
+  const body = document.getElementById('uygBody');
+  body.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;font-size:.85rem;">⏳ Uygunsuzluk verisi okunuyor…</div>';
+  const req = indexedDB.open('UygunsuzlukDB', 5);
+  req.onerror = () => {
+    body.innerHTML = '<div style="color:#ef4444;padding:20px;text-align:center;font-size:.82rem;">❌ <b>UygunsuzlukDB açılamadı.</b><br>Önce uygunsuzluk-analizi sayfasında bir Excel dosyası yükleyin.</div>';
+  };
+  req.onsuccess = ev => {
+    const db = ev.target.result;
+    const storeNames = Array.from(db.objectStoreNames);
+    if(!storeNames.includes('cache')){
+      body.innerHTML = '<div style="color:#f59e0b;padding:20px;text-align:center;font-size:.82rem;">⚠️ Veri deposu bulunamadı. Uygunsuzluk analizine Excel yükleyin.</div>';
+      return;
+    }
+    const tx = db.transaction('cache','readonly');
+    const gr = tx.objectStore('cache').get('data');
+    gr.onsuccess = e2 => {
+      const data = e2.target.result;
+      if(!data || !data.length){
+        body.innerHTML = '<div style="color:#f59e0b;padding:20px;text-align:center;font-size:.82rem;">⚠️ Veri bulunamadı. Uygunsuzluk analizine Excel yükleyin.</div>';
+        return;
+      }
+      _uygRows = data;
+      _uygBuildTable();
+      _uygRenderRows('');
+    };
+    gr.onerror = () => {
+      body.innerHTML = '<div style="color:#ef4444;padding:20px;text-align:center;">❌ Veri okunamadı.</div>';
+    };
+  };
+}
+
+function _uygBuildTable(){
+  const body = document.getElementById('uygBody');
+  body.innerHTML = `<table class="uyg-table">
+    <thead><tr>
+      <th>Tarih</th><th>Stok Adı / Kodu</th><th>Cari Adı</th>
+      <th>Hata Kaynağı</th><th>Uyg. Türü</th><th>Hata Tipi</th>
+    </tr></thead>
+    <tbody id="uygTbody"></tbody>
+  </table>`;
+}
+
+function _uygSearch(q){ _uygRenderRows(q); }
+
+function _uygRenderRows(q){
+  const tbody = document.getElementById('uygTbody');
+  if(!tbody) return;
+  const lq = q.toLowerCase().trim();
+  const KEYS = ['stokAdi','stokKodu','cariAdi','hataTipi','hataKaynagi','uygunsuzlukTuru','uygunsuzlukTarih','tarih','tespitYeri'];
+  const filtered = lq
+    ? _uygRows.filter(r => KEYS.some(k => String(r[k]||'').toLowerCase().includes(lq)))
+    : _uygRows;
+  const dispRows = filtered.length > 2000 ? filtered.slice(0,2000) : filtered;
+  document.getElementById('uygCount').textContent =
+    (filtered.length > 2000
+      ? 'İlk 2000 gösteriliyor — aramayı kullanarak daraltın | '
+      : '') +
+    filtered.length + ' / ' + _uygRows.length + ' kayıt';
+  if(!filtered.length){
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:22px;">Eşleşen kayıt bulunamadı.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = dispRows.map(r => {
+    const idx = _uygRows.indexOf(r);
+    const tarih  = _esc(r.uygunsuzlukTarih || r.tarih || '—');
+    const stok   = _esc([r.stokAdi||'', r.stokKodu ? '['+r.stokKodu+']' : ''].filter(s=>s.trim()).join(' ') || '—');
+    const cari   = _esc(r.cariAdi || '—');
+    const kaynak = _esc(r.hataKaynagi || '—');
+    const tur    = _esc(r.uygunsuzlukTuru || '—');
+    const tipi   = _esc(r.hataTipi || '—');
+    return `<tr class="uyg-tr" onclick="fillFromUyg(${idx})" title="Seç → form alanlarını doldur">
+      <td>${tarih}</td><td>${stok}</td><td>${cari}</td>
+      <td>${kaynak}</td><td>${tur}</td><td>${tipi}</td>
+    </tr>`;
+  }).join('');
+}
+
+function fillFromUyg(idx){
+  const r = _uygRows[idx];
+  if(!r) return;
+  // Problem / Parça No  →  "Hata Tipi | Stok Adı (Kod)"
+  const stokLabel = [r.stokAdi||'', r.stokKodu ? '('+r.stokKodu+')' : ''].filter(s=>s.trim()).join(' ');
+  const hataTipiLabel = (r.hataTipi || '').trim();
+  document.getElementById('mPart').value = hataTipiLabel ? hataTipiLabel + ' | ' + stokLabel : stokLabel;
+  // Müşteri
+  document.getElementById('mCustomer').value = r.cariAdi || '';
+  // Tarih
+  const pd = _parseUygDate(r.uygunsuzlukTarih || r.tarih || '');
+  if(pd) document.getElementById('mDate').value = pd;
+  // Problem metni (tüm paneller) — hata tipi + uygunsuzluk türü + kaynak + tespit
+  const probParts = [];
+  if(r.hataTipi)         probParts.push('Hata Tipi: ' + r.hataTipi);
+  if(r.uygunsuzlukTuru)  probParts.push(r.uygunsuzlukTuru);
+  if(r.hataKaynagi)      probParts.push('Kaynak: ' + r.hataKaynagi);
+  if(r.tespitYeri)       probParts.push('Tespit: ' + r.tespitYeri);
+  const problemText = probParts.filter(Boolean).join(' — ') || 'Problem tanımını buraya yazın…';
+  ['tech','sys'].forEach(tab => {
+    ['os','nd'].forEach(tk => {
+      if(_S[tab] && _S[tab][tk]) _S[tab][tk].problem = problemText;
+    });
+  });
+  render();
+  document.getElementById('uygModal').classList.remove('open');
+  showToast('✅ Kayıt aktarıldı — parça, müşteri, tarih ve problem alanları güncellendi.');
+}
+
+function _parseUygDate(s){
+  if(!s) return '';
+  s = String(s).trim();
+  // ISO YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  // DD.MM.YYYY veya DD/MM/YYYY
+  const m = s.match(/^(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{4})/);
+  if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  // YYYY.MM.DD
+  const m2 = s.match(/^(\d{4})[.\/\-](\d{1,2})[.\/\-](\d{1,2})/);
+  if(m2) return m2[1]+'-'+m2[2].padStart(2,'0')+'-'+m2[3].padStart(2,'0');
+  return '';
+}
+
+function _esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function gatherMeta(){
+  _S.meta={
+    part:document.getElementById('mPart').value,
+    customer:document.getElementById('mCustomer').value,
+    date:document.getElementById('mDate').value,
+    analyst:document.getElementById('mAnalyst').value,
+    status:document.getElementById('mStatus').value
+  };
+}
+function applyMeta(){
+  const m=_S.meta||{};
+  const map={mPart:'part',mCustomer:'customer',mDate:'date',mAnalyst:'analyst',mStatus:'status'};
+  Object.entries(map).forEach(([id,k])=>{ if(m[k]) document.getElementById(id).value=m[k]; });
+}
+function saveData(){
+  gatherMeta();
+  const defaultName = [_S.meta.part, _S.meta.customer, _S.meta.date].filter(Boolean).join(' — ') || 'Yeni Analiz';
+  const name = prompt('Bu analiz için bir isim girin:', defaultName);
+  if(name === null) return; // cancelled
+  const label = name.trim() || defaultName;
+  const key = '5neden_' + Date.now();
+  const payload = Object.assign(JSON.parse(JSON.stringify(_S)), { _saveName: label, _savedAt: new Date().toLocaleString('tr-TR') });
+  idbPutKeyed(key, payload)
+    .then(()=>{ showToast('✅ "'+label+'" kaydedildi.'); })
+    .catch(e=>alert('❌ '+e));
+}
+function loadData(){
+  idbGetAllEntries().then(entries=>{
+    if(!entries.length){ alert('Henüz kayıtlı analiz yok.'); return; }
+    renderLoadModal(entries);
+  }).catch(e=>alert('❌ '+e));
+}
+function deleteEntry(key){
+  if(!confirm('Bu analiz silinsin mi?')) return;
+  idbDeleteByKey(key).then(()=>{
+    idbGetAllEntries().then(entries=>{
+      if(!entries.length){ document.getElementById('loadModal').classList.remove('open'); showToast('🗑 Silindi. Kayıtlı analiz kalmadı.'); return; }
+      renderLoadModal(entries);
+    });
+  });
+}
+function loadEntry(key){
+  idbGetByKey(key).then(d=>{
+    if(!d){ alert('Analiz bulunamadı.'); return; }
+    _S=d; applyMeta(); render();
+    document.getElementById('loadModal').classList.remove('open');
+    showToast('📂 "'+(d._saveName||'Analiz')+'" yüklendi.');
+  }).catch(e=>alert('❌ '+e));
+}
+function renderLoadModal(entries){
+  // sort newest first
+  entries.sort((a,b)=>b.key.localeCompare(a.key));
+  const list = document.getElementById('loadList');
+  list.innerHTML = '';
+  entries.forEach(({key, data})=>{
+    const name    = data._saveName || key;
+    const savedAt = data._savedAt  || '';
+    const part     = data.meta?.part     || '';
+    const customer = data.meta?.customer || '';
+    const row = document.createElement('div');
+    row.className = 'load-row';
+    row.innerHTML = `
+      <div class="load-info">
+        <div class="load-name">${name.replace(/</g,'&lt;')}</div>
+        <div class="load-meta">${[part,customer,savedAt].filter(Boolean).join(' · ')}</div>
+      </div>
+      <div class="load-btns">
+        <button class="load-btn ok" onclick="loadEntry('${key}')">📂 Yükle</button>
+        <button class="load-btn del" onclick="deleteEntry('${key}')">🗑</button>
+      </div>`;
+    list.appendChild(row);
+  });
+  document.getElementById('loadModal').classList.add('open');
+}
+function showToast(msg){
+  let t=document.getElementById('_toast');
+  if(!t){ t=document.createElement('div'); t.id='_toast'; document.body.appendChild(t); }
+  t.textContent=msg; t.className='toast show';
+  clearTimeout(t._tid);
+  t._tid=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function resetAll(){
+  if(!confirm('Tüm analiz sıfırlansın mı?')) return;
+  _S={
+    meta:{},
+    tech:{
+      os:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Oluşum)',
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
+      nd:{problem:'Problem tanımını buraya yazın…', rcText:'Teknik Kök Neden (Tespit)',
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
+      actions:{os:{},nd:{}}
+    },
+    sys:{
+      os:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Oluşum)',
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
+      nd:{problem:'Problem tanımını buraya yazın…', rcText:'Sistemsel Kök Neden (Tespit)',
+          problemPinned:false, rcPinned:false, chains:[{startAfter:null, steps:[mkStep()]}]},
+      actions:{os:{},nd:{}}
+    }
+  };
+  ['mPart','mCustomer','mDate','mAnalyst'].forEach(id=>document.getElementById(id).value='');
+  render();
+}
+
+document.getElementById('mDate').valueAsDate = new Date();
+// Restore saved API keys and provider
+(function(){
+  // Migrate deprecated model names
+  const DEPRECATED_GEMINI = ['gemini-2.0-flash-exp','gemini-2.5-pro-exp-03-25','gemini-2.0-flash-lite'];
+  const DEPRECATED_OR     = ['meta-llama/llama-3.1-8b-instruct:free','qwen/qwen2.5-72b-instruct:free','google/gemini-2.0-flash-lite-001:free','google/gemini-2.0-flash-001:free'];
+  if(DEPRECATED_GEMINI.includes(localStorage.getItem('gemini_model'))) localStorage.removeItem('gemini_model');
+  if(DEPRECATED_OR.includes(localStorage.getItem('or_model')))         localStorage.removeItem('or_model');
+
+  const k   = localStorage.getItem('groq_api_key');  if(k)   document.getElementById('aiKey').value = k;
+  const g   = localStorage.getItem('gemini_api_key');if(g)   document.getElementById('aiKeyGemini').value = g;
+  const or  = localStorage.getItem('or_api_key');    if(or)  document.getElementById('aiKeyOR').value = or;
+  const oai = localStorage.getItem('oai_api_key');   if(oai) document.getElementById('aiKeyOAI').value = oai;
+  document.getElementById('aiKeyOR').oninput  = e => localStorage.setItem('or_api_key',  e.target.value.trim());
+  document.getElementById('aiKeyOAI').oninput = e => localStorage.setItem('oai_api_key', e.target.value.trim());
+  const p = localStorage.getItem('ai_provider') || 'groq';
+  setProvider(p);
+})();
+
+// 8D D4 köprüsü: 8D raporundan 5 Neden sayfasına yönlendirme
+(function(){
+  const raw = localStorage.getItem('_8d_bridge');
+  if (!raw) return;
+  try {
+    const bridge = JSON.parse(raw);
+    if (bridge.type !== 'why5') return;
+    localStorage.removeItem('_8d_bridge');
+
+    function _showBridgeBanner() {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#1565c0;color:white;padding:12px 18px;border-radius:8px;font-size:0.9em;font-weight:600;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);cursor:pointer;';
+      banner.innerHTML = '🔗 8D D4 bağlantısıyla açıldı — 7D bitince 8D sekmesine dönün ✕';
+      banner.onclick = () => banner.remove();
+      document.body.appendChild(banner);
+      setTimeout(() => { if (banner.parentNode) banner.remove(); }, 6000);
+    }
+
+    function _applyProblem(prob) {
+      if (!prob) return;
+      const mPart = document.getElementById('mPart');
+      if (mPart && !mPart.value) mPart.value = prob;
+      ['tech','sys'].forEach(tab => {
+        ['os','nd'].forEach(tk => {
+          if (_S[tab][tk].problem === 'Problem tanımını buraya yazın…') {
+            _S[tab][tk].problem = prob;
+          }
+        });
+      });
+    }
+
+    // Kayıtlı analiz yükle (5neden_... anahtarı varsa)
+    if (bridge.key && bridge.key.toString().startsWith('5neden_')) {
+      const idbKey = bridge.key;
+      new Promise((ok, err) => {
+        const r = indexedDB.open('KaliteRaporDB', 5);
+        r.onsuccess = e => ok(e.target.result);
+        r.onerror   = e => err(e.target.error);
+        r.onupgradeneeded = e => {
+          const d = e.target.result;
+          if (!d.objectStoreNames.contains('payloads')) d.createObjectStore('payloads');
+        };
+      }).then(db => new Promise((ok, err) => {
+        const r = db.transaction(['payloads'],'readonly').objectStore('payloads').get(idbKey);
+        r.onsuccess = () => ok(r.result);
+        r.onerror   = e => err(e.target.error);
+      })).then(data => {
+        if (data) {
+          _S = data;
+          if (typeof applyMeta === 'function') applyMeta();
+        } else {
+          _applyProblem(bridge.problem || '');
+        }
+        render();
+        _showBridgeBanner();
+      }).catch(() => {
+        _applyProblem(bridge.problem || '');
+        render();
+        _showBridgeBanner();
+      });
+      return; // döngü aşağıya düşmesin, async handle etti
+    }
+
+    // Yeni analiz: sadece problem alanlarını ön-doldur
+    _applyProblem(bridge.problem || '');
+    render();
+    _showBridgeBanner();
+  } catch(e) {}
+})();
+
+render();
+
+// ═══ EMBED MODE (8D preview iframe) ═══
+(function(){
+  const _ep = new URLSearchParams(location.search);
+  if (_ep.get('embed') !== '1') return;
+  document.body.classList.add('embed-mode');
+  // Show only the requested consideration tab (default: tech)
+  const _tab = _ep.get('tab') || 'tech';
+  document.querySelectorAll('.consid-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.ctab').forEach(b => b.classList.remove('active'));
+  const _panelEl = document.getElementById('panel-' + _tab);
+  if (_panelEl) _panelEl.style.display = 'block';
+  const _tabEl   = document.getElementById('ctab-' + _tab);
+  if (_tabEl) _tabEl.classList.add('active');
+  // Load data from IDB using statekey
+  const _stKey = _ep.get('statekey') || '';
+  if (!_stKey) return;
+  idbGetByKey(_stKey).then(d => {
+    if (!d) return;
+    _S = d;
+    if (_S.meta) applyMeta();
+    // activate tab via switchConsid
+    switchConsid(_tab, document.getElementById('ctab-'+_tab) || document.createElement('button'));
+    render();
+  }).catch(()=>{});
+})();
+
+// ══════════════════════════════════════════════════════
+//  CORRECTIVE ACTIONS TABLE
+// ══════════════════════════════════════════════════════
+function mkAction(){ return {text:'', responsible:'', date:'', status:'', pinned:false}; }
+
+function getAllSteps(tab, tk){
+  const steps = [];
+  _S[tab][tk].chains.forEach(ch => ch.steps.forEach(s => steps.push(s)));
+  return steps;
+}
+
+function syncActions(tab, tk){
+  if(!_S[tab].actions) _S[tab].actions = { os:{}, nd:{} };
+  // Migrate old array format to id-based object
+  if(Array.isArray(_S[tab].actions[tk])){
+    const old = _S[tab].actions[tk];
+    const steps = getAllSteps(tab, tk);
+    const obj = {};
+    steps.forEach((s, i) => { if(old[i]) obj[s.id] = old[i]; });
+    _S[tab].actions[tk] = obj;
+  }
+  if(!_S[tab].actions[tk] || typeof _S[tab].actions[tk] !== 'object')
+    _S[tab].actions[tk] = {};
+}
+
+function renderActionTable(tab){
+  const el = document.getElementById('actions-'+tab);
+  if(!el) return;
+
+  el.innerHTML = '';
+  const istech = tab === 'tech';
+
+  // Header
+  const hdr = document.createElement('div');
+  hdr.className = 'ca-hdr' + (istech ? '' : ' sys-hdr');
+  hdr.textContent = istech ? 'Düzeltici Faaliyetler — Teknik' : 'Düzeltici Faaliyetler — Sistemsel';
+  el.appendChild(hdr);
+
+  // Column labels row
+  const colHdr = document.createElement('div');
+  colHdr.className = 'ca-row-hdr';
+  colHdr.innerHTML =
+    '<div class="ca-col">#</div>' +
+    '<div class="ca-col" title="Sabitle">📌</div>' +
+    '<div class="ca-col" style="justify-content:flex-start;padding-left:8px;">Faaliyet</div>' +
+    '<div class="ca-col">⚡</div>' +
+    '<div class="ca-col">Sorumlu</div>' +
+    '<div class="ca-col">Termin</div>' +
+    '<div class="ca-col">Durum</div>';
+  el.appendChild(colHdr);
+
+  buildActionSection(el, tab, 'os', 'A', '🔴 Oluşum', 'os-lbl');
+  buildActionSection(el, tab, 'nd', 'B', '🟣 Tespit',  'nd-lbl');
+}
+
+function buildActionSection(el, tab, tk, prefix, label, lblCls){
+  const secLbl = document.createElement('div');
+  secLbl.className = 'ca-section-lbl ' + lblCls;
+  secLbl.textContent = label;
+  el.appendChild(secLbl);
+
+  // Use doLayout's flatIdx ordering so labels EXACTLY match the diagram
+  const {items} = doLayout(tab, tk);
+  const stepItems = items
+    .filter(it => it.type === 'step')
+    .sort((a,b) => a.flatIdx - b.flatIdx);
+  const steps = stepItems.map(it => it.data);
+
+  // Ensure actions store is id-based object (migrate from old array if needed)
+  syncActions(tab, tk);
+
+  // Bulk AI button
+  const bulkWrap = document.createElement('div');
+  bulkWrap.className = 'ca-bulk-wrap';
+  const bulkBtn = document.createElement('button');
+  bulkBtn.className = 'ca-bulk-btn';
+  bulkBtn.textContent = '⚡ Tümüne AI Öner';
+  bulkBtn.title = 'Tüm adımlar için AI düzeltici faaliyet öner (pinliler atlanır)';
+  bulkBtn.onclick = () => aiSuggestAllActions(tab, tk, bulkBtn);
+  bulkWrap.appendChild(bulkBtn);
+  el.appendChild(bulkWrap);
+
+  if(steps.length === 0){
+    const empty = document.createElement('div');
+    empty.style.cssText = 'font-size:.68rem;color:#94a3b8;padding:8px 12px;font-style:italic;';
+    empty.textContent = 'Henüz adım eklenmedi.';
+    el.appendChild(empty);
+    return;
+  }
+
+  steps.forEach((step, i) => {
+    // Keyed by step.id — persists across any reorder, insert or delete
+    if(!_S[tab].actions[tk][step.id]) _S[tab].actions[tk][step.id] = mkAction();
+    const act = _S[tab].actions[tk][step.id];
+    const flatNum = stepItems[i].flatIdx + 1;  // same number as diagram label
+
+    const row = document.createElement('div');
+    row.className = 'ca-row' + (act.pinned ? ' act-pinned' : '');
+
+    // #
+    const lbl = document.createElement('div');
+    lbl.className = 'ca-lbl';
+    lbl.textContent = prefix + flatNum;
+    row.appendChild(lbl);
+
+    // Pin button
+    const pinBtn = document.createElement('button');
+    pinBtn.className = 'ca-pin-btn' + (act.pinned ? ' pinned' : '');
+    pinBtn.title = act.pinned ? 'Sabiti kaldır' : 'Faaliyet sabitle (AI yenilemesinde değişmez)';
+    pinBtn.textContent = '📌';
+    pinBtn.onclick = () => {
+      act.pinned = !act.pinned;
+      row.classList.toggle('act-pinned', act.pinned);
+      pinBtn.classList.toggle('pinned', act.pinned);
+      pinBtn.title = act.pinned ? 'Sabiti kaldır' : 'Faaliyet sabitle (AI yenilemesinde değişmez)';
+    };
+    row.appendChild(pinBtn);
+
+    // Faaliyet textarea
+    const ta = document.createElement('textarea');
+    ta.className = 'ca-input';
+    ta.dataset.stepid = step.id;
+    ta.placeholder = step.text ? step.text.slice(0, 40) + '…' : 'Faaliyet yazın…';
+    ta.value = act.text;
+    ta.title = step.text ? '💡 Neden: ' + step.text : '';
+    ta.oninput = e => { act.text = e.target.value; };
+    row.appendChild(ta);
+
+    // AI suggest button
+    const aiBtn = document.createElement('button');
+    aiBtn.className = 'ca-ai-btn';
+    aiBtn.title = 'AI ile faaliyet öner';
+    aiBtn.textContent = '⚡';
+    aiBtn.onclick = () => aiSuggestAction(tab, tk, i, aiBtn, step, ta);
+    row.appendChild(aiBtn);
+
+    // Sorumlu
+    const respCell = document.createElement('div');
+    respCell.className = 'ca-cell';
+    const resp = document.createElement('input');
+    resp.className = 'ca-sinput';
+    resp.type = 'text';
+    resp.placeholder = 'Sorumlu…';
+    resp.value = act.responsible;
+    resp.oninput = e => { act.responsible = e.target.value; };
+    respCell.appendChild(resp);
+    row.appendChild(respCell);
+
+    // Tarih
+    const dtCell = document.createElement('div');
+    dtCell.className = 'ca-cell';
+    const dt = document.createElement('input');
+    dt.className = 'ca-sinput';
+    dt.type = 'date';
+    dt.value = act.date;
+    dt.oninput = e => { act.date = e.target.value; };
+    dtCell.appendChild(dt);
+    row.appendChild(dtCell);
+
+    // Durum
+    const stCell = document.createElement('div');
+    stCell.className = 'ca-cell';
+    const sel = document.createElement('select');
+    sel.className = 'ca-status';
+    sel.title = 'Faaliyet durumu';
+    [['','— Durum —'],['bekliyor','⬜ Bekliyor'],['devam','🔄 Devam'],['tamam','✅ Tamam'],['iptal','❌ İptal']]
+      .forEach(([v,lbl])=>{ const o=document.createElement('option'); o.value=v; o.textContent=lbl; if(act.status===v) o.selected=true; sel.appendChild(o); });
+    sel.dataset.v = act.status || '';
+    const _applyStatusColor = s => { sel.dataset.v = s; };
+    _applyStatusColor(act.status || '');
+    sel.onchange = e => { act.status = e.target.value; _applyStatusColor(e.target.value); };
+    stCell.appendChild(sel);
+    row.appendChild(stCell);
+
+    el.appendChild(row);
+  });
+}
+
+async function aiSuggestAction(tab, tk, idx, btn, step, ta){
+  const _actProvider = localStorage.getItem('ai_provider') || 'groq';
+  const _actKey = _actProvider==='gemini'     ? localStorage.getItem('gemini_api_key')
+               : _actProvider==='openai'      ? localStorage.getItem('oai_api_key')
+               : _actProvider==='openrouter'  ? localStorage.getItem('or_api_key')
+               : localStorage.getItem('groq_api_key');
+  if(!_actKey){ alert('Önce "AI ile Oluştur" butonundan API key girin.'); return; }
+  const stepText = step.text || '';
+  if(!stepText){ alert('Bu adımda henüz neden metni yok.'); return; }
+
+  const tabLabel = tab === 'tech' ? 'Teknik' : 'Sistemsel';
+  const trkLabel = tk  === 'os'   ? 'Oluşum (problem neden oluştu)' : 'Tespit Edilememe (neden fark edilemedi)';
+  const problem  = _S[tab][tk].problem || '';
+
+  btn.textContent = '⏳';
+  btn.classList.add('loading');
+
+  try{
+    const raw = await callAI([
+      { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Kısa, spesifik ve uygulanabilir düzeltici faaliyet önerileri yap. Yalnızca JSON döndür.' },
+      { role:'user',   content: 'Kırılım: '+tabLabel+' — '+trkLabel+'\nProblem: "'+problem+'"\nKök neden adımı: "'+stepText+'"\n\nBu kök neden için bir düzeltici faaliyet öner.\nYALNIZCA JSON: {"action":"<faaliyet (en fazla 20 kelime)"}' }
+    ], 150, 0.3);
+    const parsed = safeParseJSON(raw || '{}');
+    const action = parsed.action || parsed.text || parsed.faaliyet || parsed.corrective_action || '';
+    if(action){
+      if(_S[tab].actions[tk][step.id]) _S[tab].actions[tk][step.id].text = action;
+      if(ta) ta.value = action;
+    }
+  } catch(e){
+    alert('AI Hata: ' + e.message);
+  }
+  btn.textContent = '⚡';
+  btn.classList.remove('loading');
+}
+
+// Robust multi-action parser — handles JSON array, object values, numbered/bullet lists
+function parseActionsResponse(raw, expectedN){
+  const s = (raw || '').trim();
+
+  // 1) Try JSON with .actions array
+  try{
+    const p = safeParseJSON(s);
+    if(p.actions && Array.isArray(p.actions) && p.actions.length) return p.actions.map(String);
+    // Model returned {"1":"...", "2":"..."} or similar object
+    const vals = Object.values(p).filter(v => typeof v === 'string' && v.length > 1);
+    if(vals.length >= expectedN) return vals.slice(0, expectedN);
+  } catch(_){}
+
+  // 2) Direct JSON array
+  const arrM = s.match(/\[[\s\S]*?\]/);
+  if(arrM){ try{ const a = JSON.parse(arrM[0]); if(Array.isArray(a) && a.length) return a.map(String); } catch(_){} }
+
+  // 3) Numbered list: "1. ...", "1) ..."
+  const numberedLines = s.split('\n').filter(l => /^\s*\d+[\.\)]\s+\S/.test(l));
+  if(numberedLines.length) return numberedLines.map(l => l.replace(/^\s*\d+[\.\)]\s+/, '').trim());
+
+  // 4) Bullet list: "- ...", "* ...", "• ..."
+  const bulletLines = s.split('\n').filter(l => /^\s*[-*•]\s+\S/.test(l));
+  if(bulletLines.length) return bulletLines.map(l => l.replace(/^\s*[-*•]\s+/, '').trim());
+
+  // 5) Non-empty lines fallback
+  const nonEmpty = s.split('\n').map(l => l.trim()).filter(l => l && !/^[{}\[\]]$/.test(l));
+  if(nonEmpty.length) return nonEmpty;
+
+  return [];
+}
+
+async function aiSuggestAllActions(tab, tk, bulkBtn){
+  const _actProvider = localStorage.getItem('ai_provider') || 'groq';
+  const _actKey = _actProvider==='gemini'     ? localStorage.getItem('gemini_api_key')
+               : _actProvider==='openai'      ? localStorage.getItem('oai_api_key')
+               : _actProvider==='openrouter'  ? localStorage.getItem('or_api_key')
+               : localStorage.getItem('groq_api_key');
+  if(!_actKey){ alert('Önce "AI ile Oluştur" butonundan API key girin.'); return; }
+
+  const allSteps = getAllSteps(tab, tk);
+  const stepsWithText = allSteps.map((s, i) => ({ s, i })).filter(o => o.s.text);
+  if(!stepsWithText.length){ alert('Önce neden adımları ekleyin.'); return; }
+
+  const tabLabel = tab==='tech' ? 'Teknik' : 'Sistemsel';
+  const trkLabel = tk==='os'   ? 'Oluşum (problem neden oluştu)' : 'Tespit Edilememe (neden fark edilemedi)';
+  const problem  = _S[tab][tk].problem || '';
+
+  const origLabel = bulkBtn.textContent;
+  bulkBtn.textContent = '⏳ Yükleniyor…';
+  bulkBtn.disabled = true;
+
+  const numberedList = stepsWithText.map((o, pos) => `${pos+1}. ${o.s.text}`).join('\n');
+  const expectedN = stepsWithText.length;
+
+  try{
+    const raw = await callAI([
+      { role:'system', content:'Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Yalnızca JSON döndür, başka metin çıkarma.' },
+      { role:'user',   content:
+          'Kırılım: '+tabLabel+' — '+trkLabel+'\n'+
+          'Problem: '+problem+'\n\n'+
+          'Aşağıdaki '+expectedN+' kök neden için birer düzeltici faaliyet öner (en fazla 15 kelime her biri).\n\n'+
+          numberedList+'\n\n'+
+          'Tam olarak '+expectedN+' öğe içeren JSON döndür: {"actions":["faaliyet1","faaliyet2",...]}'}
+    ], Math.max(expectedN * 120, 200), 0.3);
+
+    const actions = parseActionsResponse(raw, expectedN);
+
+    stepsWithText.forEach((o, pos) => {
+      const act = _S[tab].actions[tk][o.s.id];
+      if(act && !act.pinned && actions[pos]){
+        act.text = actions[pos];
+      }
+    });
+
+    renderActionTable(tab);
+  } catch(e){
+    alert('AI Hata: ' + e.message);
+  }
+  bulkBtn.textContent = origLabel;
+  bulkBtn.disabled = false;
+}
+
+// ══════════════════════════════════════════════════════
+//  AI WIZARD
+// ══════════════════════════════════════════════════════
+const WIZ_STEPS = [
+  { q: 'Ne oldu?',
+    hint: 'Ürün, parça veya süreçte gözlemlenen sapma',
+    ph: 'örn: Montaj hattında vida torku düşük çıktı',
+    multi: true, id: 'wq1' },
+  { q: 'Etki & Kapsam',
+    hint: 'Kaç adet? Hangi müşteri / ürün serisi?',
+    ph: 'örn: 1500 adet, A Serisi, müşteri şikayeti var',
+    multi: false, id: 'wq2' },
+  { q: 'Nerede / Hangi Süreç?',
+    hint: 'Hat, makine, istasyon veya operasyon',
+    ph: 'örn: Hat-3, vida sıkma istasyonu, gece vardiyası',
+    multi: false, id: 'wq3' },
+  { q: 'Nasıl Fark Edildi?',
+    hint: 'Tespit yöntemi ve ne zaman fark edildiği',
+    ph: 'örn: Müşteri iadesi, sevkiyattan 3 gün sonra',
+    multi: false, id: 'wq4' },
+  { q: 'Olası Hata Nedenleri',
+    hint: 'Biçimsel ya da gözönünde bulundurulan olası nedenler — AI analizi bu ipucu üzerine odaklanır',
+    ph: 'örn: Operatör değişimi · Yeni hammadde partisi · Tork anahtarı kalibrasyonu geçti · İki haftılık üretim durakl. sonrası ilk vardiya',
+    multi: true, id: 'wq_causes' },
+  { q: 'Kaç neden adımı olsun?',
+    hint: 'Her bir iz için ana zincirdeki adım sayısı',
+    chips: ['3','4','5','6','7'], def: '5', id: 'wq5' },
+  { q: 'Paralel dal eklensin mi?',
+    hint: 'Her izde kaç bağımsız dal zinciri oluşturulsun',
+    chips: ['Yok','1 Dal','2 Dal'], def: 'Yok', id: 'wq6' },
+  { q: 'Teknik Ek Bilgi',
+    hint: 'Malzeme, makine kodu, proses parametresi, geçmiş hatalar — ne kadar çok o kadar isabetli analiz',
+    ph: 'örn: Çelik SAE 1045 · Tork anah. model P-2201 · Nominal 45 Nm · Son bakım 3 ay önce · Bölge: Gece vardiyası',
+    multi: true, id: 'wq7' },
+  { q: 'Yanıt Derinliği',
+    hint: 'AI’dan ne kadar kapsamlı analiz çıksın?',
+    chips: ['Hızlı ⚡', 'Standart ✓', 'Derinlemesine 🔬'], def: 'Standart ✓', id: 'wq8' }
+];
+
+let _wizStep = 0;
+const _wizAnswers = {};
+
+function wizRender(){
+  const s   = WIZ_STEPS[_wizStep];
+  const tot = WIZ_STEPS.length;
+
+  // Dots
+  const dots = document.getElementById('wizDots');
+  dots.innerHTML = WIZ_STEPS.map((_,i)=>
+    `<div class="wiz-dot ${i<_wizStep?'done':i===_wizStep?'active':''}"></div>`
+  ).join('') + `<span style="font-size:.64rem;color:#94a3b8;margin-left:6px;">${_wizStep+1} / ${tot}</span>`;
+
+  // Step content
+  const val = _wizAnswers[s.id] !== undefined ? _wizAnswers[s.id] : (s.def||'');
+  let inner = `<div class="wiz-q">${s.q}</div><div class="wiz-hint">${s.hint}</div>`;
+  if(s.chips){
+    inner += `<div class="wiz-opts">${s.chips.map(c=>
+      `<button class="wiz-chip${val===c?' sel':''}" onclick="wizChip('${s.id}','${c}',this)">${c}</button>`
+    ).join('')}</div>`;
+  } else if(s.multi){
+    inner += `<textarea class="ai-ta" id="${s.id}" placeholder="${s.ph}" rows="3">${val}</textarea>`;
+  } else {
+    inner += `<input class="ai-input" id="${s.id}" placeholder="${s.ph}" value="${val.replace(/"/g,'&quot;')}">` ;
+  }
+  document.getElementById('wizStep').innerHTML = inner;
+
+  // Button visibility
+  const isLast = _wizStep === tot - 1;
+  document.getElementById('wizBack').style.display = _wizStep === 0 ? 'none' : '';
+  document.getElementById('wizNext').style.display = isLast ? 'none' : '';
+  document.getElementById('aiGenBtn').style.display = isLast ? '' : 'none';
+
+  // Focus input
+  if(!s.chips) setTimeout(()=>{ const el=document.getElementById(s.id); if(el) el.focus(); }, 60);
+}
+
+function wizChip(id, val, btn){
+  _wizAnswers[id] = val;
+  btn.closest('.wiz-opts').querySelectorAll('.wiz-chip').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function wizSaveCurrent(){
+  const s  = WIZ_STEPS[_wizStep];
+  if(s.chips) return;   // chip answers saved immediately on click
+  const el = document.getElementById(s.id);
+  if(el) _wizAnswers[s.id] = el.value.trim();
+}
+
+function wizNav(dir){
+  wizSaveCurrent();
+  _wizStep = Math.max(0, Math.min(WIZ_STEPS.length-1, _wizStep+dir));
+  wizRender();
+}
+
+// ── Provider toggle ──────────────────────────────────
+function setProvider(p){
+  localStorage.setItem('ai_provider', p);
+  [{id:'groq',tab:'Groq'},{id:'openrouter',tab:'OR'},{id:'gemini',tab:'Gemini'},{id:'openai',tab:'OAI'}].forEach(({id,tab})=>{
+    const btn = document.getElementById('tab'+tab);
+    if(btn) btn.classList.toggle('active', p===id);
+  });
+  document.getElementById('keyBlockGroq').style.display   = p==='groq'       ? '' : 'none';
+  document.getElementById('keyBlockOR').style.display     = p==='openrouter' ? '' : 'none';
+  document.getElementById('keyBlockGemini').style.display = p==='gemini'     ? '' : 'none';
+  document.getElementById('keyBlockOAI').style.display    = p==='openai'     ? '' : 'none';
+  if(p==='openrouter'){
+    const m = localStorage.getItem('or_model');
+    if(m) document.getElementById('orModel').value = m;
+    document.getElementById('orModel').onchange = e => localStorage.setItem('or_model', e.target.value);
+  }
+  if(p==='gemini'){
+    const m = localStorage.getItem('gemini_model');
+    if(m) document.getElementById('geminiModel').value = m;
+    document.getElementById('geminiModel').onchange = e => localStorage.setItem('gemini_model', e.target.value);
+  }
+  if(p==='openai'){
+    const m = localStorage.getItem('oai_model');
+    if(m) document.getElementById('oaiModel').value = m;
+    document.getElementById('oaiModel').onchange = e => localStorage.setItem('oai_model', e.target.value);
+  }
+}
+
+// ── Robust JSON parser (strips markdown fences, extracts first JSON object) ──
+function safeParseJSON(raw){
+  if(!raw) throw new SyntaxError('Boş yanıt');
+  // 1) Strip ```json ... ``` or ``` ... ```
+  let s = raw.replace(/^```json\s*/i,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+  // 2) Try direct parse
+  try{ return JSON.parse(s); } catch(_){}
+  // 3) Extract first {...} block (handles preamble text from OpenRouter/Gemini)
+  const m = s.match(/\{[\s\S]*\}/);
+  if(m){ try{ return JSON.parse(m[0]); } catch(_){} }
+  // 4) Give up
+  throw new SyntaxError('JSON parse hatası. Ham yanıt: ' + s.slice(0,200));
+}
+
+// ── Unified AI caller (Groq / OpenRouter / Gemini) ─────
+async function callAI(messages, maxTokens, temperature){
+  const provider = localStorage.getItem('ai_provider') || 'groq';
+  const temp = temperature ?? 0.4;
+
+  if(provider === 'openrouter'){
+    const key = localStorage.getItem('or_api_key') || document.getElementById('aiKeyOR')?.value?.trim() || '';
+    if(!key) throw new Error('OpenRouter API key girilmedi');
+    const chosenOR = localStorage.getItem('or_model') || document.getElementById('orModel')?.value || 'meta-llama/llama-3.3-70b-instruct:free';
+
+    // Free model fallback chain — verified working on OpenRouter (Mar 2026)
+    const OR_FALLBACKS = [
+      chosenOR,
+      'deepseek/deepseek-r1:free',
+      'deepseek/deepseek-chat:free',
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'google/gemma-3-27b-it:free',
+      'qwen/qwen-2.5-72b-instruct:free',
+      'mistralai/mistral-7b-instruct:free',
+      'microsoft/phi-3-mini-128k-instruct:free',
+    ].filter((v,i,a) => a.indexOf(v)===i); // deduplicate
+
+    const orPost = (model) => fetch('https://openrouter.ai/api/v1/chat/completions',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+key,
+        'HTTP-Referer':'https://github.com',
+        'X-Title':'5-Neden-Analizi'
+      },
+      body: JSON.stringify({ model, messages, temperature:temp, max_tokens:maxTokens })
+    });
+
+    let orLastErr = '';
+    let lastWas429 = false;
+    for(const orModel of OR_FALLBACKS){
+      // If previous model was rate-limited, pause before hitting the next one
+      if(lastWas429) await new Promise(r=>setTimeout(r,12000));
+      lastWas429 = false;
+
+      let resp = await orPost(orModel);
+      // Single retry on 429 with a longer wait
+      if(resp.status === 429){
+        await new Promise(r=>setTimeout(r,15000));
+        resp = await orPost(orModel);
+      }
+      if(resp.ok){
+        const d = await resp.json();
+        return d?.choices?.[0]?.message?.content || '';
+      }
+      const oe = await resp.json().catch(()=>({}));
+      const omsg = oe?.error?.message || ('HTTP '+resp.status);
+      if(resp.status === 401 || resp.status === 403) throw new Error('OpenRouter: API key geçersiz — openrouter.ai/keys kontrol edin.');
+      if(resp.status === 402) throw new Error('OpenRouter: Hesap bakiyesi yetersiz — openrouter.ai/credits adresine bakın.');
+      if(resp.status === 429){ orLastErr = 'Rate limit'; lastWas429 = true; continue; }
+      if(resp.status === 404){ orLastErr = 'Model bulunamadı: '+orModel; continue; }
+      throw new Error('OpenRouter ('+orModel+'): '+omsg);
+    }
+    throw new Error('OpenRouter: Hiçbir model çalışmadı. Son hata: '+orLastErr+
+      '\n\nTavsiye: Ücretsız OpenRouter modelleri çok kısıtlı. GROQ provieder’ını deneyin (tamamen ücretsiz).');
+  } else if(provider === 'gemini'){
+    const key = localStorage.getItem('gemini_api_key') || document.getElementById('aiKeyGemini')?.value?.trim() || '';
+    if(!key) throw new Error('Gemini API key girilmedi');
+
+    const geminiModelEl = document.getElementById('geminiModel');
+    const chosenModel = geminiModelEl?.value || localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
+    if(geminiModelEl) localStorage.setItem('gemini_model', chosenModel);
+
+    // Build combined prompt (native API uses single user turn)
+    const sysMsg  = messages.find(m=>m.role==='system')?.content || '';
+    const userMsg = messages.find(m=>m.role==='user')?.content   || '';
+    const combined = sysMsg ? sysMsg + '\n\n' + userMsg : userMsg;
+
+    // Try models — simple alias first, then pinned version for max compatibility
+    const MODEL_VARIANTS = {
+      'gemini-2.0-flash':               ['gemini-2.0-flash',      'gemini-2.0-flash-001'],
+      'gemini-2.0-flash-lite':          ['gemini-2.0-flash-lite', 'gemini-2.0-flash-lite-001'],
+      'gemini-1.5-flash':               ['gemini-1.5-flash',      'gemini-1.5-flash-latest', 'gemini-1.5-flash-002'],
+      'gemini-1.5-flash-8b':            ['gemini-1.5-flash-8b'],
+      'gemini-1.5-pro':                 ['gemini-1.5-pro',        'gemini-1.5-pro-latest',   'gemini-1.5-pro-002'],
+      'gemini-2.5-flash-preview-04-17': ['gemini-2.5-flash-preview-04-17'],
+      'gemini-2.5-pro-preview-03-25':   ['gemini-2.5-pro-preview-03-25'],
+    };
+    const tryModels = (MODEL_VARIANTS[chosenModel] || [chosenModel]).slice();
+    // Ultimate fallbacks in order of availability
+    for(const fb of ['gemini-1.5-flash','gemini-1.5-flash-8b','gemini-1.5-pro']){
+      if(!tryModels.includes(fb)) tryModels.push(fb);
+    }
+
+    const doFetch = (model, ver) => fetch(
+      `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${key}`,
+      { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{role:'user', parts:[{text:combined}]}],
+          generationConfig:{temperature:temp, maxOutputTokens:maxTokens}
+        })
+      }
+    );
+
+    let lastErr = 'bilinmeyen hata';
+    let all404 = true;
+    for(const model of tryModels){
+      for(const ver of ['v1beta','v1']){
+        let resp = await doFetch(model, ver);
+        if(resp.status === 429 || resp.status === 503){
+          await new Promise(r=>setTimeout(r,4000));
+          resp = await doFetch(model, ver);
+        }
+        if(resp.ok){
+          const d = await resp.json();
+          return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        }
+        const errBody = await resp.json().catch(()=>({}));
+        const msg = errBody?.error?.message || ('HTTP '+resp.status);
+        if(resp.status === 401 || resp.status === 403)
+          throw new Error('Gemini: API key geçersiz — aistudio.google.com/apikey kontrol edin.');
+        if(resp.status === 404){ lastErr = msg; continue; }
+        all404 = false;
+        throw new Error('Gemini ('+model+'): '+msg);
+      }
+    }
+    if(all404)
+      throw new Error(
+        'Gemini: Tüm modeller 404 döndürdü.\n\n' +
+        '🔴 EN MUHTEMEL NEDEN — Google Cloud\'da API devre dışı:\n' +
+        '  → console.cloud.google.com/apis/library/generativelanguage.googleapis.com\n' +
+        '     Sayfaya gidip "Enable" butonuna basın, 1 dakika bekleyin, tekrar deneyin.\n\n' +
+        'Diğer olası nedenler:\n' +
+        '• API key yeni oluşturuldu → 1-2 dk bekleyin\n' +
+        '• Key geçersiz → aistudio.google.com/apikey → yeni key alın\n' +
+        '• Türkiye\'den erişimde bölge kısıtı → VPN deneyin'
+      );
+    throw new Error('Gemini: Hiçbir model çalışmadı. Son hata: '+lastErr);
+  } else if(provider === 'openai'){
+    const key = localStorage.getItem('oai_api_key') || document.getElementById('aiKeyOAI')?.value?.trim() || '';
+    if(!key) throw new Error('OpenAI API key girilmedi');
+    const oaiModelEl = document.getElementById('oaiModel');
+    const oaiModel = oaiModelEl?.value || localStorage.getItem('oai_model') || 'gpt-4o-mini';
+    if(oaiModelEl) localStorage.setItem('oai_model', oaiModel);
+    // o-series models (o1, o3, o4…) don’t accept temperature≠1 or response_format
+    const isOSeries = /^o\d/.test(oaiModel);
+    const oaiBody = { model:oaiModel, messages, max_tokens:maxTokens };
+    if(!isOSeries){ oaiBody.temperature = temp; oaiBody.response_format = {type:'json_object'}; }
+    const resp = await fetch('https://api.openai.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify(oaiBody)
+    });
+    if(!resp.ok){
+      const e = await resp.json().catch(()=>({}));
+      if(resp.status===429) throw new Error('⏳ OpenAI rate limit — birkaç saniye bekleyip tekrar deneyin.');
+      if(resp.status===401) throw new Error('OpenAI: API key geçersiz — platform.openai.com/api-keys kontrol edin.');
+      throw new Error('OpenAI ('+oaiModel+'): '+(e?.error?.message||'HTTP '+resp.status));
+    }
+    const data = await resp.json();
+    return data?.choices?.[0]?.message?.content || '';
+  } else {
+    const key = localStorage.getItem('groq_api_key') || document.getElementById('aiKey')?.value?.trim() || '';
+    if(!key) throw new Error('Groq API key girilmedi');
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify({ model:'llama-3.3-70b-versatile', messages, temperature:temp, max_tokens:maxTokens, response_format:{type:'json_object'} })
+    });
+    if(!resp.ok){
+      const e=await resp.json().catch(()=>({}));
+      if(resp.status===429) throw new Error('⏳ Rate limit — Groq kotası doldu. Birkaç saniye bekleyip tekrar deneyin.');
+      throw new Error(e?.error?.message||`HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    return data?.choices?.[0]?.message?.content || '';
+  }
+}
+
+function openAiModal(){
+  _wizStep = 0;
+  const prob = (_S.tech.os.problem && !_S.tech.os.problem.includes('buraya')) ? _S.tech.os.problem : '';
+  _wizAnswers['wq1'] = prob;
+  // pre-set chip defaults
+  if(!_wizAnswers['wq5']) _wizAnswers['wq5'] = '5';
+  if(!_wizAnswers['wq6']) _wizAnswers['wq6'] = 'Yok';
+  if(!_wizAnswers['wq8']) _wizAnswers['wq8'] = 'Standart ✓';
+  document.getElementById('aiStatus').innerHTML = '';
+  document.getElementById('aiModal').classList.add('open');
+  wizRender();
+}
+
+function closeAiModal(){ document.getElementById('aiModal').classList.remove('open'); }
+
+// ── API Test ────────────────────────────────
+async function testAPI(provider){
+  const btnId = provider==='groq' ? 'testBtnGroq' : provider==='gemini' ? 'testBtnGemini' : provider==='openai' ? 'testBtnOAI' : 'testBtnOR';
+  const btn = document.getElementById(btnId);
+  btn.textContent = '⏳ Test...';
+  btn.className = 'api-test-btn loading';
+
+  const PING = [{role:'user', content:'Say OK in JSON: {"ok":true}'}];
+  try{
+    let raw = '';
+    if(provider === 'groq'){
+      const key = document.getElementById('aiKey').value.trim();
+      if(!key){ throw new Error('Key girilmedi'); }
+      localStorage.setItem('groq_api_key', key);
+      const prevProv = localStorage.getItem('ai_provider');
+      localStorage.setItem('ai_provider','groq');
+      raw = await callAI(PING, 20, 0.1);
+      localStorage.setItem('ai_provider', prevProv||'groq');
+    } else if(provider === 'gemini'){
+      const key = document.getElementById('aiKeyGemini').value.trim();
+      if(!key){ throw new Error('Key girilmedi'); }
+      localStorage.setItem('gemini_api_key', key);
+      const prevProv = localStorage.getItem('ai_provider');
+      localStorage.setItem('ai_provider','gemini');
+      raw = await callAI(PING, 20, 0.1);
+      localStorage.setItem('ai_provider', prevProv||'groq');
+    } else if(provider === 'openai'){
+      const key = document.getElementById('aiKeyOAI').value.trim();
+      if(!key){ throw new Error('Key girilmedi'); }
+      localStorage.setItem('oai_api_key', key);
+      const prevProv = localStorage.getItem('ai_provider');
+      localStorage.setItem('ai_provider','openai');
+      raw = await callAI(PING, 20, 0.1);
+      localStorage.setItem('ai_provider', prevProv||'groq');
+    } else {
+      const key = document.getElementById('aiKeyOR').value.trim();
+      if(!key){ throw new Error('Key girilmedi'); }
+      localStorage.setItem('or_api_key', key);
+      const prevProv = localStorage.getItem('ai_provider');
+      localStorage.setItem('ai_provider','openrouter');
+      raw = await callAI(PING, 20, 0.1);
+      localStorage.setItem('ai_provider', prevProv||'groq');
+    }
+    // If we got any response without throwing, it's a success
+    btn.textContent = '✅ Çalışıyor';
+    btn.className = 'api-test-btn ok';
+    setTimeout(()=>{ btn.textContent='🔭 Test'; btn.className='api-test-btn'; }, 4000);
+  } catch(e){
+    // Show short label on button, full message in alert
+    btn.textContent = '❌ Hata — tıkla';
+    btn.className = 'api-test-btn err';
+    btn.onclick = () => { alert(e.message); btn.onclick = null; btn.onclick = () => testAPI(provider); };
+    setTimeout(()=>{ btn.textContent='🔭 Test'; btn.className='api-test-btn'; btn.onclick = () => testAPI(provider); }, 10000);
+  }
+}
+
+async function aiGenerate(){
+  wizSaveCurrent();
+  // Save the currently visible key
+  const provider = localStorage.getItem('ai_provider') || 'groq';
+  if(provider==='gemini'){
+    const k = document.getElementById('aiKeyGemini').value.trim();
+    if(!k){ setAiStatus('error','⚠️ Lütfen Gemini API key girin.'); return; }
+    localStorage.setItem('gemini_api_key', k);
+  } else if(provider==='openrouter'){
+    const k = document.getElementById('aiKeyOR').value.trim();
+    if(!k){ setAiStatus('error','⚠️ Lütfen OpenRouter API key girin.'); return; }
+    localStorage.setItem('or_api_key', k);
+  } else if(provider==='openai'){
+    const k = document.getElementById('aiKeyOAI').value.trim();
+    if(!k){ setAiStatus('error','⚠️ Lütfen OpenAI API key girin.'); return; }
+    localStorage.setItem('oai_api_key', k);
+  } else {
+    const k = document.getElementById('aiKey').value.trim();
+    if(!k){ setAiStatus('error','⚠️ Lütfen Groq API key girin.'); return; }
+    localStorage.setItem('groq_api_key', k);
+  }
+
+  // Build context from wizard answers
+  const q1 = _wizAnswers['wq1'] || '';
+  const q2 = _wizAnswers['wq2'] || '';
+  const q3 = _wizAnswers['wq3'] || '';
+  const q4 = _wizAnswers['wq4'] || '';
+
+  if(!q1){ setAiStatus('error','⚠️ Lütfen en az 1. soruyu yanıtlayın.'); return; }
+
+  const btn = document.getElementById('aiGenBtn');
+  btn.disabled = true;
+  const provLabel = provider==='gemini' ? 'Google Gemini analiz ediyor…'
+                  : provider==='openai'  ? 'OpenAI '+( localStorage.getItem('oai_model')||'gpt-4o-mini')+' analiz ediyor…'
+                  : provider==='openrouter' ? 'OpenRouter analiz ediyor…'
+                  : 'Groq — Llama 3.3 analiz ediyor…';
+  setAiStatus('loading', provLabel);
+
+  const qCauses = _wizAnswers['wq_causes'] || '';
+  const q5 = _wizAnswers['wq5'] || '5';
+  const q6 = _wizAnswers['wq6'] || 'Yok';
+  const q7 = _wizAnswers['wq7'] || '';
+  const q8 = _wizAnswers['wq8'] || 'Standart ✓';
+  const stepCount   = parseInt(q5) || 5;
+  const branchCount = q6==='1 Dal' ? 1 : q6==='2 Dal' ? 2 : 0;
+
+  // Depth mode settings
+  const isHizli       = q8.startsWith('Hızlı');
+  const isDerinlemesine = q8.startsWith('Derin');
+  const maxTokens     = isHizli ? 1800 : isDerinlemesine ? 4800 : 2800;
+  const temperature   = isHizli ? 0.5  : isDerinlemesine ? 0.25 : 0.4;
+  const maxWordPerStep = isHizli ? 8   : isDerinlemesine ? 18   : 10;
+
+  const context = [
+    `Problem: ${q1}`,
+    q2 ? `Etki/Kapsam: ${q2}` : '',
+    q3 ? `Süreç/Yer: ${q3}` : '',
+    q4 ? `Tespit: ${q4}` : '',
+    qCauses ? `Olası hata nedenleri (ipucu): ${qCauses}` : '',
+    q7 ? `Teknik ek bilgi: ${q7}` : ''
+  ].filter(Boolean).join('\n');
+
+  // Distribute branches evenly across the main chain steps
+  const branchExamplesAi = [];
+  for(let b=0; b<branchCount; b++){
+    const sa = Math.round((b+1)*stepCount/(branchCount+1)) - 1;
+    branchExamplesAi.push(`{"startAfterStep": ${Math.max(0,sa)}, "steps": ["Dal Neden 1","Dal Neden 2","Dal Neden 3"], "rootCause": "Dal kök"}`);
+  }
+  const depthInstruction = isDerinlemesine
+    ? `
+⚠️ DERİNLEMESINE MOD — KATMAN KATMAN KAZA ANALİZİ:
+Her adım fiziğin bir katman daha derinine inmeli; aynı veya benzer kelime grubu bir daha kullanilamaz.
+Adım 1: "ölçülen parametre sapması" (ne oluyor)
+Adım 2: "çünkü ekipman/malzeme düzeyi" (donanım nedeni)
+Adım 3: "çünkü süreç parımetresindeki sapma" (proses nedeni)
+Adım 4: "çünkü kontrol mekanizması eksikliği" (sistem nedeni)
+Adım 5: "çünkü yönetim/organizasyon boşluğu" (kök neden)
+Her adımın metni bilimsel açıdan doğru, ölçülmüş ve gerçek bir mekanizmayı işaret etmeli. (en fazla ${maxWordPerStep} kelime/adim)` 
+    : isHizli
+    ? `
+HIZLI MOD: Her adım en fazla ${maxWordPerStep} kelime, kısa ve net olsun.`
+    : `
+STANDART MOD: Her adım en fazla ${maxWordPerStep} kelime, teknik ve somut.`;
+
+  const branchInstruction = branchCount > 0
+    ? `Her iz için ${branchCount} bağımsız paralel dal zinciri de oluştur. Dallar farklı startAfterStep değerlerine sahip olsun (zincire yayılmış dağılım).` : '';
+  const branchJsonExample = branchCount > 0
+    ? `,"branches":[${branchExamplesAi.join(',')}]` : '';
+
+  const prompt = `Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Aşağıdaki bilgileri kullanarak 5 Neden (5 Why) analizi yap.
+
+⚠️ ZORUNLU NEDENSELLİK KURALI:
+Her adım, bir önceki adımın DOĞRUDAN ve SOMUT nedeni olmalıdır.
+mainSteps[i], mainSteps[i-1]'e "Neden?" sorusunun TAM cevabıdır.
+Zincirin tamamı aynı problem alanında kalmalı; konu dışı, genel veya alakasız nedenler YASAKTIR.
+Örnek zincir (vida torku problemi, oluşum izi):
+  Adım 1: "Vida torku spesifikasyon altında kaldı"        ← problem
+  Adım 2: "Tornavida ucu aşındığı için kuvvet iletimi düştü" ← neden 1'in nedeni
+  Adım 3: "Periyodik alet değişim planı uygulanmadı"       ← neden 2'nin nedeni
+  Adım 4: "Bakım talimatı güncel değil"                    ← neden 3'ün nedeni
+  Adım 5 (kök): "Bakım yönetim sistemi revize edilmedi"   ← kök neden
+Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler YAZMA.
+⛔️ TEKRAR KURALI: Zincirdeki hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez. Her adım farklı bir mekanizma/katman ifade etmeli. (örn: ham madde → proses param → kontrol eksikliği → sistem boşluğu → yönetim açığı).
+
+4 ayrı iz oluştur:
+1. TEKNİK OLUŞUM: Fiziksel/mühendislik nedenler - Problem neden oluştu? (parametre, makine, malzeme, ölçüm)
+2. TEKNİK TESPİT: Fiziksel/mühendislik nedenler - Problem neden fark edilemedi?
+3. SİSTEMSEL OLUŞUM: Yönetim sistemi nedenler - Sistem/prosedür açısından neden oluştu? (FMEA, kontrol planı, denetim)
+4. SİSTEMSEL TESPİT: Yönetim sistemi nedenler - Sistem açısından neden fark edilemedi? (prosedür, eğitim, kural)
+
+Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
+${branchInstruction}
+Nedenler teknik ve somut olsun (en fazla ${maxWordPerStep} kelime). Her adım bir öncekinin nedeni; bağımsız madde YAZMAK YASAKTIR.
+${qCauses ? `💡 OLASI NEDEN İPUCU: Kullanıcı şu potansiyel nedenleri belirtti → "${qCauses}"\nBu ipuçlarını inceleyerek analizi bu doğrultuda şekillendir; doğru görünmeyenleri göz ardı edebilirsin.\n` : ''}${depthInstruction}
+
+YALNIZCA aşağıdaki JSON formatında yanıt ver:
+{
+  "tech": {
+    "os": {"problem": "<kısa problem özeti>", "mainSteps": ["Neden 1", "...(tam ${stepCount} adet)"], "rootCause": "<teknik kök neden (oluşum)>"${branchJsonExample}},
+    "nd": {"problem": "<tespit açısından problem>", "mainSteps": ["Neden 1", "...(tam ${stepCount} adet)"], "rootCause": "<teknik kök neden (tespit)>"${branchJsonExample}}
+  },
+  "sys": {
+    "os": {"problem": "<sistemsel problem özeti>", "mainSteps": ["Neden 1", "...(tam ${stepCount} adet)"], "rootCause": "<sistemsel kök neden (oluşum)>"${branchJsonExample}},
+    "nd": {"problem": "<sistemsel tespit problem>", "mainSteps": ["Neden 1", "...(tam ${stepCount} adet)"], "rootCause": "<sistemsel kök neden (tespit)>"${branchJsonExample}}
+  }
+}
+
+${context}`;
+
+  try {
+    const sysContent = isDerinlemesine
+      ? 'Sen IATF 16949 / VDA 6.3 uzmanı bir üst düzey kalite mühendisisin. Sadece istenen JSON formatında yanıt ver. KESİN KURAL: Zincirdeki hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez — her adım farklı bir fiziksel/sistemik katmanı açıklamalı (örn: ölçüm sapması → malzeme yorulması → proses parametresi → kontrol eksikliği → yönetim açığı). Belirsiz veya tekrarlayan ifadeler YASAK.'
+      : 'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. ÇOK ÖNEMLİ: Her zincirde hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez; adımlar katman katman derinleşmeli. Birbirinden bağımsız veya tekrar eden nedenler listesi kesinlikle kabul edilmez.';
+    const raw = await callAI([
+      { role: 'system', content: sysContent },
+      { role: 'user',   content: prompt }
+    ], maxTokens, temperature);
+    const parsed  = safeParseJSON(raw);
+
+    applyAiResult(parsed, q1);
+    closeAiModal();
+    setAiStatus('','');
+
+  } catch(e){
+    setAiStatus('error', '❌ Hata: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function buildChainsFromAi(iz){
+  // Normalize mainSteps — AI sometimes returns object {"1":"...","2":"..."} instead of array
+  const rawSteps = iz.mainSteps || iz.steps || [];
+  const mainSteps = Array.isArray(rawSteps)
+    ? rawSteps
+    : Object.values(rawSteps).filter(v => typeof v === 'string' && v.trim());
+
+  const chains = [{ startAfter:null, steps: mainSteps.map((t,i,a)=>
+    ({ id:uid(), text:String(t), isRoot: i===a.length-1 })
+  )}];
+  if(!chains[0].steps.length) chains[0].steps.push(mkStep());
+
+  // parallel branches — also normalize
+  const rawBranches = iz.branches || [];
+  const branches = Array.isArray(rawBranches)
+    ? rawBranches
+    : Object.values(rawBranches).filter(v => v && typeof v === 'object');
+
+  for(const br of branches){
+    const sa = typeof br.startAfterStep === 'number' ? br.startAfterStep : 0;
+    const brRaw = br.steps || [];
+    const brSteps = (Array.isArray(brRaw) ? brRaw : Object.values(brRaw).filter(v=>typeof v==='string'))
+      .map((t,i,a)=>({ id:uid(), text:String(t), isRoot: i===a.length-1 }));
+    if(brSteps.length) chains.push({ startAfter: sa, steps: brSteps });
+  }
+  return chains;
+}
+
+function collectPinnedSteps(chains){
+  const map = {};
+  chains.forEach((ch,ci)=>{ ch.steps.forEach((s,si)=>{ if(s.pinned) map[ci+'_'+si]=s.text; }); });
+  return map;
+}
+function restorePinnedSteps(chains, map){
+  Object.entries(map).forEach(([key,text])=>{
+    const [ci,si] = key.split('_').map(Number);
+    const s = chains[ci]?.steps[si];
+    if(s){ s.text=text; s.pinned=true; }
+  });
+}
+
+// Collect pinned actions by flat position index before AI rebuilds
+function collectPinnedActions(tab, tk){
+  const map = {};
+  // actions[tk] is a keyed object { stepId: action }, NOT an array
+  const actMap = _S[tab].actions?.[tk];
+  if(!actMap || typeof actMap !== 'object' || Array.isArray(actMap)) return map;
+  const steps = getAllSteps(tab, tk);
+  steps.forEach((s, i)=>{
+    const act = actMap[s.id];
+    if(act && act.pinned) map[i] = Object.assign({}, act);
+  });
+  return map;
+}
+// After AI rebuild: pinned actions survive at same position, others reset
+function syncActionsAfterAi(tab, tk, pinnedMap){
+  if(!_S[tab].actions) _S[tab].actions = { os:{}, nd:{} };
+  // Build a fresh keyed object using new step IDs
+  const steps = getAllSteps(tab, tk);
+  const newActMap = {};
+  steps.forEach((s, i)=>{
+    newActMap[s.id] = pinnedMap[i] ? pinnedMap[i] : mkAction();
+  });
+  _S[tab].actions[tk] = newActMap;
+}
+
+function applyAiResult(parsed, originalProblem){
+  ['tech','sys'].forEach(tab=>{
+    ['os','nd'].forEach(tk=>{
+      const iz = parsed?.[tab]?.[tk];
+      if(iz){
+        const pinnedSteps   = collectPinnedSteps(_S[tab][tk].chains);
+        const pinnedActions = collectPinnedActions(tab, tk);
+        if(!_S[tab][tk].problemPinned) _S[tab][tk].problem = iz.problem || originalProblem;
+        if(!_S[tab][tk].rcPinned)      _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
+        _S[tab][tk].chains = buildChainsFromAi(iz);
+        restorePinnedSteps(_S[tab][tk].chains, pinnedSteps);
+        syncActionsAfterAi(tab, tk, pinnedActions);
+      }
+    });
+  });
+  if(originalProblem && !document.getElementById('mPart').value)
+    document.getElementById('mPart').value = originalProblem.slice(0,60);
+  render();
+}
+
+// Yenile: hem os hem nd izini yeniler (tab = 'tech' veya 'sys')
+async function aiRefresh(tab){
+  const _provider = localStorage.getItem('ai_provider') || 'groq';
+  const _chkKey = _provider==='gemini' ? localStorage.getItem('gemini_api_key') : localStorage.getItem('groq_api_key');
+  if(!_chkKey){ alert('Önce "AI ile Oluştur" butonundan API key girin.'); return; }
+
+  const q1 = _wizAnswers['wq1'] || _S.tech.os.problem || _S.sys.os.problem || '';
+  if(!q1 || q1.includes('buraya')){ alert('AI\'ye göndermek için önce problem tanımı girin.'); return; }
+
+  const btnId   = tab==='tech' ? 'yenileTech' : 'yenileSys';
+  const tabLabel = tab==='tech' ? 'Teknik' : 'Sistemsel';
+  const btn     = document.getElementById(btnId);
+  const origTxt = btn.textContent;
+
+  // Progress animation helper
+  let _pct = 0;
+  function setProgress(p, label){
+    _pct = p;
+    btn.style.setProperty('--prog', p+'%');
+    btn.textContent = label + ' %' + p;
+  }
+  btn.disabled = true;
+  btn.classList.add('tbb-prog');
+  setProgress(10, tabLabel);
+
+  const progTimer = setInterval(()=>{
+    if(_pct < 85) setProgress(Math.min(85, _pct+8), tabLabel);
+  }, 600);
+
+  const q2 = _wizAnswers['wq2']||'', q3 = _wizAnswers['wq3']||'', q4 = _wizAnswers['wq4']||'';
+  const chainState  = _S[tab].os;
+  const stepCount   = chainState.chains[0].steps.length || 5;
+  const branchCount = Math.max(0, chainState.chains.length - 1);
+
+  const focusDesc = tab==='tech'
+    ? 'FİZİKSEL/MÜHENDİSLİK nedenler (parametre, makine, malzeme, ölçüm, tolerans)'
+    : 'YÖNETİM SİSTEMİ/PROSEDÜR nedenler (FMEA, kontrol planı, denetim, eğitim, prosedür)';
+
+  const context = [`Problem: ${q1}`, q2?`Etki: ${q2}`:'', q3?`Yer: ${q3}`:'', q4?`Tespit: ${q4}`:''].filter(Boolean).join('\n');
+
+  const branchExamples = [];
+  for(let b=0; b<branchCount; b++){
+    const sa = Math.round((b+1) * stepCount / (branchCount+1)) - 1;
+    branchExamples.push(`{"startAfterStep": ${sa}, "steps": ["Dal Neden 1","Dal Neden 2","Dal Neden 3"], "rootCause": "Dal kök"}`);
+  }
+  const branchInstruction = branchCount > 0
+    ? `Her iz için ${branchCount} bağımsız paralel dal zinciri oluştur. Dallar farklı startAfterStep değerlerine sahip olsun.` : '';
+  const brJsonPart = branchCount > 0
+    ? `,"branches":[${branchExamples.join(',')}]` : '';
+
+  const prompt = `Sen bir kalite sistem mühendisisin (IATF 16949 / VDA 6.3). Yalnızca ${tabLabel.toUpperCase()} kırılımını analiz et.
+Odak: ${focusDesc}
+
+⚠️ ZORUNLU NEDENSELLİK KURALI:
+Her adım, bir önceki adımın DOĞRUDAN ve SOMUT nedeni olmalıdır.
+mainSteps[i], mainSteps[i-1]'e "Neden?" sorusunun TAM cevabıdır.
+Tüm adımlar aynı problem alanında kalmalı; konu dışı, genel veya alakasız nedenler YASAKTIR.
+Yanlış örnek: ["Vida hatalı", "Personel yorgun", "Makine eski"] ← birbiriyle alakasız, KABUL EDİLMEZ.
+Doğru örnek: ["Vida torku düşük", "Tornavida ucu aşındı", "Alet değişim planı yok", "Bakım talimatı eksik", "Doküman güncel değil"] ← her adım bir öncekini açıklıyor.
+Her adım bir öncekini AÇIKLAMALI; bağımsız, rastgele veya genel nedenler YAZMA.
+⛔️ TEKRAR KURALI: Zincirdeki hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez. Her adım farklı bir mekanizma/katman ifade etmeli. (örn: sapma → donanım → proses → kontrol → sistem).
+
+2 iz oluştur:
+1. OLUŞUM (os): Bu kırılımda problem neden oluştu?
+2. TESPİT (nd): Bu kırılımda problem neden fark edilemedi?
+
+Her iz için EXACTLY ${stepCount} adımlık ana neden zinciri oluştur. Son adım = kök neden.
+${branchInstruction}
+Nedenler teknik ve somut olsun (en fazla 12 kelime). Her adım bir öncekinin nedeni; aynı kelime grubunu tekrarlamak YASAKTIR.
+
+YALNIZCA JSON:
+{"os":{"problem":"...","mainSteps":["Neden 1","...(tam ${stepCount} adet)"],"rootCause":"..."${brJsonPart}},"nd":{"problem":"...","mainSteps":["Neden 1","...(tam ${stepCount} adet)"],"rootCause":"..."${brJsonPart}}}
+
+${context}`;
+
+  try{
+    const raw = await callAI([
+      {role:'system',content:'Sen bir kalite mühendisisin (IATF 16949 / VDA 6.3). Sadece istenen JSON formatında yanıt ver. ÇOK ÖNEMLİ: Her zincirde her adım bir öncekinin DOĞRUDAN nedeni olmalı; hiçbir iki adım aynı veya çok benzer kelime grubunu içeremez. Adimlar katman katman derinleşmeli: sapma → donanım → proses → kontrol → sistem.'},
+      {role:'user',content:prompt}
+    ], 1800, 0.45);
+    const parsed = safeParseJSON(raw);
+
+    ['os','nd'].forEach(tk=>{
+      const iz = parsed?.[tk];
+      if(iz){
+        const pinnedSteps   = collectPinnedSteps(_S[tab][tk].chains);
+        const pinnedActions = collectPinnedActions(tab, tk);
+        if(!_S[tab][tk].problemPinned) _S[tab][tk].problem = iz.problem || q1;
+        if(!_S[tab][tk].rcPinned)      _S[tab][tk].rcText  = iz.rootCause || _S[tab][tk].rcText;
+        _S[tab][tk].chains = buildChainsFromAi(iz);
+        restorePinnedSteps(_S[tab][tk].chains, pinnedSteps);
+        syncActionsAfterAi(tab, tk, pinnedActions);
+      }
+    });
+    renderTrack(tab,'os');
+    renderTrack(tab,'nd');
+    renderActionTable(tab);
+
+    clearInterval(progTimer);
+    setProgress(100, '✅ Tamam');
+    setTimeout(()=>{
+      btn.classList.remove('tbb-prog');
+      btn.style.removeProperty('--prog');
+      btn.textContent = origTxt;
+      btn.disabled = false;
+    }, 1400);
+  } catch(e){
+    clearInterval(progTimer);
+    btn.classList.remove('tbb-prog');
+    btn.style.removeProperty('--prog');
+    btn.textContent = origTxt;
+    btn.disabled = false;
+    alert('❌ Yenile hatası: '+e.message);
+  }
+}
+
+// ── PRINT DIALOG ──────────────────────────────────────
+function openPrintDialog(){
+  const m = document.getElementById('printModal');
+  m.style.display = 'flex';
+}
+function closePrintDialog(){
+  document.getElementById('printModal').style.display = 'none';
+}
+function executePrint(mode){
+  closePrintDialog();
+  document.body.classList.remove('print-tech-only','print-sys-only');
+  if(mode === 'tech') document.body.classList.add('print-tech-only');
+  if(mode === 'sys')  document.body.classList.add('print-sys-only');
+  // Small delay so CSS class takes effect before browser captures layout
+  setTimeout(()=>{
+    window.print();
+    // Clean up after print dialog closes
+    const cleanup = () => {
+      document.body.classList.remove('print-tech-only','print-sys-only');
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+  }, 80);
+}
+
+function setAiStatus(type, msg){
+  const el = document.getElementById('aiStatus');
+  if(!msg){ el.innerHTML=''; return; }
+  if(type==='loading')
+    el.innerHTML = `<div class="ai-status"><div class="ai-spinner"></div>${msg}</div>`;
+  else if(type==='error')
+    el.innerHTML = `<div style="color:#dc2626;font-size:.74rem;font-weight:600;">${msg}</div>`;
+  else
+    el.innerHTML = `<div style="color:#16a34a;font-size:.74rem;">${msg}</div>`;
+}
+
+// ── PRINT PREP ──
+window.addEventListener('beforeprint', ()=>{
+  const part     = document.getElementById('mPart')?.value     || '';
+  const customer = document.getElementById('mCustomer')?.value || '';
+  const analyst  = document.getElementById('mAnalyst')?.value  || '';
+  const dateRaw  = document.getElementById('mDate')?.value     || '';
+  const dateStr  = dateRaw ? new Date(dateRaw).toLocaleDateString('tr-TR') : '';
+  ['t','s'].forEach(p=>{
+    const pfx = 'pm'+p+'-';
+    const set = (id, v) => { const el=document.getElementById(pfx+id); if(el) el.textContent=v; };
+    set('part',     part     || '—');
+    set('customer', customer || '—');
+    set('date',     dateStr  || '—');
+    set('analyst',  analyst  || '—');
+  });
+
+  // Auto-fit each canvas-outer: read actual diag.style.width (set by layout JS)
+  // A4 portrait usable width ≈ 190mm → at 96dpi ≈ 718px
+  const PAGE_W = 718;
+  document.querySelectorAll('.canvas-outer').forEach(co=>{
+    co.style.zoom = '';
+    // Each .diag has explicit style.width set by renderTrack → most reliable source
+    let maxW = 0;
+    co.querySelectorAll('.diag').forEach(d=>{
+      const w = parseFloat(d.style.width) || 0;
+      if(w > maxW) maxW = w;
+    });
+    if(maxW > 0){
+      const z = Math.min(1, PAGE_W / (maxW + 24)); // +24 for padding
+      co.style.zoom = z.toFixed(4);
+    }
+  });
+
+  // Action textareas: auto height
+  document.querySelectorAll('.ca-input').forEach(ta=>{
+    ta.setAttribute('data-pv', ta.value);
+    ta.style.height = 'auto';
+  });
+  // Diagram box textareas: expand to full scroll height so text isn't clipped
+  document.querySelectorAll('.sbox textarea,.pbox textarea,.rcb textarea').forEach(ta=>{
+    ta.style.height = ta.scrollHeight + 'px';
+  });
+  // Box containers: release fixed min-height so they can grow
+  document.querySelectorAll('.sbox,.pbox,.rcb').forEach(el=>{
+    el.style.minHeight = '0';
+    el.style.overflow  = 'visible';
+  });
+});
+window.addEventListener('afterprint', ()=>{
+  document.querySelectorAll('.canvas-outer').forEach(co=>{ co.style.zoom = ''; });
+  document.querySelectorAll('.ca-input').forEach(ta=>{
+    ta.removeAttribute('data-pv');
+    ta.style.height = '';
+  });
+  // Restore diagram boxes
+  document.querySelectorAll('.sbox textarea,.pbox textarea,.rcb textarea').forEach(ta=>{
+    ta.style.height = '';
+  });
+  document.querySelectorAll('.sbox,.pbox,.rcb').forEach(el=>{
+    el.style.minHeight = '';
+    el.style.overflow  = '';
+  });
+});
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') { closeAiModal(); document.getElementById('uygModal').classList.remove('open'); document.getElementById('loadModal').classList.remove('open'); }
+  if(e.key==='Enter' && document.getElementById('aiModal').classList.contains('open')){
+    const isLast = _wizStep === WIZ_STEPS.length - 1;
+    if(isLast) aiGenerate(); else wizNav(1);
+  }
+});
+</script>
+
+<!-- UYGUNSUZLUK SEÇİM MODALI -->
+<div class="uyg-modal" id="uygModal">
+  <div class="uyg-box">
+    <div class="uyg-header">
+      <h3>📋 Uygunsuzluk Kayıtları</h3>
+      <input class="uyg-search" id="uygSearch" type="text"
+        placeholder="🔍 Stok adı, cari, kaynak, tür ara…"
+        oninput="_uygSearch(this.value)">
+      <button class="load-close-btn" onclick="document.getElementById('uygModal').classList.remove('open')">✕ Kapat</button>
+    </div>
+    <div class="uyg-hint">💡 Bir satıra tıklayın → Parça No, Müşteri, Tarih ve Problem alanları otomatik dolar. Sonra istediğiniz gibi düzenleyebilirsiniz.</div>
+    <div class="uyg-table-wrap" id="uygBody"></div>
+    <div class="uyg-count" id="uygCount"></div>
+  </div>
+</div>
+
+<!-- LOAD MODAL -->
+<div class="load-modal" id="loadModal">
+  <div class="load-box">
+    <h3>📂 Kayıtlı Analizler</h3>
+    <div class="load-list" id="loadList"></div>
+    <div class="load-close-row">
+      <button class="load-close-btn" onclick="document.getElementById('loadModal').classList.remove('open')">Kapat</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

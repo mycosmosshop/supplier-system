@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search);};</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>localStorage Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #45a049;
+        }
+        .btn-danger {
+            background: #f44336;
+        }
+        .btn-danger:hover {
+            background: #da190b;
+        }
+        .result {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .warning {
+            color: orange;
+            font-weight: bold;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 localStorage Test Aracı</h1>
+    
+    <div class="card">
+        <h2>supplierListForCOA Kontrolü</h2>
+        <button class="btn" onclick="checkSupplierList()">🔍 Kontrol Et</button>
+        <button class="btn" onclick="window.open('index.html', '_blank')">📄 Ana Sayfa</button>
+        <button class="btn" onclick="window.open('coa-arsiv.html', '_blank')">📋 COA Arşiv</button>
+        <div id="result1" class="result" style="display:none;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Manuel Test</h2>
+        <input type="text" id="testNames" placeholder="Tedarikçi isimleri girin (virgülle ayırın)" value="Test Firma A, Test Firma B, Test Firma C">
+        <button class="btn" onclick="saveTestData()">💾 Test Verisi Kaydet</button>
+        <button class="btn btn-danger" onclick="clearData()">🗑️ Tümünü Sil</button>
+        <div id="result2" class="result" style="display:none;"></div>
+    </div>
+    
+    <div class="card">
+        <h2>Tüm localStorage Anahtarları</h2>
+        <button class="btn" onclick="showAllKeys()">📋 Tüm Anahtarları Göster</button>
+        <div id="result3" class="result" style="display:none;"></div>
+    </div>
+    
+    <script>
+        function checkSupplierList() {
+            const result = document.getElementById('result1');
+            result.style.display = 'block';
+            
+            const data = localStorage.getItem('supplierListForCOA');
+            
+            if (!data) {
+                result.innerHTML = '<span class="error">❌ supplierListForCOA bulunamadı!</span><br><br>' +
+                    '<strong>Çözüm:</strong><br>' +
+                    '1. Ana sayfada Excel yükleyin<br>' +
+                    '2. Tarayıcı konsolunu kontrol edin (F12)<br>' +
+                    '3. Ctrl+Shift+R ile hard refresh yapın<br>' +
+                    '4. Bu sayfayı yenileyin ve tekrar kontrol edin';
+                return;
+            }
+            
+            try {
+                const list = JSON.parse(data);
+                if (!Array.isArray(list)) {
+                    result.innerHTML = '<span class="error">❌ Veri formatı hatalı! Array değil.</span>';
+                    return;
+                }
+                
+                if (list.length === 0) {
+                    result.innerHTML = '<span class="warning">⚠️ Liste boş!</span><br><br>' +
+                        'Ana sayfada Excel dosyası yüklü değil veya hiç tedarikçi yok.';
+                    return;
+                }
+                
+                result.innerHTML = '<span class="success">✅ Liste başarıyla yüklendi!</span><br><br>' +
+                    `<strong>Toplam Tedarikçi:</strong> ${list.length}<br><br>` +
+                    '<strong>İlk 10 Tedarikçi:</strong><br>' +
+                    list.slice(0, 10).map((s, i) => `${i+1}. ${s}`).join('<br>') + '<br><br>' +
+                    (list.length > 10 ? '<strong>...</strong><br><br>' : '') +
+                    '<strong>Son 5 Tedarikçi:</strong><br>' +
+                    list.slice(-5).map((s, i) => `${list.length - 4 + i}. ${s}`).join('<br>');
+                    
+            } catch (e) {
+                result.innerHTML = '<span class="error">❌ JSON parse hatası:</span><br>' + e.message;
+            }
+        }
+        
+        function saveTestData() {
+            const result = document.getElementById('result2');
+            result.style.display = 'block';
+            
+            const input = document.getElementById('testNames').value;
+            const names = input.split(',').map(s => s.trim()).filter(s => s);
+            
+            if (names.length === 0) {
+                result.innerHTML = '<span class="error">❌ En az bir tedarikçi adı girin!</span>';
+                return;
+            }
+            
+            try {
+                localStorage.setItem('supplierListForCOA', JSON.stringify(names));
+                result.innerHTML = '<span class="success">✅ Test verisi kaydedildi!</span><br><br>' +
+                    `<strong>Kaydedilen:</strong> ${names.length} tedarikçi<br>` +
+                    names.map((s, i) => `${i+1}. ${s}`).join('<br>') + '<br><br>' +
+                    '<strong>Şimdi COA Arşiv sayfasını açın ve dropdown\'u kontrol edin.</strong>';
+            } catch (e) {
+                result.innerHTML = '<span class="error">❌ Kaydetme hatası:</span><br>' + e.message;
+            }
+        }
+        
+        function clearData() {
+            if (!confirm('⚠️ supplierListForCOA silinecek. Emin misiniz?')) return;
+            
+            const result = document.getElementById('result2');
+            result.style.display = 'block';
+            
+            localStorage.removeItem('supplierListForCOA');
+            result.innerHTML = '<span class="success">✅ Temizlendi!</span><br><br>' +
+                'Ana sayfada Excel yükleyin ve tekrar deneyin.';
+        }
+        
+        function showAllKeys() {
+            const result = document.getElementById('result3');
+            result.style.display = 'block';
+            
+            const keys = Object.keys(localStorage).sort();
+            
+            if (keys.length === 0) {
+                result.innerHTML = '<span class="warning">⚠️ localStorage boş!</span>';
+                return;
+            }
+            
+            const supplierRelated = keys.filter(k => k.toLowerCase().includes('supplier'));
+            const coaRelated = keys.filter(k => k.toLowerCase().includes('coa'));
+            const other = keys.filter(k => !k.toLowerCase().includes('supplier') && !k.toLowerCase().includes('coa'));
+            
+            let html = `<strong>Toplam Anahtar:</strong> ${keys.length}<br><br>`;
+            
+            if (supplierRelated.length > 0) {
+                html += '<strong>📦 Tedarikçi İlgili:</strong><br>';
+                html += supplierRelated.map(k => {
+                    const value = localStorage.getItem(k);
+                    const size = new Blob([value]).size;
+                    return `  • ${k} (${(size/1024).toFixed(1)} KB)`;
+                }).join('<br>') + '<br><br>';
+            }
+            
+            if (coaRelated.length > 0) {
+                html += '<strong>📋 COA İlgili:</strong><br>';
+                html += coaRelated.map(k => {
+                    const value = localStorage.getItem(k);
+                    const size = new Blob([value]).size;
+                    return `  • ${k} (${(size/1024).toFixed(1)} KB)`;
+                }).join('<br>') + '<br><br>';
+            }
+            
+            if (other.length > 0) {
+                html += '<strong>📌 Diğer:</strong><br>';
+                html += other.slice(0, 20).map(k => `  • ${k}`).join('<br>');
+                if (other.length > 20) html += '<br>  ... ve ' + (other.length - 20) + ' tane daha';
+            }
+            
+            result.innerHTML = html;
+        }
+        
+        // Otomatik kontrol
+        window.addEventListener('load', () => {
+            checkSupplierList();
+            setTimeout(() => {
+                checkSupplierList();
+            }, 2000); // 2 saniye sonra tekrar kontrol
+        });
+    </script>
+</body>
+</html>
