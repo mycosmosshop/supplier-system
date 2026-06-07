@@ -1581,6 +1581,13 @@
                 </div>
             </div>
             
+            <div class="supplier-filter">
+                <div class="supplier-filter-label">📅 Dönem (Yıl):</div>
+                <select id="donemFilter" onchange="onDonemChange(this.value)" title="Yıl/dönem seçerek o dönemin performans verisine geç (belgeler ve bilgi değişmez)" style="padding:10px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:0.95em;min-width:175px;cursor:pointer;background:white;">
+                    <option value="">— Güncel dönem —</option>
+                </select>
+            </div>
+
             <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
                 <!-- Ayarlar Butonu -->
                 <button class="btn btn-primary" onclick="showSettingsDialog()" style="background: #607d8b; border-color: #607d8b; position: relative;">
@@ -14403,6 +14410,18 @@
                 if (btn) {
                     btn.innerHTML = `📊 Kaydedilen Sürümler (${manualCount})`;
                 }
+                // "Dönem (Yıl)" seçici dropdown'ını da doldur (kayıtlı dönemler)
+                try {
+                    const sel = document.getElementById('donemFilter');
+                    if (sel) {
+                        const arr = records.slice().sort((a,b)=> new Date(b.timestamp||0) - new Date(a.timestamp||0));
+                        const prev = sel.value;
+                        let h = '<option value="">— Güncel dönem —</option>';
+                        arr.forEach(v=>{ const n=(v.data&&v.data.length)||0; h += `<option value="${v.id}">📅 ${v.name||'Sürüm'} (${n} ted.)</option>`; });
+                        sel.innerHTML = h;
+                        try { sel.value = prev; } catch(e) {}
+                    }
+                } catch(e) { console.warn('Dönem dropdown doldurma:', e); }
             };
         }
         
@@ -14740,6 +14759,11 @@
             };
         }
 
+        // Dönem (Yıl) seçici: seçilen dönemin performans verisine geç (belgeler/bilgi ayrı depoda, DEĞİŞMEZ)
+        function onDonemChange(val){
+            if(!val) return; // "Güncel dönem" — bir şey yapma
+            if(typeof restoreEditsVersionFromIndexedDB==='function'){ restoreEditsVersionFromIndexedDB(parseInt(val,10)); }
+        }
         function restoreEditsVersionFromIndexedDB(id) {
             if (!db) return;
             
