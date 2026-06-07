@@ -7767,13 +7767,28 @@
                 });
             }catch(e){ console.warn('loadSupplierIatfData', e); try{ allResults.forEach(computeIatfFields); }catch(_){} }
         }
+        function updateIatfRowCells(tr, s){
+            if(!tr||!s) return;
+            try{ computeIatfFields(s); }catch(e){}
+            var sp=function(v){ return '<span style="font-size:0.78em;white-space:nowrap;">'+(v||'')+'</span>'; };
+            var set=function(key,val){ var c=tr.querySelector('[data-iatf="'+key+'"]'); if(c) c.innerHTML=val; };
+            set('musteriDurum',sp(s.musteriDurum)); set('navlunDurum',sp(s.navlunDurum)); set('bildirimDeger',sp(s.bildirimDeger)); set('sahaDurum',sp(s.sahaDurum));
+            set('iatfDuzeltme',sp(s.iatfDuzeltme)); set('duzeltilmisPuan','<b>'+s.duzeltilmisPuan+'</b>');
+            set('duzeltilmisSinif','<span class="supplier-class-badge class-'+String(s.duzeltilmisSinif).toLowerCase()+'">'+s.duzeltilmisSinif+'</span>');
+            set('riskAnalizi',sp(s.riskAnalizi));
+        }
+        function _iatfFindRow(name){
+            try{ var el=document.querySelector('#tableContainer [data-supplier="'+String(name).replace(/"/g,'\\"')+'"]'); return el?el.closest('tr'):null; }catch(e){ return null; }
+        }
         function updateIatfField(name, field, value){
             var s=allResults.find(function(r){return r.name===name;}); if(!s) return;
             if(field==='musteriAksaklikSayisi'||field==='ekstraNavlunSayisi'||field==='sahaProblemSayisi'){ value=parseInt(value,10)||0; if(value<0)value=0; }
             s[field]=value;
             computeIatfFields(s);
             saveSupplierIatfData();
-            try{ displayResults(); }catch(e){}
+            // Satırı YERİNDE güncelle → filtre ve kaydırma KORUNUR (tüm tabloyu yeniden çizmez)
+            var tr=_iatfFindRow(name);
+            if(tr) updateIatfRowCells(tr, s);
         }
         function _iatfEsc(v){ return String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
         function _iatfSel(name, field, val, opts){
@@ -7789,20 +7804,20 @@
             return ''+
               '<td class="text-center">'+numInput('musteriAksaklikSayisi',s.musteriAksaklikSayisi)+'</td>'+
               '<td class="text-center">'+_iatfSel(s.name,'musteriAksaklikSorumlu',s.musteriAksaklikSorumlu,IATF_SORUMLU_OPTS)+'</td>'+
-              '<td class="text-center">'+disp(s.musteriDurum)+'</td>'+
+              '<td class="text-center" data-iatf="musteriDurum">'+disp(s.musteriDurum)+'</td>'+
               '<td class="text-center">'+numInput('ekstraNavlunSayisi',s.ekstraNavlunSayisi)+'</td>'+
               '<td class="text-center">'+_iatfSel(s.name,'ekstraNavlunSorumlu',s.ekstraNavlunSorumlu,IATF_SORUMLU_OPTS)+'</td>'+
-              '<td class="text-center">'+disp(s.navlunDurum)+'</td>'+
+              '<td class="text-center" data-iatf="navlunDurum">'+disp(s.navlunDurum)+'</td>'+
               '<td class="text-center">'+_iatfSel(s.name,'ozelDurum',s.ozelDurum,['Hayır','Evet'])+'</td>'+
               '<td class="text-center">'+_iatfSel(s.name,'ppapOnay',s.ppapOnay,['Gerekmiyor','Evet','Hayır'])+'</td>'+
-              '<td class="text-center">'+disp(s.bildirimDeger)+'</td>'+
+              '<td class="text-center" data-iatf="bildirimDeger">'+disp(s.bildirimDeger)+'</td>'+
               '<td class="text-center">'+numInput('sahaProblemSayisi',s.sahaProblemSayisi)+'</td>'+
               '<td class="text-center">'+_iatfSel(s.name,'sahaProblemSorumlu',s.sahaProblemSorumlu,IATF_SORUMLU_OPTS)+'</td>'+
-              '<td class="text-center">'+disp(s.sahaDurum)+'</td>'+
-              '<td class="text-center">'+disp(s.iatfDuzeltme)+'</td>'+
-              '<td class="text-center"><b>'+s.duzeltilmisPuan+'</b></td>'+
-              '<td class="text-center"><span class="supplier-class-badge class-'+String(s.duzeltilmisSinif).toLowerCase()+'">'+s.duzeltilmisSinif+'</span></td>'+
-              '<td class="text-center">'+disp(s.riskAnalizi)+'</td>';
+              '<td class="text-center" data-iatf="sahaDurum">'+disp(s.sahaDurum)+'</td>'+
+              '<td class="text-center" data-iatf="iatfDuzeltme">'+disp(s.iatfDuzeltme)+'</td>'+
+              '<td class="text-center" data-iatf="duzeltilmisPuan"><b>'+s.duzeltilmisPuan+'</b></td>'+
+              '<td class="text-center" data-iatf="duzeltilmisSinif"><span class="supplier-class-badge class-'+String(s.duzeltilmisSinif).toLowerCase()+'">'+s.duzeltilmisSinif+'</span></td>'+
+              '<td class="text-center" data-iatf="riskAnalizi">'+disp(s.riskAnalizi)+'</td>';
         }
         function iatfHeaderHtml(){ return IATF_HEADERS.map(function(h){ return '<th class="text-center" style="min-width:90px;background:#0f4c81;">'+h+'</th>'; }).join(''); }
 
@@ -12404,7 +12419,9 @@
                 const rowMatch = rows[i].querySelector(`select[data-supplier="${escapedName}"]`);
                 if (rowMatch) {
                     const cells = rows[i].querySelectorAll('td');
-                    
+                    // IATF ek değerlendirme hücrelerini de yerinde tazele (Düzeltilmiş Puan/Sınıf/Risk temel puana bağlı)
+                    try { if (typeof updateIatfRowCells === 'function') updateIatfRowCells(rows[i], supplier); } catch(e) {}
+
                     // PPM hücresinin rengini güncelle
                     let ppmClass = 'ppm-low';
                     if (supplier.ppm > supplier.ppmTarget * 2) ppmClass = 'ppm-high';
