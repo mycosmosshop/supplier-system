@@ -7706,21 +7706,74 @@
             }
         });
 
+        // Re-upload: kullanıcının elle girdiği skorları (VDA, 8D, termin/tamamlanma, kalite) eski dönemden KORU;
+        // sevk/iade/hata'yı moda göre uygula (replace=üzerine yaz, merge=yeni dolu ayları ekle, eskiler kalsın).
+        function mergeWithOldPeriod(oldData, mode){
+            try {
+                if(!oldData || !oldData.length || !allResults || !allResults.length) return;
+                var oldByName = {};
+                oldData.forEach(function(o){ if(o && o.name) oldByName[String(o.name).trim()] = o; });
+                allResults.forEach(function(s){
+                    var o = oldByName[String(s.name).trim()];
+                    if(!o) return;
+                    var g = function(a,b){ return (o[a]!=null)?o[a]:(o[b]!=null?o[b]:undefined); };
+                    var v;
+                    if((v=g('vdaPuan','vda'))!=null) s.vdaPuan=v;
+                    if((v=g('terminPuan','trm'))!=null) s.terminPuan=v;
+                    if((v=g('tamamlanmaPuan','tmm'))!=null) s.tamamlanmaPuan=v;
+                    if((v=g('talepEdilen8D','td8D'))!=null) s.talepEdilen8D=v;
+                    if((v=g('cevaplanan8D','cv8D'))!=null) s.cevaplanan8D=v;
+                    if((v=g('kalitePuan','klt'))!=null) s.kalitePuan=v;
+                    if(Array.isArray(o.monthlyTerminPuan)&&o.monthlyTerminPuan.length) s.monthlyTerminPuan=o.monthlyTerminPuan.slice();
+                    if(Array.isArray(o.monthlyTamamlanmaPuan)&&o.monthlyTamamlanmaPuan.length) s.monthlyTamamlanmaPuan=o.monthlyTamamlanmaPuan.slice();
+                    if(mode==='merge'){ // ARTIMLI: yeni Excel'de DOLU olan ayları al, gerisini eski dönemden koru
+                        var ns=s.monthlySevk||[], ni=s.monthlyIade||[], nh=s.monthlyHata||[];
+                        var os=o.monthlySevk||[], oi=o.monthlyIade||[], oh=o.monthlyHata||[];
+                        var rs=[],ri=[],rh=[];
+                        for(var m=0;m<12;m++){
+                            var hasNew=((+ns[m]||0)+(+ni[m]||0)+(+nh[m]||0))>0;
+                            rs[m]=hasNew?(+ns[m]||0):(+os[m]||0);
+                            ri[m]=hasNew?(+ni[m]||0):(+oi[m]||0);
+                            rh[m]=hasNew?(+nh[m]||0):(+oh[m]||0);
+                        }
+                        s.monthlySevk=rs; s.monthlyIade=ri; s.monthlyHata=rh;
+                    }
+                    // mode==='replace': yeni Excel'in ayları zaten s'de — dokunma
+                    s.totalSevk=(s.monthlySevk||[]).reduce(function(a,b){return a+(+b||0);},0)+(+s.unknownSevk||0);
+                    s.totalIade=(s.monthlyIade||[]).reduce(function(a,b){return a+(+b||0);},0)+(+s.unknownIade||0);
+                    s.totalHata=(s.monthlyHata||[]).reduce(function(a,b){return a+(+b||0);},0)+(+s.unknownHata||0);
+                    try{ if(typeof recalculateSupplierScore==='function') recalculateSupplierScore(s); }catch(e){}
+                });
+                console.log('🔗 Eski dönemle birleştirildi (mod: '+(mode||'replace')+')');
+            } catch(e){ console.warn('mergeWithOldPeriod hata:', e); }
+        }
+
         async function handleFile(event) {
             const file = event.target.files[0];
             if (!file) return;
-            // 1) Mevcut listeyi (varsa) KAYBETMEMEK için ayrı bir dönem/sürüm olarak kaydet
-            try {
-                if (typeof allResults !== 'undefined' && allResults && allResults.length > 0) {
-                    const keepName = prompt('⚠️ Yeni Excel yüklenecek.\n\nŞu an ekranda ' + allResults.length + ' tedarikçi var (mevcut dönem). Bunu KAYBETMEMEK için ayrı bir ad/dönem ile kaydedeyim mi?\n\nKaydetmek için ad girin (örn. 2025). Kaydetmeden devam etmek için İptal:', '2025');
-                    if (keepName && keepName.trim()) { saveEditsToIndexedDB(keepName.trim()); }
+            window._mergeOld = null; window._mergeMode = null; window._excelSaveAsName = null;
+            // 1) Bu Excel hangi yıla ait?
+            let year = '';
+            try { year = prompt('📅 Bu Excel HANGİ YILA/döneme ait?\n(örn. 2026)\n\nVeriler bu yıl adıyla "Dönem (Yıl)" listesine kaydedilir.', (localStorage.getItem('_currentPeriodName')||'2026')); }
+            catch(e){ year=''; }
+            if (year === null) return; // iptal
+            year = (year||'').trim();
+            if (year) {
+                window._excelSaveAsName = year;
+                const curName = localStorage.getItem('_currentPeriodName') || '';
+                const hasData = (typeof allResults !== 'undefined' && allResults && allResults.length > 0);
+                if (hasData && year === curName) {
+                    // AYNI YILI tekrar yüklüyor → mod sor + elle düzeltmeleri KORU
+                    let m = '1';
+                    try { m = prompt('🔄 "'+year+'" zaten yüklü.\n\nYeni Excel nasıl uygulansın?\n\n1 = ÜZERİNE YAZ (kümülatif: yeni Excel o yılın TÜM aylarını içeriyor)\n2 = BİRLEŞTİR (artımlı: sadece yeni ayları ekle, eski aylar kalsın)\n\nSeçenek (1 / 2):', '1'); } catch(e){ m='1'; }
+                    if (m === null) { window._excelSaveAsName=null; return; } // iptal
+                    window._mergeMode = (String(m).trim()==='2') ? 'merge' : 'replace';
+                    window._mergeOld = JSON.parse(JSON.stringify(allResults)); // elle düzeltmeli mevcut veri
+                } else if (hasData && curName && curName !== year) {
+                    // FARKLI yıl → mevcut dönemi adıyla sakla (kaybolmasın)
+                    try { saveEditsToIndexedDB(curName); } catch(e){}
                 }
-            } catch (e) { console.warn('Mevcut dönem kaydetme atlandı:', e); }
-            // 2) Yeni listenin ad/dönemini sor (Excel işlendikten sonra ayrı sürüm olarak kaydedilecek)
-            try {
-                const newName = prompt('📅 Yüklediğiniz Excel HANGİ YILA/döneme ait?\n(örn. 2026)\n\nVeriler bu yıl adıyla "Dönem (Yıl)" listesine kaydedilir.\nBoş bırakırsanız yüklenir ama döneme kaydedilmez.', '2026');
-                window._excelSaveAsName = (newName && newName.trim()) ? newName.trim() : null;
-            } catch (e) { window._excelSaveAsName = null; }
+            }
             processFile(file);
         }
 
@@ -7766,7 +7819,13 @@
                     
                     showAlert('✅ Dosya başarıyla yüklendi! Analiz ediliyor...', 'success');
                     analyzeData(worksheet);
-                    // Yeni Excel'i AYRI bir dönem/sürüm olarak kaydet (handleFile'da ad girildiyse)
+                    // Re-upload ise: elle girilen skorları (VDA/8D/termin/tamamlanma) eski dönemden KORU + sevk/iade moduna göre uygula
+                    if (window._mergeOld) {
+                        try { mergeWithOldPeriod(window._mergeOld, window._mergeMode); } catch(e){ console.warn('Birleştirme hatası:', e); }
+                        window._mergeOld = null; window._mergeMode = null;
+                        try { if (typeof displayResults==='function') displayResults(); } catch(e){}
+                    }
+                    // Yeni Excel'i dönem olarak kaydet (handleFile'da yıl girildiyse)
                     if (window._excelSaveAsName) {
                         const _saveAs = window._excelSaveAsName; window._excelSaveAsName = null;
                         setTimeout(function(){
@@ -13914,9 +13973,17 @@
                             toDelete.forEach(record => objectStore.delete(record.id));
                         }
                         
-                        // Yeni kaydı ekle
-                        const addRequest = objectStore.add(editsSnapshot);
-                        
+                        // UPSERT: aynı ADLA (yıl/dönem) kayıt varsa GÜNCELLE — çift kayıt/karışıklık olmasın
+                        const _existing = allRecords.find(r => (r.name||'').trim() === editsSnapshot.name);
+                        let addRequest;
+                        if (_existing) {
+                            editsSnapshot.id = _existing.id;
+                            addRequest = objectStore.put(editsSnapshot);
+                            console.log('🔄 "' + editsSnapshot.name + '" dönemi GÜNCELLENDİ (id=' + _existing.id + ')');
+                        } else {
+                            addRequest = objectStore.add(editsSnapshot);
+                        }
+
                         addRequest.onsuccess = () => {
                             console.log('IndexedDB\'ye kaydedildi, ID:', addRequest.result);
                             
