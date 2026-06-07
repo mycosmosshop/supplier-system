@@ -14546,7 +14546,21 @@
                 // Storj Yedekleri Kontrol ve Bölüm Oluştur
                 const settings = getStorjSettings();
                 
-                // Storj Yedekleri Bölümü Başlığı - HER ZAMAN GÖSTER
+                // GOOGLE DRIVE Yedekleri bölümü (Storj'tan ÖNCE, kendi bölgesinde)
+                html += `
+                    <div style="background: linear-gradient(135deg, #1565c0 0%, #5e35b1 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; margin-top: 30px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:1.5em;">🟢</span>
+                            <div><div style="font-weight:700; font-size:1.2em;">Google Drive Yedekleri</div>
+                            <div style="font-size:0.85em; opacity:0.9;">Tüm cihazlardan erişilebilir (Tedarikçi Değerlendirme)</div></div>
+                        </div>
+                    </div>
+                    <div id="driveBackupsSection" style="padding:15px; background:#e3f2fd; border-radius:0 0 8px 8px; margin-bottom:20px;">
+                        <div style="text-align:center; padding:20px; color:#1565c0;">🔄 Drive yedekleri yükleniyor...</div>
+                    </div>
+                `;
+
+                // Storj Yedekleri Bölümü Başlığı - HER ZAMAN GÖSTER (kendi bölgesinde)
                 html += `
                     <div style="background: linear-gradient(135deg, #4CAF50 0%, #2e7d32 100%); color: white; padding: 15px; border-radius: 8px 8px 0 0; margin-top: 30px;">
                         <div style="display: flex; align-items: center; gap: 10px;">
@@ -14556,20 +14570,6 @@
                                 <div style="font-size: 0.85em; opacity: 0.9;">Tüm cihazlarınızdan erişilebilir</div>
                             </div>
                         </div>
-                    </div>
-                `;
-                
-                // GOOGLE DRIVE Yedekleri bölümü (async doldurulur)
-                html += `
-                    <div style="background: linear-gradient(135deg, #1565c0 0%, #5e35b1 100%); color: white; padding: 15px; border-radius: 8px; margin: 20px -20px 0 -20px;">
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <span style="font-size:1.5em;">🟢</span>
-                            <div><div style="font-weight:700; font-size:1.2em;">Google Drive Yedekleri</div>
-                            <div style="font-size:0.85em; opacity:0.9;">Tüm cihazlardan erişilebilir (Tedarikçi Değerlendirme)</div></div>
-                        </div>
-                    </div>
-                    <div id="driveBackupsSection" style="padding:15px; background:#e3f2fd; border-radius:0 0 8px 8px; margin: 0 -20px 20px -20px;">
-                        <div style="text-align:center; padding:20px; color:#1565c0;">🔄 Drive yedekleri yükleniyor...</div>
                     </div>
                 `;
 
@@ -18360,9 +18360,10 @@
         var _autoDriveTimer = null;
         function autoDriveBackup(){
             try {
+                if (window._driveBackupInProgress) return; // kendi yazımı tetiklemesin (döngü koruması)
                 if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') {
                     clearTimeout(_autoDriveTimer);
-                    _autoDriveTimer = setTimeout(function(){ try { uploadDatabaseToDrive(); } catch(e){ console.warn('Otomatik Drive yedek hatası:', e); } }, 4000);
+                    _autoDriveTimer = setTimeout(function(){ try { uploadDatabaseToDrive(true); } catch(e){ console.warn('Otomatik Drive yedek hatası:', e); } }, 12000);
                 }
             } catch(e){}
         }
@@ -18442,16 +18443,19 @@
             }
             showAlert('✅ Yedek başarıyla yüklendi!\n📊 '+(allResults?allResults.length:0)+' tedarikçi tabloda.', 'success');
         }
-        async function uploadDatabaseToDrive(){
-            var s=getDriveSettings(); if(!s){ showAlert('⚠️ Önce Drive Script URL girip kaydedin!', 'error'); return; }
+        async function uploadDatabaseToDrive(silent){
+            var s=getDriveSettings(); if(!s){ if(!silent) showAlert('⚠️ Önce Drive Script URL girip kaydedin!', 'error'); return; }
+            window._driveBackupInProgress = true;   // döngü koruması (senkron tekrar tetiklemesin)
             try{
-                showAlert('📦 Yedek hazırlanıyor...', 'info');
-                var data=await buildStorjBackupData(); if(!data) return;
+                if(!silent) showAlert('📦 Yedek hazırlanıyor...', 'info');
+                var data=await buildStorjBackupData(); if(!data){ return; }
                 var json=JSON.stringify(data); var sizeMB=(json.length/1048576).toFixed(2);
-                showAlert('📤 Drive\'a yükleniyor ('+sizeMB+' MB)...', 'info');
+                if(!silent) showAlert('📤 Drive\'a yükleniyor ('+sizeMB+' MB)...', 'info');
                 await fetch(s.url, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'save', secret:s.secret, name:'YEDEK_'+Date.now()+'.json', content:json})});
-                showAlert('✅ Drive\'a gönderildi ('+sizeMB+' MB)!\n🗂️ Tedarikçi Değerlendirme klasörü\n\n💡 Doğrulamak için "Drive Yedeklerini Görüntüle".', 'success');
-            }catch(e){ showAlert('❌ Drive yükleme hatası: '+e.message, 'error'); }
+                if(!silent) showAlert('✅ Drive\'a gönderildi ('+sizeMB+' MB)!\n🗂️ Tedarikçi Değerlendirme klasörü\n\n💡 Doğrulamak için "Drive Yedeklerini Görüntüle".', 'success');
+                else console.log('✅ Otomatik Drive yedeği yüklendi ('+sizeMB+' MB)');
+            }catch(e){ if(!silent) showAlert('❌ Drive yükleme hatası: '+e.message, 'error'); else console.warn('Otomatik Drive yedek hatası:', e); }
+            finally{ setTimeout(function(){ window._driveBackupInProgress = false; }, 500); }
         }
         async function listDriveBackups(){
             try{ showAlert('📋 Drive yedekleri alınıyor...', 'info');
@@ -18481,7 +18485,9 @@
                 var r = await driveJsonp({action:'list'});
                 var files = (r && r.files) || [];
                 if(!files.length){ sec.innerHTML='<div style="text-align:center;padding:20px;color:#1565c0;">📭 Drive\'da yedek yok</div>'; return; }
-                var h='';
+                var total = files.length;
+                files = files.slice(0, 20); // en yeni 20 yedek
+                var h = total>20 ? '<div style="font-size:0.8em;color:#666;padding:4px 8px;">En yeni 20 / toplam '+total+' yedek gösteriliyor</div>' : '';
                 files.forEach(function(f,i){
                     var rs = i%2===0?'background:white;':'background:#e8eefc;';
                     var dt = f.date ? new Date(f.date).toLocaleString('tr-TR') : '';

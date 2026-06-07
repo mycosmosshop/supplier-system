@@ -31,7 +31,9 @@
   function pushNow(){ if(_applying||!_uid) return;
     sb.from('supplier_sync').upsert({ id:ROW_ID, data:snapshot(), updated_at:new Date().toISOString(), updated_by:_uid })
       .then(function(r){ if(r.error) console.warn('[sync] push', r.error.message); }); }
-  function schedulePush(){ if(_applying) return; _lastEdit=Date.now(); clearTimeout(_pushTimer); _pushTimer=setTimeout(pushNow, 1200); }
+  function schedulePush(){ if(_applying) return; _lastEdit=Date.now(); clearTimeout(_pushTimer); _pushTimer=setTimeout(pushNow, 1200);
+    // Edit olunca otomatik Drive yedeği de tetikle (kendi yazımı hariç — döngü koruması)
+    try{ if(!window._driveBackupInProgress && typeof window.autoDriveBackup==='function') window.autoDriveBackup(); }catch(e){} }
 
   // localStorage'ı sarmala (uygulama fonksiyonlarına dokunmadan)
   var _origSet=localStorage.setItem.bind(localStorage);
