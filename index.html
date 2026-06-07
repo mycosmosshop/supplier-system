@@ -18658,6 +18658,8 @@
             showAlert('✅ Yedek başarıyla yüklendi!\n📊 '+(allResults?allResults.length:0)+' tedarikçi tabloda.', 'success');
         }
         async function uploadDatabaseToDrive(silent){
+            // Test/paylaşım modunda (view/share/supplier/documents) Drive'a YAZMA — gerçek GUNCEL ezilmesin
+            if (/[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search)) { if(!silent) showAlert('ℹ️ Test/paylaşım modunda Drive\'a yazılmaz.', 'info'); return; }
             var s=getDriveSettings(); if(!s){ if(!silent) showAlert('⚠️ Önce Drive Script URL girip kaydedin!', 'error'); return; }
             window._driveBackupInProgress = true;   // döngü koruması (senkron tekrar tetiklemesin)
             try{
