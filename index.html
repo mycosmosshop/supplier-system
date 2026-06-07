@@ -14501,6 +14501,7 @@
                         let h = cur ? `<option value="">📅 ${cur} (güncel dönem)</option>` : '<option value="">— Dönem seçilmedi —</option>';
                         arr.filter(v => (v.name||'') !== cur).forEach(v=>{ const n=(v.data&&v.data.length)||0; h += `<option value="${v.id}">📅 ${v.name||'Sürüm'} (${n} ted.)</option>`; });
                         h += '<option value="__NAME__">✏️ Bu dönemi adlandır / kaydet…</option>';
+                        if (arr.length) h += '<option value="__DELETE__">🗑️ Bir dönemi sil…</option>';
                         sel.innerHTML = h;
                         sel.value = '';
                     }
@@ -14668,7 +14669,7 @@
                                         <button class="btn" style="padding: 6px 12px; font-size: 0.9em; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="downloadSnapshotAsJSON(${snapshot.id})">
                                             💾 İndir
                                         </button>
-                                        <button class="btn" style="padding: 6px 12px; font-size: 0.9em; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="deleteEditsVersionFromIndexedDB(${snapshot.id})">
+                                        <button class="btn" style="padding: 6px 12px; font-size: 0.9em; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;" onclick="deletePeriodCompletely(${snapshot.id})">
                                             🗑 Sil
                                         </button>
                                     </div>
@@ -14845,6 +14846,14 @@
         // Dönem (Yıl) seçici: seçilen dönemin performans verisine geç (belgeler/bilgi ayrı depoda, DEĞİŞMEZ)
         function onDonemChange(val){
             if(!val) return; // güncel dönem placeholder — bir şey yapma
+            if(val === '__DELETE__'){
+                var sd=document.getElementById('donemFilter'); if(sd) sd.value='';
+                var yr = prompt('🗑️ Hangi dönemi/yılı TAMAMEN silmek istersin?\n(adını yaz, örn. 2026)');
+                if(yr && yr.trim()){
+                    try{ var rq=db.transaction([STORE_NAME],'readonly').objectStore(STORE_NAME).getAll(); rq.onsuccess=function(){ var f=(rq.result||[]).find(function(v){return (v.name||'').trim()===yr.trim();}); if(f){ deletePeriodCompletely(f.id); } else { showAlert('❌ "'+yr.trim()+'" adlı dönem bulunamadı.', 'error'); } }; }catch(e){}
+                }
+                return;
+            }
             if(val === '__NAME__'){
                 // Şu an ekrandaki veriyi bir yıl/dönem adıyla kaydet
                 var nm = prompt('📅 Şu an ekrandaki veriyi HANGİ YIL/dönem adıyla kaydedeyim?\n(örn. 2025)');
@@ -14891,9 +14900,34 @@
             };
         }
         
+        // Bir dönemi/yılı TAMAMEN sil (yerel + Drive; güncel dönemse başka döneme geçip Supabase'i de günceller)
+        async function deletePeriodCompletely(id){
+            if(!db) return;
+            var snap = await new Promise(function(res){ var rq=db.transaction([STORE_NAME],'readonly').objectStore(STORE_NAME).get(id); rq.onsuccess=function(){res(rq.result);}; rq.onerror=function(){res(null);}; });
+            var name = snap ? (snap.name||'Sürüm') : 'Sürüm';
+            if(!confirm('⚠️ "'+name+'" DÖNEMİ TAMAMEN SİLİNECEK!\n\n• Yerel kayıttan\n• Drive yedeğinden\n• (güncel dönemse Supabase güncellenir)\n\nBelgeler / DÖF / bilgi (ayrı depoda) ETKİLENMEZ.\n\nDevam edilsin mi?')) return;
+            try {
+                await new Promise(function(res,rej){ var tx=db.transaction([STORE_NAME],'readwrite'); tx.oncomplete=res; tx.onerror=function(){rej(tx.error);}; tx.objectStore(STORE_NAME).delete(id); });
+                var cur = localStorage.getItem('_currentPeriodName') || '';
+                if(cur === name){
+                    // Silinen dönem GÜNCEL ise → kalan en yeni döneme geç (ekran + Supabase güncellensin)
+                    var rest = await new Promise(function(res){ var rq=db.transaction([STORE_NAME],'readonly').objectStore(STORE_NAME).getAll(); rq.onsuccess=function(){res(rq.result||[]);}; rq.onerror=function(){res([]);}; });
+                    rest.sort(function(a,b){ return new Date(b.timestamp||0)-new Date(a.timestamp||0); });
+                    if(rest.length){ restoreEditsVersionFromIndexedDB(rest[0].id); }
+                    else { localStorage.removeItem('_currentPeriodName'); }
+                }
+                setTimeout(function(){
+                    try { if(allResults && allResults.length) localStorage.setItem('selectedSuppliers', JSON.stringify(allResults)); } catch(e){} // Supabase senkron tetikle
+                    try { if(typeof uploadDatabaseToDrive==='function') uploadDatabaseToDrive(true); } catch(e){}                 // Drive GUNCEL güncelle (silinen dönem kalksın)
+                    try { if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); } catch(e){}
+                }, 1000);
+                try { document.querySelectorAll('div[style*="z-index: 10000"]').forEach(function(m){m.remove();}); } catch(e){}
+                showAlert('✅ "'+name+'" dönemi tamamen silindi (yerel + Drive).', 'success');
+            } catch(e){ showAlert('❌ Silme hatası: '+e.message, 'error'); }
+        }
         function deleteEditsVersionFromIndexedDB(id) {
             if (!db) return;
-            
+
             if (!confirm('⚠️ Bu sürümü silmek istediğinize emin misiniz?')) {
                 return;
             }
