@@ -7737,7 +7737,17 @@
                     // Yeni Excel'i AYRI bir dönem/sürüm olarak kaydet (handleFile'da ad girildiyse)
                     if (window._excelSaveAsName) {
                         const _saveAs = window._excelSaveAsName; window._excelSaveAsName = null;
-                        setTimeout(function(){ try { saveEditsToIndexedDB(_saveAs); } catch(e){ console.warn('Excel dönem kaydetme hatası:', e); } }, 1200);
+                        setTimeout(function(){
+                            try { saveEditsToIndexedDB(_saveAs); } catch(e){ console.warn('Excel dönem kaydetme hatası:', e); }
+                            // Yeni dönemi OTOMATİK Drive'a yükle (Drive ayarlıysa).
+                            // uploadDatabaseToDrive ayrıca selectedSuppliers'ı güncelleyince Supabase canlı senkron tetiklenir
+                            // → diğer kullanıcılar bu dönemi anında görür.
+                            try {
+                                if (typeof getDriveSettings === 'function' && getDriveSettings()) {
+                                    setTimeout(function(){ try { uploadDatabaseToDrive(); } catch(e){ console.warn('Otomatik Drive yedek hatası:', e); } }, 1800);
+                                }
+                            } catch(e){}
+                        }, 1200);
                     }
                 } catch (error) {
                     showAlert('❌ Hata: ' + error.message, 'error');
