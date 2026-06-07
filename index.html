@@ -13588,7 +13588,22 @@
                     const skipFlag = localStorage.getItem('skipAutoModal');
                     if (skipFlag === 'true') { localStorage.removeItem('skipAutoModal'); }
                     try {
-                        if (!allResults || allResults.length === 0) {
+                        // HER AÇILIŞTA önce Drive'daki TEK güncel veriyi yükle (yerel = sadece geçici ayna, gerçek kaynak Drive+Supabase).
+                        let _driveLoaded = false;
+                        if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof driveJsonp === 'function') {
+                            try {
+                                showAlert('☁️ Güncel veriler Drive\'dan yükleniyor...', 'info');
+                                const _r = await driveJsonp({action:'latest'});
+                                if (_r && _r.content) {
+                                    const _d = typeof _r.content === 'string' ? JSON.parse(_r.content) : _r.content;
+                                    await restoreSupplierBackup(_d, true);
+                                    _driveLoaded = !!(allResults && allResults.length > 0);
+                                    console.log('✅ Açılışta Drive (tek güncel veri) yüklendi: ' + (allResults ? allResults.length : 0));
+                                }
+                            } catch(e) { console.warn('Drive açılış yükleme hatası:', e); }
+                        }
+                        // Drive'dan gelmediyse (çevrimdışı / Drive yok) yerel yedekten göster
+                        if (!_driveLoaded && (!allResults || allResults.length === 0)) {
                             const sd = localStorage.getItem('selectedSuppliers');
                             if (sd) {
                                 const data = JSON.parse(sd);
@@ -13599,21 +13614,9 @@
                                     try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
                                     try{ var c=document.getElementById('controls'); if(c) c.classList.add('active'); }catch(e){}
                                     displayResults();
-                                    console.log('✅ Açılışta ' + allResults.length + ' tedarikçi otomatik yüklendi');
+                                    console.log('✅ Açılışta yerel yedekten ' + allResults.length + ' tedarikçi (Drive erişilemedi)');
                                 }
                             }
-                        }
-                        // Yerelde veri yoksa Drive'dan OTOMATİK çek (hangi kullanıcı/profil olursa olsun girince veri gelir)
-                        if ((!allResults || allResults.length === 0) && typeof getDriveSettings === 'function' && getDriveSettings() && typeof driveJsonp === 'function') {
-                            try {
-                                showAlert('☁️ Veriler Drive\'dan yükleniyor...', 'info');
-                                const _r = await driveJsonp({action:'latest'});
-                                if (_r && _r.content) {
-                                    const _d = typeof _r.content === 'string' ? JSON.parse(_r.content) : _r.content;
-                                    await restoreSupplierBackup(_d, true);
-                                    console.log('✅ Açılışta Drive\'dan veri çekildi: ' + (allResults ? allResults.length : 0) + ' tedarikçi');
-                                }
-                            } catch(e) { console.warn('Drive otomatik çekme hatası:', e); }
                         }
                         if (allResults && allResults.length > 0 && typeof load8DCountsFromDB === 'function') { await load8DCountsFromDB(); }
                     } catch(e) { console.warn('Açılış otomatik yükleme hatası:', e); }
