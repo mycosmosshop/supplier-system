@@ -7718,7 +7718,7 @@
             } catch (e) { console.warn('Mevcut dönem kaydetme atlandı:', e); }
             // 2) Yeni listenin ad/dönemini sor (Excel işlendikten sonra ayrı sürüm olarak kaydedilecek)
             try {
-                const newName = prompt('📥 Yüklediğiniz YENİ listeyi hangi ad/dönem ile kaydedeyim?\n(örn. 2026)\n\nBoş bırakırsanız yüklenir ama ayrı sürüm KAYDEDİLMEZ.', '2026');
+                const newName = prompt('📅 Yüklediğiniz Excel HANGİ YILA/döneme ait?\n(örn. 2026)\n\nVeriler bu yıl adıyla "Dönem (Yıl)" listesine kaydedilir.\nBoş bırakırsanız yüklenir ama döneme kaydedilmez.', '2026');
                 window._excelSaveAsName = (newName && newName.trim()) ? newName.trim() : null;
             } catch (e) { window._excelSaveAsName = null; }
             processFile(file);
@@ -7771,6 +7771,8 @@
                         const _saveAs = window._excelSaveAsName; window._excelSaveAsName = null;
                         setTimeout(function(){
                             try { saveEditsToIndexedDB(_saveAs); } catch(e){ console.warn('Excel dönem kaydetme hatası:', e); }
+                            try { localStorage.setItem('_currentPeriodName', _saveAs); } catch(e){}
+                            try { if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); } catch(e){}
                             // Yeni dönemi OTOMATİK Drive'a yükle (Drive ayarlıysa).
                             // uploadDatabaseToDrive ayrıca selectedSuppliers'ı güncelleyince Supabase canlı senkron tetiklenir
                             // → diğer kullanıcılar bu dönemi anında görür.
@@ -14424,11 +14426,12 @@
                     const sel = document.getElementById('donemFilter');
                     if (sel) {
                         const arr = records.slice().sort((a,b)=> new Date(b.timestamp||0) - new Date(a.timestamp||0));
-                        const prev = sel.value;
-                        let h = '<option value="">— Güncel dönem —</option>';
-                        arr.forEach(v=>{ const n=(v.data&&v.data.length)||0; h += `<option value="${v.id}">📅 ${v.name||'Sürüm'} (${n} ted.)</option>`; });
+                        const cur = localStorage.getItem('_currentPeriodName') || '';
+                        let h = cur ? `<option value="">📅 ${cur} (güncel dönem)</option>` : '<option value="">— Dönem seçilmedi —</option>';
+                        arr.filter(v => (v.name||'') !== cur).forEach(v=>{ const n=(v.data&&v.data.length)||0; h += `<option value="${v.id}">📅 ${v.name||'Sürüm'} (${n} ted.)</option>`; });
+                        h += '<option value="__NAME__">✏️ Bu dönemi adlandır / kaydet…</option>';
                         sel.innerHTML = h;
-                        try { sel.value = prev; } catch(e) {}
+                        sel.value = '';
                     }
                 } catch(e) { console.warn('Dönem dropdown doldurma:', e); }
             };
@@ -14770,7 +14773,22 @@
 
         // Dönem (Yıl) seçici: seçilen dönemin performans verisine geç (belgeler/bilgi ayrı depoda, DEĞİŞMEZ)
         function onDonemChange(val){
-            if(!val) return; // "Güncel dönem" — bir şey yapma
+            if(!val) return; // güncel dönem placeholder — bir şey yapma
+            if(val === '__NAME__'){
+                // Şu an ekrandaki veriyi bir yıl/dönem adıyla kaydet
+                var nm = prompt('📅 Şu an ekrandaki veriyi HANGİ YIL/dönem adıyla kaydedeyim?\n(örn. 2025)');
+                if(nm && nm.trim()){
+                    try{
+                        saveEditsToIndexedDB(nm.trim());
+                        localStorage.setItem('_currentPeriodName', nm.trim());
+                        setTimeout(function(){ try{ if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); }catch(e){} }, 600);
+                        showAlert('✅ "'+nm.trim()+'" dönemi kaydedildi.', 'success');
+                    }catch(e){ showAlert('❌ Kaydetme hatası', 'error'); }
+                } else {
+                    var s=document.getElementById('donemFilter'); if(s) s.value='';
+                }
+                return;
+            }
             if(typeof restoreEditsVersionFromIndexedDB==='function'){ restoreEditsVersionFromIndexedDB(parseInt(val,10)); }
         }
         function restoreEditsVersionFromIndexedDB(id) {
@@ -14788,10 +14806,12 @@
                 }
                 
                 loadSavedEdits(snapshot);
-                
+                try { localStorage.setItem('_currentPeriodName', snapshot.name || ''); } catch(e){}
+                try { if(typeof updateEditsVersionButton==='function') setTimeout(updateEditsVersionButton, 500); } catch(e){}
+
                 const date = new Date(snapshot.timestamp);
                 const saveName = snapshot.name || 'Sürüm';
-                showAlert(`✅ "${saveName}" geri yüklendi!`, 'success');
+                showAlert(`✅ "${saveName}" dönemine geçildi!`, 'success');
             };
             
             getRequest.onerror = () => {
