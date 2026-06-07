@@ -7820,6 +7820,18 @@
               '<td class="text-center" data-iatf="riskAnalizi">'+disp(s.riskAnalizi)+'</td>';
         }
         function iatfHeaderHtml(){ return IATF_HEADERS.map(function(h){ return '<th class="text-center" style="min-width:90px;background:#0f4c81;">'+h+'</th>'; }).join(''); }
+        // Excel: IATF durum/risk/bildirim hücre rengi (içeriğe göre)
+        function _iatfStatusColor(v){
+            v = String(v||'');
+            if(v.indexOf('🔴')>=0) return 'FFF8D7DA';
+            if(v.indexOf('🟠')>=0 || v.indexOf('⚠️')>=0 || v.indexOf('🟡')>=0) return 'FFFFF3CD';
+            if(v.indexOf('🔵')>=0) return 'FFD1ECF1';
+            if(v.indexOf('✅')>=0 || v.indexOf('🟢')>=0) return 'FFD4EDDA';
+            return 'FFFFFFFF';
+        }
+        function _iatfSinifColor(s){
+            if(s==='A') return 'FF92D050'; if(s==='B') return 'FFFFFF00'; if(s==='C') return 'FFFFC000'; if(s==='D') return 'FFFF0000'; return 'FFFFFFFF';
+        }
 
         // Re-upload: kullanıcının elle girdiği skorları (VDA, 8D, termin/tamamlanma, kalite) eski dönemden KORU;
         // sevk/iade/hata'yı moda göre uygula (replace=üzerine yaz, merge=yeni dolu ayları ekle, eskiler kalsın).
@@ -12993,7 +13005,7 @@
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('T1:W1');
+            worksheet.mergeCells('T1:AM1');
             const dokNoValue = worksheet.getCell('T1');
             dokNoValue.value = 'PL11';
             dokNoValue.font = { size: 11 };
@@ -13016,7 +13028,7 @@
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('T2:W2');
+            worksheet.mergeCells('T2:AM2');
             const ytrhValue = worksheet.getCell('T2');
             ytrhValue.value = '13.02.2013';
             ytrhValue.font = { size: 11 };
@@ -13039,7 +13051,7 @@
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('T3:W3');
+            worksheet.mergeCells('T3:AM3');
             const revValue = worksheet.getCell('T3');
             revValue.value = '03/29.08.2025';
             revValue.font = { size: 11 };
@@ -13081,7 +13093,7 @@
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('M5:W5');
+            worksheet.mergeCells('M5:AM5');
             const reviewCell = worksheet.getCell('M5');
             reviewCell.value = `Gözden Geçirme Tarihi: ${exportReviewDate}`;
             reviewCell.font = { bold: true, size: 12 };
@@ -13157,7 +13169,7 @@
             col5.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             
             // Ortalama Tedarikçi Puanı (Q-W) - 23 sütunla uyumlu
-            worksheet.mergeCells('Q7:W7');
+            worksheet.mergeCells('Q7:AM7');
             const col6 = worksheet.getCell('Q7');
             col6.value = `ORTALAMA TEDARİKÇİ PUANI\n${avgSupplierScore.toFixed(2)}`;
             col6.font = { bold: true, size: 10 };
@@ -13318,6 +13330,14 @@
                             pattern: 'solid',
                             fgColor: { argb: sınıfColor }
                         };
+                    }
+                    // Düzeltilmiş Tedarikçi Sınıfı (38. sütun) — sınıf rengi
+                    else if (colNumber === 38) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _iatfSinifColor(r.duzeltilmisSinif) } };
+                    }
+                    // IATF Durum / Bildirim / Risk hücreleri (26,29,32,35,39) — içeriğe göre renk
+                    else if (colNumber === 26 || colNumber === 29 || colNumber === 32 || colNumber === 35 || colNumber === 39) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _iatfStatusColor(cell.value) } };
                     } else {
                         cell.fill = {
                             type: 'pattern',
