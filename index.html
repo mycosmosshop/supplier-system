@@ -14466,6 +14466,17 @@
             });
         }
         
+        async function clearAllSavedVersions(){
+            if(!confirm('Tüm kayıtlı sürümler silinsin mi?\n\n(Güncel verin ETKİLENMEZ — sadece eski sürüm arşivi temizlenir, kazara eski sürüm yükleme riski biter.)')) return;
+            try{
+                await new Promise(function(resolve,reject){ var tx=db.transaction([STORE_NAME],'readwrite'); tx.oncomplete=resolve; tx.onerror=function(){reject(tx.error);}; tx.objectStore(STORE_NAME).clear(); });
+                try{ if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); }catch(e){}
+                try{ if(typeof autoDriveBackup==='function') autoDriveBackup(); }catch(e){}
+                var m=document.getElementById('customAlertModal'); if(m) m.remove();
+                showAlert('✅ Tüm kayıtlı sürümler silindi. Güncel verin yerinde.', 'success');
+                setTimeout(function(){ try{ if(typeof showEditsHistory==='function') showEditsHistory(); }catch(e){} }, 600);
+            }catch(e){ showAlert('❌ Silme hatası: '+e.message, 'error'); }
+        }
         async function showEditsHistory() {
             // Tedarikçi paneli veya 8D rapor modalı aktifse modal gösterme
             const sharedDocViewer = document.getElementById('sharedDocumentViewer');
@@ -14503,7 +14514,11 @@
                         </div>
                     </div>
                 `;
-                
+
+                if (manualHistory.length > 0) {
+                    html += `<div style="text-align:right; margin-bottom:10px;"><button onclick="clearAllSavedVersions()" style="background:#f44336; color:white; border:none; padding:8px 16px; border-radius:6px; font-weight:600; cursor:pointer;">🗑️ Tüm Sürümleri Sil</button></div>`;
+                }
+
                 if (manualHistory.length === 0) {
                     html += `
                         <div style="text-align: center; padding: 30px 20px; color: #666; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
