@@ -10084,6 +10084,7 @@
                                     <th class="text-right sortable" onclick="sortTable('tamamlanmaPuan')">Tamamlanma Puanı <span class="sort-icon"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('tedarikcipuani')">Tedarikçi Puanı <span class="sort-icon"></span></th>
                                     <th class="text-center sortable" onclick="sortTable('tedarikcisınıfı')">Tedarikçi Sınıfı <span class="sort-icon"></span></th>
+                                    ${iatfHeaderHtml()}
                                 </tr>
                             </thead>
                             <tbody></tbody>
@@ -10411,6 +10412,7 @@
                     <td class="text-center" style="${isMusteri ? 'opacity: 0.3; pointer-events: none; background: #f5f5f5;' : ''}">
                         <span class="supplier-class class-${(result.tedarikcisınıfı || 'D').toLowerCase()}">${result.tedarikcisınıfı || 'D'}</span>
                     </td>
+                    ${iatfCellsHtml(result)}
                 </tr>
             `;
         }
@@ -10601,6 +10603,7 @@
                                     <th class="text-right sortable" onclick="sortTable('tamamlanmaPuan')">Tamamlanma Puanı <span class="sort-icon"></span></th>
                                     <th class="text-right sortable" onclick="sortTable('tedarikcipuani')">Tedarikçi Puanı <span class="sort-icon"></span></th>
                                     <th class="text-center sortable" onclick="sortTable('tedarikcisınıfı')">Tedarikçi Sınıfı <span class="sort-icon"></span></th>
+                                    ${iatfHeaderHtml()}
                                 </tr>
                             </thead>
                             <tbody></tbody>
