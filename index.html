@@ -14383,9 +14383,18 @@
                     showAlert(`✅ "${editsSnapshot.name}" başarıyla yüklendi! (${allResults.length} tedarikçi)`, 'success');
                 }
                 
-                // En güncel sertifika verilerini localStorage'dan yükle (merge)
+                // En güncel sertifika + durum + bilgi'yi GÜNCEL halinden uygula
+                // (dönem değişince bunlar SNAPSHOT'tan DEĞİL, kullanıcının güncel verisinden gelsin — belge/durum/bilgi/DÖF kalıcı)
                 loadSupplierCertData();
-                
+                try {
+                    loadSupplierStatusMap();
+                    if (supplierStatusMap && supplierStatusMap.size) {
+                        allResults.forEach(function(sp){ var k=normalizeName(sp.name); if(supplierStatusMap.has(k)){ sp.status=supplierStatusMap.get(k); } });
+                    }
+                    loadSupplierInfoMap();
+                    if (typeof displayResults === 'function') displayResults();
+                } catch(e) { console.warn('Dönem geçişinde durum/bilgi uygulama:', e); }
+
             } catch (e) {
                 console.error('Saved edits load error:', e);
                 showAlert('❌ Veri yükleme hatası!', 'error');
