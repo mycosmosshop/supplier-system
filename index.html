@@ -21942,6 +21942,48 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                             startRow++;
                             startRow++; // Boş satır
                         });
+
+                        // ===== IATF EK DEĞERLENDİRME + NİHAİ (DÜZELTİLMİŞ) PUAN =====
+                        try { if (typeof computeIatfFields === 'function') computeIatfFields(supplier); } catch(e) {}
+                        startRow++; // boşluk
+                        ws.mergeCells(`A${startRow}:L${startRow}`);
+                        const iatfTitle = ws.getCell(`A${startRow}`);
+                        iatfTitle.value = 'IATF EK DEĞERLENDİRME (8.4.2.4 / 8.4.2.5)\nADDITIONAL IATF EVALUATION';
+                        iatfTitle.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                        iatfTitle.font = { bold: true, size: 12, color: { argb: 'FFFFFFFF' } };
+                        iatfTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0f4c81' } };
+                        iatfTitle.border = borderThin;
+                        ws.getRow(startRow).height = 34; startRow++;
+                        const _sinifClr = (typeof _iatfSinifColor === 'function') ? _iatfSinifColor(supplier.duzeltilmisSinif) : 'FFFFFFFF';
+                        const _riskClr = (typeof _iatfStatusColor === 'function') ? _iatfStatusColor(supplier.riskAnalizi) : 'FFFFFFFF';
+                        const iatfRows = [
+                            { l: 'Müşteri Aksaklığı (Olay / Sorumlu)\nCustomer Disruption (Count / Owner)', v: (supplier.musteriAksaklikSayisi||0) + ' / ' + (supplier.musteriAksaklikSorumlu||'-'), c: 'FFFFFFFF' },
+                            { l: 'Ekstra Navlun (Olay / Sorumlu)\nPremium Freight (Count / Owner)', v: (supplier.ekstraNavlunSayisi||0) + ' / ' + (supplier.ekstraNavlunSorumlu||'-'), c: 'FFFFFFFF' },
+                            { l: 'Saha/Garanti Problemi (Sayı / Sorumlu)\nField/Warranty Issue (Count / Owner)', v: (supplier.sahaProblemSayisi||0) + ' / ' + (supplier.sahaProblemSorumlu||'-'), c: 'FFFFFFFF' },
+                            { l: 'Özel Durum Bildirimi\nSpecial Status Notification', v: (supplier.ozelDurum||'Hayır'), c: 'FFFFFFFF' },
+                            { l: 'PPAP / Onay Durumu\nPPAP / Approval Status', v: (supplier.ppapOnay||'Gerekmiyor'), c: 'FFFFFFFF' },
+                            { l: 'IATF Puan Düzeltmesi\nIATF Score Adjustment', v: (supplier.iatfDuzeltme||0), c: 'FFfff3cd' },
+                            { l: 'DÜZELTİLMİŞ TEDARİKÇİ PUANI (NİHAİ)\nADJUSTED SUPPLIER SCORE (FINAL)', v: (supplier.duzeltilmisPuan!=null?supplier.duzeltilmisPuan:'') + '%', c: 'FFd4edda', bold: true },
+                            { l: 'DÜZELTİLMİŞ SINIF\nADJUSTED CLASS', v: (supplier.duzeltilmisSinif||''), c: _sinifClr, bold: true },
+                            { l: 'RİSK ANALİZİ SONUCU\nRISK ANALYSIS RESULT', v: (supplier.riskAnalizi||''), c: _riskClr }
+                        ];
+                        iatfRows.forEach(function(it){
+                            ws.mergeCells(`A${startRow}:F${startRow}`);
+                            const lc = ws.getCell(`A${startRow}`);
+                            lc.value = it.l;
+                            lc.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+                            lc.font = { bold: true, size: 10 };
+                            lc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFeeeeee' } };
+                            lc.border = borderThin;
+                            ws.mergeCells(`G${startRow}:L${startRow}`);
+                            const vc = ws.getCell(`G${startRow}`);
+                            vc.value = it.v;
+                            vc.alignment = { horizontal: 'center', vertical: 'middle' };
+                            vc.font = { size: 11, bold: !!it.bold };
+                            vc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: it.c || 'FFFFFFFF' } };
+                            vc.border = borderThin;
+                            ws.getRow(startRow).height = 30; startRow++;
+                        });
                     }
                 }
 
