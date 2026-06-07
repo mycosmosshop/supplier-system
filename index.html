@@ -18420,6 +18420,10 @@
                     exportData.stores[sn]=allData;
                 }catch(e){ exportData.stores[sn]=[]; }
             }
+            // Filtreler + ayar/iş anahtarlarını da yedeğe ekle → TEK dosyada tam veri (filtreler kaybolmaz)
+            exportData.prefs = {};
+            ['supplierFilters','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
+            try{ for(var pi=0;pi<localStorage.length;pi++){ var lk=localStorage.key(pi); if(lk && (lk.indexOf('ppmTarget_')===0 || lk.indexOf('hataHedefi_')===0)){ exportData.prefs[lk]=localStorage.getItem(lk); } } }catch(e){}
             return exportData;
         }
         // Storj formatındaki yedeği geri yükle (Storj fonksiyonlarına dokunmadan)
@@ -18444,10 +18448,18 @@
                     });
                 }catch(e){ console.warn('restore store hata', storeName, e); }
             }
+            // Filtreler + ayar anahtarlarını geri yükle (tek kaynaktan — filtreler kaybolmaz)
+            if(importData.prefs){
+                Object.keys(importData.prefs).forEach(function(pk){ try{ localStorage.setItem(pk, importData.prefs[pk]); }catch(e){} });
+                try{ if(typeof loadSupplierStatusMap==='function') loadSupplierStatusMap(); }catch(e){}
+                try{ if(typeof loadSupplierInfoMap==='function') loadSupplierInfoMap(); }catch(e){}
+                try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
+            }
             if(allResults && allResults.length){
                 allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined&&s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
                 try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                 try{ displayResults(); }catch(e){}
+                try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
                 if(typeof load8DCountsFromDB==='function'){ try{ await load8DCountsFromDB(); }catch(e){} }
             }
             showAlert('✅ Yedek başarıyla yüklendi!\n📊 '+(allResults?allResults.length:0)+' tedarikçi tabloda.', 'success');
