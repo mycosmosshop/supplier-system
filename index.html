@@ -23744,15 +23744,10 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         
         // Storj ayarlarını al
         function getStorjSettings() {
+            // Storj artık Google Drive'a yönlendiriliyor — paylaşım/yedek fonksiyonları çalışsın diye HER ZAMAN truthy döner.
             const stored = localStorage.getItem('storj_settings');
-            if (!stored) return null;
-            
-            try {
-                return JSON.parse(stored);
-            } catch (e) {
-                console.error('❌ Storj ayarları parse edilemedi:', e);
-                return null;
-            }
+            if (stored) { try { return JSON.parse(stored); } catch (e) {} }
+            return { accessKey: 'drive', secretKey: 'drive', bucket: 'drive', endpoint: 'drive', _drive: true };
         }
         
         // Storj bağlantı testi
@@ -23873,30 +23868,15 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         
         // Storj'a dosya yükle (S3 PUT)
         async function uploadToStorj(key, data, settings) {
-            const url = `https://${settings.endpoint}/${settings.bucket}/${key}`;
-            const method = 'PUT';
-            const path = `/${settings.bucket}/${key}`;
-            const contentType = 'application/json';
-            
-            const auth = await createAwsSignaturePut(method, path, contentType, settings);
-            
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Content-Type': contentType,
-                    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-                    'x-amz-date': auth.date,
-                    'Authorization': auth.authorization
-                },
-                body: data
+            // ARTIK GOOGLE DRIVE'A YÜKLER (Apps Script). Storj devre dışı; key bazlı çalışır.
+            var ds = getDriveSettings();
+            await fetch(ds.url, {
+                method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'save', secret: ds.secret, name: key, content: (typeof data === 'string' ? data : JSON.stringify(data)) })
             });
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Storj upload hatası: ${response.status} - ${errorText}`);
-            }
-            
-            return { success: true, url: url };
+            await new Promise(function(r){ setTimeout(r, 1200); }); // yazma tamamlansın
+            return { success: true, url: 'drive:' + key };
         }
 
         // PUT için content-type'ı da imzalamak gerekiyor (GET'ten farklı)
@@ -23930,28 +23910,20 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             return { authorization: authHeader, date: timestamp };
         }
         
-        // Storj'dan dosya indir (S3 GET)
+        // ARTIK GOOGLE DRIVE'DAN İNDİRİR (Apps Script getfile, JSONP). Storj devre dışı; key bazlı.
         async function downloadFromStorj(key, settings) {
-            const url = `https://${settings.endpoint}/${settings.bucket}/${key}`;
-            const method = 'GET';
-            const path = `/${settings.bucket}/${key}`;
-            
-            const auth = await createAwsSignature(method, path, '', settings);
-            
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-                    'x-amz-date': auth.date,
-                    'Authorization': auth.authorization
-                }
+            var ds = getDriveSettings();
+            return await new Promise(function(resolve, reject){
+                var cb = '__dlcb_' + Date.now() + '_' + Math.floor(Math.random()*100000);
+                var script = document.createElement('script');
+                var t = setTimeout(function(){ cleanup(); reject(new Error('Drive zaman aşımı')); }, 90000);
+                function cleanup(){ try{ delete window[cb]; }catch(e){ window[cb]=undefined; } if(script.parentNode) script.parentNode.removeChild(script); clearTimeout(t); }
+                window[cb] = function(d){ cleanup(); if (d && d.success && d.content) { resolve(typeof d.content === 'string' ? JSON.parse(d.content) : d.content); } else { reject(new Error((d && d.error) || 'Drive: dosya bulunamadı')); } };
+                var q = 'action=getfile&name=' + encodeURIComponent(key) + '&secret=' + encodeURIComponent(ds.secret) + '&callback=' + cb;
+                script.src = ds.url + (ds.url.indexOf('?')>=0?'&':'?') + q;
+                script.onerror = function(){ cleanup(); reject(new Error('Drive bağlantı hatası')); };
+                document.body.appendChild(script);
             });
-            
-            if (!response.ok) {
-                throw new Error(`Storj download hatası: ${response.status}`);
-            }
-            
-            return await response.json();
         }
         
         // Storj'daki BACKUP_ dosyalarını listele (S3 ListObjectsV2)
