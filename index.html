@@ -3895,6 +3895,7 @@
                                     fileName: file.name,
                                     timestamp: new Date().toISOString()
                                 });
+                                try { if (typeof autoDriveBackup === 'function') autoDriveBackup(); } catch(e){}
                                 resolve(record);
                             };
                             putRequest.onerror = () => reject(putRequest.error);
@@ -18314,6 +18315,16 @@
             localStorage.setItem('drive_script_url', ((u&&u.value)||'').trim());
             localStorage.setItem('drive_secret', ((s&&s.value)||'').trim());
             showAlert('✅ Drive ayarları kaydedildi!', 'success');
+        }
+        // Doküman/dosya veya veri değişince OTOMATİK Drive yedeği (debounce'lu) → dosyalar Drive'a gider, herkes görür
+        var _autoDriveTimer = null;
+        function autoDriveBackup(){
+            try {
+                if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') {
+                    clearTimeout(_autoDriveTimer);
+                    _autoDriveTimer = setTimeout(function(){ try { uploadDatabaseToDrive(); } catch(e){ console.warn('Otomatik Drive yedek hatası:', e); } }, 4000);
+                }
+            } catch(e){}
         }
         function driveJsonp(params){
             return new Promise(function(resolve,reject){
