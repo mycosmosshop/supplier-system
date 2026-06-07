@@ -13586,22 +13586,9 @@
                     const skipFlag = localStorage.getItem('skipAutoModal');
                     if (skipFlag === 'true') { localStorage.removeItem('skipAutoModal'); }
                     try {
-                        // HER AÇILIŞTA önce Drive'daki TEK güncel veriyi yükle (yerel = sadece geçici ayna, gerçek kaynak Drive+Supabase).
-                        let _driveLoaded = false;
-                        if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof driveJsonp === 'function') {
-                            try {
-                                showAlert('☁️ Güncel veriler Drive\'dan yükleniyor...', 'info');
-                                const _r = await driveJsonp({action:'latest'});
-                                if (_r && _r.content) {
-                                    const _d = typeof _r.content === 'string' ? JSON.parse(_r.content) : _r.content;
-                                    await restoreSupplierBackup(_d, true);
-                                    _driveLoaded = !!(allResults && allResults.length > 0);
-                                    console.log('✅ Açılışta Drive (tek güncel veri) yüklendi: ' + (allResults ? allResults.length : 0));
-                                }
-                            } catch(e) { console.warn('Drive açılış yükleme hatası:', e); }
-                        }
-                        // Drive'dan gelmediyse (çevrimdışı / Drive yok) yerel yedekten göster
-                        if (!_driveLoaded && (!allResults || allResults.length === 0)) {
+                        // GÜVENLİ AÇILIŞ: önce YEREL veriyi yükle (kullanıcının en güncel hali; sayfadan çıkarken flush edilir → düzenleme KAYBOLMAZ).
+                        let _loaded = false;
+                        try {
                             const sd = localStorage.getItem('selectedSuppliers');
                             if (sd) {
                                 const data = JSON.parse(sd);
@@ -13610,17 +13597,39 @@
                                     allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined && s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
                                     try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                                     try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
+                                    try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
                                     try{ var c=document.getElementById('controls'); if(c) c.classList.add('active'); }catch(e){}
                                     displayResults();
-                                    console.log('✅ Açılışta yerel yedekten ' + allResults.length + ' tedarikçi (Drive erişilemedi)');
+                                    _loaded = true;
+                                    console.log('✅ Açılışta yerel (güncel) veriden ' + allResults.length + ' tedarikçi yüklendi');
                                 }
                             }
+                        } catch(e) { console.warn('Yerel yükleme hatası:', e); }
+                        // Yerel boşsa (yeni cihaz/profil) Drive'daki tek güncel veriyi çek
+                        if (!_loaded && typeof getDriveSettings === 'function' && getDriveSettings() && typeof driveJsonp === 'function') {
+                            try {
+                                showAlert('☁️ Veriler Drive\'dan yükleniyor...', 'info');
+                                const _r = await driveJsonp({action:'latest'});
+                                if (_r && _r.content) {
+                                    const _d = typeof _r.content === 'string' ? JSON.parse(_r.content) : _r.content;
+                                    await restoreSupplierBackup(_d, true);
+                                    _loaded = !!(allResults && allResults.length > 0);
+                                    console.log('✅ Açılışta Drive\'dan ' + (allResults ? allResults.length : 0) + ' tedarikçi yüklendi (yerel boştu)');
+                                }
+                            } catch(e) { console.warn('Drive açılış yükleme hatası:', e); }
                         }
+                        // Yerelden yüklendiyse Drive yedeğini de arka planda güncelle (tek kaynak güncel kalsın)
+                        if (_loaded && typeof autoDriveBackup === 'function') { setTimeout(function(){ try{ autoDriveBackup(); }catch(e){} }, 4000); }
                         if (allResults && allResults.length > 0 && typeof load8DCountsFromDB === 'function') { await load8DCountsFromDB(); }
                     } catch(e) { console.warn('Açılış otomatik yükleme hatası:', e); }
                     // NOT: "Kaydedilmiş Sürümler" penceresi artık otomatik açılmaz; gerekirse butondan açılır.
                 }, 500);
-                
+
+                // GÜVENLİK: Sayfadan çıkarken/yenilerken mevcut tam veriyi yerele ANLIK (senkron) kaydet → kaydedilmemiş düzenleme KAYBOLMAZ
+                window.addEventListener('beforeunload', function(){
+                    try { if (typeof allResults !== 'undefined' && allResults && allResults.length > 0) { localStorage.setItem('selectedSuppliers', JSON.stringify(allResults)); } } catch(e) {}
+                });
+
                 // Eğer Excel yüklüyse (allResults doluysa), 8D sayılarını güncelle
                 setTimeout(async () => {
                     if (allResults && allResults.length > 0) {
