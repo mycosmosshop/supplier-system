@@ -1435,6 +1435,7 @@
                     <option value="SANITEKS">Saniteks</option>
                     <option value="ULTECH">Ultech</option>
                     <option value="COREFIX">Corefix</option>
+                    <option value="GMBH">Sanifoam GmbH</option>
                 </select>
             </label>
             <label style="font-weight:600; color:#333;">Yıl:
@@ -7955,7 +7956,9 @@
                 const ff = document.getElementById('ptFirmaSelect');
                 const firma = ff ? ff.value : 'SANIFOAM';
                 year = String(year || (yl ? yl.value : '2025')).trim();
-                const donem = firma.charAt(0) + firma.slice(1).toLowerCase() + " " + year;
+                // Dönem adı: firmaya göre okunur etiket (GMBH -> "Sanifoam GmbH"); diğerleri Baş harf büyük
+                const FIRMA_LABELS = { GMBH: 'Sanifoam GmbH' };
+                const donem = (FIRMA_LABELS[firma] || (firma.charAt(0) + firma.slice(1).toLowerCase())) + " " + year;
                 if (st) st.textContent = "Yükleniyor (" + donem + ")...";
                 const rows = await ptFetchMonthly(firma, year);
                 if (!rows.length) { if (st) st.textContent = "⚠️ " + donem + " için veri yok."; showAlert("⚠️ " + donem + " için Supabase'de veri yok.", "error"); return; }
