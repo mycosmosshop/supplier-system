@@ -1628,6 +1628,7 @@
                     <button class="btn btn-primary" onclick="showEditsDialog()" style="display:none">💾 Düzenlemeleri Kaydet</button>
                     <button class="btn btn-primary" id="editsVersionBtn" onclick="showEditsHistory()" style="background: #ff9800; border-color: #ff9800;">📊 Kaydedilen Sürümler (0)</button>
                     <button class="btn btn-primary" onclick="showSaveFilterDialog()">🔍 Filtreyi Kaydet</button>
+                    <button class="btn btn-primary" onclick="showPerfOverridesDialog()" title="Elle yapılan Sevk/Hata/Termin/Tamamlanma düzeltmeleri — LeanSys yenilemesi bunları ezmez" style="background: #6d4c41; border-color: #6d4c41;">✋ Elle Düzeltmeler</button>
                     <button class="btn btn-primary" id="report8DListBtn" onclick="show8DReportList()" style="background: #1e3c72; border-color: #1e3c72;">📋 8D Raporlar (<span id="report8DCount">0</span>)</button>
                     <button class="btn btn-primary" onclick="showDocumentMatrixModal()" style="background: #9c27b0; border-color: #9c27b0;">📊 Doküman Matrisi</button>
                     <button class="btn btn-primary" onclick="showQualityCertMatrixModal()" style="background: #00897b; border-color: #00897b;">📋 Kalite Belge Matrisi</button>
@@ -7977,6 +7978,10 @@
                 const counts8DMap = await (typeof loadAll8DCounts === "function" ? loadAll8DCounts().catch(() => new Map()) : Promise.resolve(new Map()));
                 processExcelData(ptBuildPpmAoa(rows), counts8DMap);
                 try { processMonthlyScores(XLSX.utils.aoa_to_sheet(ptBuildTerminAoa(rows))); } catch (e2) { console.warn("termin:", e2); }
+                // ELLE DÜZELTMELERİ GERİ UYGULA (Sevk/Hata/Termin/Tamamlanma) — LeanSys verisi kullanıcının elle
+                // yaptığı düzeltmeleri EZMEZ; snapshot da düzeltilmiş haliyle kaydedilsin diye saveEdits'ten ÖNCE.
+                var _ovr = 0;
+                try { if (typeof applyPerfOverrides === 'function') _ovr = applyPerfOverrides(donem); } catch (e) {}
                 // dönem olarak kaydet + paylaş (processFile onload'unun yaptığı)
                 try { if (typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(donem); } catch (e) {}
                 try { localStorage.setItem('_currentPeriodName', donem); } catch (e) {}
@@ -7985,8 +7990,8 @@
                 try { if (typeof displayResults === 'function') displayResults(); } catch (e) {}
                 try { if (typeof loadSavedFilters === 'function') loadSavedFilters(); } catch (e) {} // filtre kapsamı yeni firmaya göre tazelensin
                 try { if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') setTimeout(function () { try { uploadDatabaseToDrive(); } catch (e) {} }, 1500); } catch (e) {}
-                if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")";
-                showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + donem + ") — Drive + canlı senkron ile paylaşıldı.", "success");
+                if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")" + (_ovr ? " · ✋" + _ovr + " elle düzeltme korundu" : "");
+                showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + donem + ")" + (_ovr ? "\n✋ " + _ovr + " tedarikçideki elle düzeltmeler korundu (Sevk/Hata/Termin/Tamamlanma)." : "") + "\nDrive + canlı senkron ile paylaşıldı.", "success");
             } catch (e) {
                 if (st) st.textContent = "❌ " + e.message;
                 showAlert("❌ Supabase hatası: " + e.message, "error");
@@ -11473,6 +11478,79 @@
             }
         }
 
+        // ===== ELLE PERFORMANS DÜZELTMELERİ (KALICI) =====
+        // Kullanıcının elle değiştirdiği Toplam Sevk / Toplam Hata / Termin Puanı / Tamamlanma Puanı,
+        // dönem+tedarikçi bazında saklanır (supplierPerfOverrides, canlı senkronlu → tüm kullanıcılar) ve
+        // LeanSys'ten veri yenilemesinden SONRA otomatik yeniden uygulanır (LeanSys değeri ezmez).
+        function _getPerfOverrides(){ try{ return JSON.parse(localStorage.getItem('supplierPerfOverrides')||'{}')||{}; }catch(e){ return {}; } }
+        function _setPerfOverrides(o){ try{ localStorage.setItem('supplierPerfOverrides', JSON.stringify(o)); }catch(e){} }
+        function recordPerfOverride(supplierName, field, value){
+            try{
+                if (window._applyingPerfOverrides) return;   // yeniden-uygulama sırasında tekrar kaydetme
+                var period=(localStorage.getItem('_currentPeriodName')||'').trim();
+                if(!period) return;                          // dönem adı yoksa kalıcılaştırma yapma (nadir)
+                var key=period+'||'+normalizeName(supplierName);
+                var all=_getPerfOverrides(); var o=all[key]||{};
+                o[field]=value; o.name=supplierName; o.ts=new Date().toISOString();
+                all[key]=o; _setPerfOverrides(all);
+                console.log('✋ Elle düzeltme kalıcı kaydedildi:', period, supplierName, field, '=', value);
+            }catch(e){ console.warn('override kaydı:', e); }
+        }
+        function applyPerfOverrides(period){
+            try{
+                period=(period||'').trim(); if(!period) return 0;
+                var all=_getPerfOverrides(); var n=0;
+                window._applyingPerfOverrides = true;
+                try{
+                    Object.keys(all).forEach(function(k){
+                        if(k.indexOf(period+'||')!==0) return;
+                        var norm=k.slice(period.length+2); var o=all[k]||{};
+                        var sup=(allResults||[]).find(function(r){ return normalizeName(r.name)===norm; });
+                        if(!sup) return;
+                        window.isUpdatingCells=false; // termin/tamamlanma guard'ı engellemesin
+                        if(o.sevk!=null){ try{ updateTotalSevk(sup.name, String(o.sevk)); }catch(e){} }
+                        if(o.hata!=null){ try{ updateTotalHata(sup.name, String(o.hata)); }catch(e){} }
+                        if(o.trm!=null){ try{ updateTerminPuan(sup.name, o.trm); }catch(e){} }
+                        if(o.tmm!=null){ try{ updateTamamlanmaPuan(sup.name, o.tmm); }catch(e){} }
+                        n++;
+                    });
+                } finally { window._applyingPerfOverrides = false; }
+                if(n) console.log('✋ '+n+' tedarikçide elle düzeltme yeniden uygulandı ('+period+')');
+                return n;
+            }catch(e){ console.warn('override uygula:', e); window._applyingPerfOverrides=false; return 0; }
+        }
+        // Yönetim penceresi: kayıtlı elle düzeltmeleri listele / tek tek veya tümünü sil
+        function showPerfOverridesDialog(){
+            var all=_getPerfOverrides(); var keys=Object.keys(all).sort();
+            var FL={sevk:'Toplam Sevk', hata:'Toplam Hata', trm:'Termin Puanı', tmm:'Tamamlanma Puanı'};
+            var h='<div style="text-align:left;max-height:420px;overflow:auto;">';
+            h+='<div style="margin-bottom:10px;color:#555;font-size:0.9em;">Elle yaptığınız Sevk/Hata/Termin/Tamamlanma düzeltmeleri burada saklanır ve <b>LeanSys yenilemesinden sonra otomatik geri uygulanır</b>. Silerseniz bir sonraki LeanSys yüklemesinde o değer tekrar LeanSys\'ten gelir.</div>';
+            if(!keys.length){ h+='<div style="text-align:center;padding:18px;color:#888;">Kayıtlı elle düzeltme yok.</div>'; }
+            keys.forEach(function(k){
+                var o=all[k]||{}; var sep=k.indexOf('||'); var period=k.slice(0,sep);
+                var fields=Object.keys(FL).filter(function(f){return o[f]!=null;}).map(function(f){return FL[f]+': <b>'+(typeof o[f]==='number'?o[f].toLocaleString('tr-TR'):o[f])+'</b>';}).join(' · ');
+                h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid #e0e0e0;border-radius:8px;margin:6px 0;background:#fafafa;">'
+                 + '<div style="flex:1;"><div style="font-weight:600;color:#1e3c72;">'+(o.name||k)+'</div>'
+                 + '<div style="font-size:0.82em;color:#555;">📅 '+period+' — '+fields+'</div></div>'
+                 + '<button onclick="deletePerfOverride(\''+k.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')" style="background:#e53935;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;">Sil</button>'
+                 + '</div>';
+            });
+            h+='</div>';
+            if(keys.length){ h+='<div style="margin-top:12px;text-align:right;"><button onclick="clearAllPerfOverrides()" style="background:#b71c1c;color:#fff;border:none;border-radius:6px;padding:7px 14px;cursor:pointer;">🗑️ Tümünü Temizle</button></div>'; }
+            showCustomAlert(h, '✋ Elle Performans Düzeltmeleri ('+keys.length+')');
+        }
+        function deletePerfOverride(key){
+            var all=_getPerfOverrides(); delete all[key]; _setPerfOverrides(all);
+            try{ document.querySelectorAll('div[style*="z-index: 10000"]').forEach(function(m){m.remove();}); }catch(e){}
+            showPerfOverridesDialog();
+        }
+        function clearAllPerfOverrides(){
+            if(!confirm('Tüm elle düzeltmeler silinsin mi?\n\n(Bir sonraki LeanSys yüklemesinde değerler tekrar LeanSys\'ten gelir.)')) return;
+            _setPerfOverrides({});
+            try{ document.querySelectorAll('div[style*="z-index: 10000"]').forEach(function(m){m.remove();}); }catch(e){}
+            showAlert('✅ Elle düzeltmeler temizlendi.', 'success');
+        }
+
         function updateTotalSevk(supplierName, newValue) {
             // Scroll pozisyonunu kaydet
             const scrollY = window.pageYOffset || document.documentElement.scrollTop;
@@ -11489,6 +11567,7 @@
                 // Yeni toplam sevkiyatı ata
                 supplier.totalSevk = value;
                 supplier.manualTotalSevk = true;
+                recordPerfOverride(supplierName, 'sevk', value);   // kalıcı: LeanSys yenilemesi ezmesin
                 
                 // Eğer aylık sevk verileri varsa, orantılı olarak güncelle
                 if (supplier.monthlySevk && supplier.monthlySevk.length > 0 && oldTotalSevk > 0) {
@@ -11606,8 +11685,9 @@
             if (supplier) {
                 const oldTotal = supplier.totalHata || 0;
                 const difference = value - oldTotal;
-                
+
                 supplier.totalHata = value;
+                recordPerfOverride(supplierName, 'hata', value);   // kalıcı: LeanSys yenilemesi ezmesin
                 
                 // monthlyHata dizisini güncelle - seçili ayları bul
                 const selectedMonthsArray = Array.from(selectedMonths).sort((a, b) => a - b);
@@ -12419,6 +12499,7 @@
             if (supplier) {
                 const oldPuan = supplier.terminPuan;
                 supplier.terminPuan = puan;
+                recordPerfOverride(supplierName, 'trm', puan);   // kalıcı: LeanSys yenilemesi ezmesin
                 
                 // Genel puan değiştirildi - TÜM AYLAR değişeceği için Manuel düzenleme işaretlerini TEMİZLE
                 if (manualMonthlyEdits[supplierName] && manualMonthlyEdits[supplierName].termin) {
@@ -12485,6 +12566,7 @@
             if (supplier) {
                 const oldPuan = supplier.tamamlanmaPuan;
                 supplier.tamamlanmaPuan = puan;
+                recordPerfOverride(supplierName, 'tmm', puan);   // kalıcı: LeanSys yenilemesi ezmesin
                 
                 // Genel puan değiştirildi - TÜM AYLAR değişeceği için Manuel düzenleme işaretlerini TEMİZLE
                 if (manualMonthlyEdits[supplierName] && manualMonthlyEdits[supplierName].tamamlanma) {
@@ -19163,7 +19245,7 @@
             }
             // Filtreler + ayar/iş anahtarlarını da yedeğe ekle → TEK dosyada tam veri (filtreler kaybolmaz)
             exportData.prefs = {};
-            ['supplierFilters','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierIatfData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
+            ['supplierFilters','supplierPerfOverrides','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierIatfData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
             try{ for(var pi=0;pi<localStorage.length;pi++){ var lk=localStorage.key(pi); if(lk && (lk.indexOf('ppmTarget_')===0 || lk.indexOf('hataHedefi_')===0)){ exportData.prefs[lk]=localStorage.getItem(lk); } } }catch(e){}
             return exportData;
         }

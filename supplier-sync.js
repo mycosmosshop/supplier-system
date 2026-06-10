@@ -14,8 +14,8 @@
             'supplierStatusMap','supplierInfoMap','supplierListForCOA','supplierCertData',
             'supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory',
             'targetAgreements','documentTypes','customQualityCertTypes','supplierIatfData',
-            'supplierFilters',
-            'supplierPeriodIndex','supplierPeriodDeleted','_sharedCurrentPeriodName']; // Dönem (Yıl) listesi + güncel dönem etiketi tüm kullanıcılarda
+            'supplierFilters','supplierPerfOverrides',
+            'supplierPeriodIndex','supplierPeriodDeleted','_sharedCurrentPeriodName']; // Dönem (Yıl) listesi + güncel dönem etiketi tüm kullanıcılarda; PerfOverrides = elle Sevk/Hata/Termin/Tamamlanma düzeltmeleri
   var PREFIXES=['ppmTarget_','hataHedefi_'];
   function isSynced(k){ if(!k) return false; if(KEYS.indexOf(k)>=0) return true; for(var i=0;i<PREFIXES.length;i++){ if(k.indexOf(PREFIXES[i])===0) return true; } return false; }
   // "Yumuşak" anahtarlar: yalnızca dönem listesi/etiketi etkiler → değişince TAM SAYFA YENİLEME yok, sadece menü tazelenir
