@@ -10429,8 +10429,8 @@
                                 title="Tedarikçi bilgilerini düzenle">🧾 Bilgi</button>
                     </td>
                     <td class="text-right">
-                        <span contenteditable="true" 
-                              style="outline: none; cursor: text;" 
+                        <span contenteditable="${isErpAdmin()?'true':'false'}"
+                              style="outline: none; cursor: ${isErpAdmin()?'text':'default'};" title="${isErpAdmin()?'':'Yalnızca yönetici düzenleyebilir'}"
                               data-supplier="${result.name}"
                               data-original="${result.totalSevk || 0}"
                               onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.textContent.replace(/\\./g,'').replace(/,/g,'');if(v!=this.dataset.original){updateTotalSevk(this.dataset.supplier,this.textContent);this.dataset.original=v;}this.blur();return false;}"
@@ -10458,8 +10458,8 @@
                                style="width: 80px; padding: 5px; text-align: right; border: 1px solid #ddd; border-radius: 4px;">
                     </td>
                     <td class="text-right">
-                        <span contenteditable="true" 
-                              style="outline: none; cursor: text;" 
+                        <span contenteditable="${isErpAdmin()?'true':'false'}"
+                              style="outline: none; cursor: ${isErpAdmin()?'text':'default'};" title="${isErpAdmin()?'':'Yalnızca yönetici düzenleyebilir'}"
                               data-supplier="${result.name}"
                               data-original="${result.totalHata || 0}"
                               onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.textContent.replace(/\\./g,'').replace(/,/g,'');if(v!=this.dataset.original){updateTotalHata(this.dataset.supplier,this.textContent);this.dataset.original=v;}this.blur();return false;}"
@@ -10543,7 +10543,7 @@
                             <input type="number" 
                                    value="${(result.terminPuan || 100).toFixed(0)}" 
                                    min="0" max="100" step="1"
-                                   onchange="updateTerminPuan('${result.name}', this.value)"
+                                   onchange="updateTerminPuan('${result.name}', this.value)" ${isErpAdmin()?'':'disabled title="Yalnızca yönetici düzenleyebilir"'}
                                    style="width: 50px; padding: 5px; text-align: right; border: none; border-radius: 4px; background: transparent; font-size: 0.95em;"
                                    ${isMusteri ? 'disabled' : ''}>
                             <span style="font-size: 0.95em;">%</span>
@@ -10554,7 +10554,7 @@
                             <input type="number" 
                                    value="${(result.tamamlanmaPuan || 100).toFixed(0)}" 
                                    min="0" max="100" step="1"
-                                   onchange="updateTamamlanmaPuan('${result.name}', this.value)"
+                                   onchange="updateTamamlanmaPuan('${result.name}', this.value)" ${isErpAdmin()?'':'disabled title="Yalnızca yönetici düzenleyebilir"'}
                                    style="width: 50px; padding: 5px; text-align: right; border: none; border-radius: 4px; background: transparent; font-size: 0.95em;"
                                    ${isMusteri ? 'disabled' : ''}>
                             <span style="font-size: 0.95em;">%</span>
@@ -10889,8 +10889,8 @@
                             </select>
                         </td>
                         <td class="text-right">
-                            <span contenteditable="true" 
-                                  style="outline: none; cursor: text;" 
+                            <span contenteditable="${isErpAdmin()?'true':'false'}"
+                                  style="outline: none; cursor: ${isErpAdmin()?'text':'default'};" title="${isErpAdmin()?'':'Yalnızca yönetici düzenleyebilir'}"
                                   onblur="updateTotalSevk('${result.name}', this.textContent)"
                                   onkeypress="if(event.key==='Enter'){this.blur();return false;}">${result.totalSevk.toLocaleString('tr-TR')}</span>
                         </td>
@@ -10914,8 +10914,8 @@
                                    step="1">
                         </td>
                         <td class="text-right">
-                            <span contenteditable="true" 
-                                  style="outline: none; cursor: text;" 
+                            <span contenteditable="${isErpAdmin()?'true':'false'}"
+                                  style="outline: none; cursor: ${isErpAdmin()?'text':'default'};" title="${isErpAdmin()?'':'Yalnızca yönetici düzenleyebilir'}"
                                   onblur="updateTotalHata('${result.name}', this.textContent)"
                                   onkeypress="if(event.key==='Enter'){this.blur();return false;}">${result.totalHata.toLocaleString('tr-TR')}</span>
                         </td>
@@ -10984,8 +10984,8 @@
                                 <input type="number" 
                                        class="ppm-target-input" 
                                        style="width: 80px;"
-                                       value="${result.terminPuan}" 
-                                       onchange="updateTerminPuan('${result.name}', this.value)"
+                                       value="${result.terminPuan}"
+                                       onchange="updateTerminPuan('${result.name}', this.value)" ${isErpAdmin()?'':'disabled title="Yalnızca yönetici düzenleyebilir"'}
                                        min="0"
                                        max="100"
                                        step="1">
@@ -10997,8 +10997,8 @@
                                 <input type="number" 
                                        class="ppm-target-input" 
                                        style="width: 80px;"
-                                       value="${result.tamamlanmaPuan}" 
-                                       onchange="updateTamamlanmaPuan('${result.name}', this.value)"
+                                       value="${result.tamamlanmaPuan}"
+                                       onchange="updateTamamlanmaPuan('${result.name}', this.value)" ${isErpAdmin()?'':'disabled title="Yalnızca yönetici düzenleyebilir"'}
                                        min="0"
                                        max="100"
                                        step="1">
@@ -11482,6 +11482,17 @@
         // Kullanıcının elle değiştirdiği Toplam Sevk / Toplam Hata / Termin Puanı / Tamamlanma Puanı,
         // dönem+tedarikçi bazında saklanır (supplierPerfOverrides, canlı senkronlu → tüm kullanıcılar) ve
         // LeanSys'ten veri yenilemesinden SONRA otomatik yeniden uygulanır (LeanSys değeri ezmez).
+        // ADMIN: elle performans düzeltmelerini YALNIZ admin yapabilir (window.ERP_IS_ADMIN, supplier-sync erp_users.is_admin'den set eder).
+        // Çözülene kadar (undefined) güvenli taraf = düzenleme KAPALI; admin'de erp-admin-ready ile tablo tazelenir.
+        function isErpAdmin(){ return window.ERP_IS_ADMIN === true; }
+        // Admin durumu (supplier-sync'ten) çözülünce tabloyu tazele → düzenlenebilirlik (contenteditable/disabled) doğru yansısın
+        try{ window.addEventListener('erp-admin-ready', function(){ try{ if(allResults && allResults.length && typeof displayResults==='function') displayResults(); }catch(e){} }); }catch(e){}
+        function _perfEditAllowed(supplierName){
+            if (isErpAdmin() || window._applyingPerfOverrides) return true;   // admin VEYA otomatik geri-uygulama serbest
+            try{ showAlert('🔒 Bu değeri yalnızca yönetici (admin) düzenleyebilir. Görebilirsiniz ama değiştiremezsiniz.', 'error'); }catch(e){}
+            try{ if(supplierName) updateSupplierCells(supplierName); }catch(e){}   // kullanıcının yazdığını eski (gerçek) değere döndür
+            return false;
+        }
         function _getPerfOverrides(){ try{ return JSON.parse(localStorage.getItem('supplierPerfOverrides')||'{}')||{}; }catch(e){ return {}; } }
         function _setPerfOverrides(o){ try{ localStorage.setItem('supplierPerfOverrides', JSON.stringify(o)); }catch(e){} }
         function recordPerfOverride(supplierName, field, value){
@@ -11523,8 +11534,10 @@
         function showPerfOverridesDialog(){
             var all=_getPerfOverrides(); var keys=Object.keys(all).sort();
             var FL={sevk:'Toplam Sevk', hata:'Toplam Hata', trm:'Termin Puanı', tmm:'Tamamlanma Puanı'};
+            var _adm=isErpAdmin();
             var h='<div style="text-align:left;max-height:420px;overflow:auto;">';
-            h+='<div style="margin-bottom:10px;color:#555;font-size:0.9em;">Elle yaptığınız Sevk/Hata/Termin/Tamamlanma düzeltmeleri burada saklanır ve <b>LeanSys yenilemesinden sonra otomatik geri uygulanır</b>. Silerseniz bir sonraki LeanSys yüklemesinde o değer tekrar LeanSys\'ten gelir.</div>';
+            h+='<div style="margin-bottom:10px;color:#555;font-size:0.9em;">Elle yapılan Sevk/Hata/Termin/Tamamlanma düzeltmeleri burada saklanır ve <b>LeanSys yenilemesinden sonra otomatik geri uygulanır</b> (tüm kullanıcılarda görünür).'
+              + (_adm ? ' Silerseniz bir sonraki LeanSys yüklemesinde o değer tekrar LeanSys\'ten gelir.' : '<br><b style="color:#b71c1c;">🔒 Yalnızca yönetici ekleyebilir/silebilir; siz görüntülüyorsunuz.</b>') + '</div>';
             if(!keys.length){ h+='<div style="text-align:center;padding:18px;color:#888;">Kayıtlı elle düzeltme yok.</div>'; }
             keys.forEach(function(k){
                 var o=all[k]||{}; var sep=k.indexOf('||'); var period=k.slice(0,sep);
@@ -11532,19 +11545,21 @@
                 h+='<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid #e0e0e0;border-radius:8px;margin:6px 0;background:#fafafa;">'
                  + '<div style="flex:1;"><div style="font-weight:600;color:#1e3c72;">'+(o.name||k)+'</div>'
                  + '<div style="font-size:0.82em;color:#555;">📅 '+period+' — '+fields+'</div></div>'
-                 + '<button onclick="deletePerfOverride(\''+k.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')" style="background:#e53935;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;">Sil</button>'
+                 + (_adm ? '<button onclick="deletePerfOverride(\''+k.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+'\')" style="background:#e53935;color:#fff;border:none;border-radius:6px;padding:5px 10px;cursor:pointer;">Sil</button>' : '')
                  + '</div>';
             });
             h+='</div>';
-            if(keys.length){ h+='<div style="margin-top:12px;text-align:right;"><button onclick="clearAllPerfOverrides()" style="background:#b71c1c;color:#fff;border:none;border-radius:6px;padding:7px 14px;cursor:pointer;">🗑️ Tümünü Temizle</button></div>'; }
+            if(keys.length && _adm){ h+='<div style="margin-top:12px;text-align:right;"><button onclick="clearAllPerfOverrides()" style="background:#b71c1c;color:#fff;border:none;border-radius:6px;padding:7px 14px;cursor:pointer;">🗑️ Tümünü Temizle</button></div>'; }
             showCustomAlert(h, '✋ Elle Performans Düzeltmeleri ('+keys.length+')');
         }
         function deletePerfOverride(key){
+            if(!isErpAdmin()){ showAlert('🔒 Yalnızca yönetici silebilir.', 'error'); return; }
             var all=_getPerfOverrides(); delete all[key]; _setPerfOverrides(all);
             try{ document.querySelectorAll('div[style*="z-index: 10000"]').forEach(function(m){m.remove();}); }catch(e){}
             showPerfOverridesDialog();
         }
         function clearAllPerfOverrides(){
+            if(!isErpAdmin()){ showAlert('🔒 Yalnızca yönetici silebilir.', 'error'); return; }
             if(!confirm('Tüm elle düzeltmeler silinsin mi?\n\n(Bir sonraki LeanSys yüklemesinde değerler tekrar LeanSys\'ten gelir.)')) return;
             _setPerfOverrides({});
             try{ document.querySelectorAll('div[style*="z-index: 10000"]').forEach(function(m){m.remove();}); }catch(e){}
@@ -11552,6 +11567,7 @@
         }
 
         function updateTotalSevk(supplierName, newValue) {
+            if(!_perfEditAllowed(supplierName)) return;   // sadece admin
             // Scroll pozisyonunu kaydet
             const scrollY = window.pageYOffset || document.documentElement.scrollTop;
             const tableWrapper = document.querySelector('.table-wrapper');
@@ -11672,6 +11688,7 @@
         }
 
         function updateTotalHata(supplierName, newValue) {
+            if(!_perfEditAllowed(supplierName)) return;   // sadece admin
             // Scroll pozisyonunu kaydet
             const scrollY = window.pageYOffset || document.documentElement.scrollTop;
             const tableWrapper = document.querySelector('.table-wrapper');
@@ -12491,10 +12508,11 @@
                 return;
             }
             
+            if(!_perfEditAllowed(supplierName)) return;   // sadece admin
             let puan = parseFloat(newPuan) || 0;
             if (puan < 0) puan = 0;
             if (puan > 100) puan = 100;
-            
+
             const supplier = allResults.find(r => r.name === supplierName);
             if (supplier) {
                 const oldPuan = supplier.terminPuan;
@@ -12558,10 +12576,11 @@
                 return;
             }
             
+            if(!_perfEditAllowed(supplierName)) return;   // sadece admin
             let puan = parseFloat(newPuan) || 0;
             if (puan < 0) puan = 0;
             if (puan > 100) puan = 100;
-            
+
             const supplier = allResults.find(r => r.name === supplierName);
             if (supplier) {
                 const oldPuan = supplier.tamamlanmaPuan;

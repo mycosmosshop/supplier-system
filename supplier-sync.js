@@ -99,6 +99,14 @@
       var ses=(await sb.auth.getSession()).data.session;
       if(!ses) return;            // girişsizse guard zaten portala atar
       _uid=ses.user.id;
+      // ADMIN tespiti (erp_users.is_admin) → elle performans düzeltmelerini YALNIZ admin yapabilir; diğerleri görür.
+      try{
+        var ra=await sb.from('erp_users').select('is_admin,email').eq('id',_uid).maybeSingle();
+        window.ERP_IS_ADMIN = !!(ra && ra.data && ra.data.is_admin);
+        window.ERP_USER_EMAIL = (ra && ra.data && ra.data.email) || (ses.user && ses.user.email) || '';
+      }catch(e){ window.ERP_IS_ADMIN=false; }
+      try{ if(document.body) document.body.setAttribute('data-erp-admin', window.ERP_IS_ADMIN?'1':'0'); }catch(e){}
+      try{ window.dispatchEvent(new CustomEvent('erp-admin-ready',{detail:{admin:window.ERP_IS_ADMIN}})); }catch(e){}
       var r=await sb.from('supplier_sync').select('data').eq('id',ROW_ID).maybeSingle();
       var remote=(r.data && r.data.data) ? r.data.data : null;
       if(remote && Object.keys(remote).length){
