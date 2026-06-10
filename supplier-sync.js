@@ -18,6 +18,8 @@
             'supplierPeriodIndex','supplierPeriodDeleted','_sharedCurrentPeriodName']; // Dönem (Yıl) listesi + güncel dönem etiketi tüm kullanıcılarda
   var PREFIXES=['ppmTarget_','hataHedefi_'];
   function isSynced(k){ if(!k) return false; if(KEYS.indexOf(k)>=0) return true; for(var i=0;i<PREFIXES.length;i++){ if(k.indexOf(PREFIXES[i])===0) return true; } return false; }
+  // "Yumuşak" anahtarlar: yalnızca dönem listesi/etiketi etkiler → değişince TAM SAYFA YENİLEME yok, sadece menü tazelenir
+  var SOFT={ supplierPeriodIndex:1, supplierPeriodDeleted:1, _sharedCurrentPeriodName:1 };
 
   // Paylaşım/supplier modunda senkron yok (dış kullanıcı, Storj akışı)
   if(/[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search)) return;
@@ -27,9 +29,9 @@
   var _applying=false, _lastEdit=0, _uid=null, _pushTimer=null;
 
   function snapshot(){ var o={}; for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(isSynced(k)) o[k]=localStorage.getItem(k); } return o; }
-  function applyRemote(data){ if(!data) return false; _applying=true; var ch=false;
-    try{ Object.keys(data).forEach(function(k){ if(isSynced(k) && localStorage.getItem(k)!==data[k]){ _origSet(k, data[k]); ch=true; } }); }
-    finally{ _applying=false; } return ch; }
+  function applyRemote(data){ if(!data) return []; _applying=true; var changed=[];
+    try{ Object.keys(data).forEach(function(k){ if(isSynced(k) && localStorage.getItem(k)!==data[k]){ _origSet(k, data[k]); changed.push(k); } }); }
+    finally{ _applying=false; } return changed; }
   function pushNow(){ if(_applying||!_uid) return;
     sb.from('supplier_sync').upsert({ id:ROW_ID, data:snapshot(), updated_at:new Date().toISOString(), updated_by:_uid })
       .then(function(r){ if(r.error) console.warn('[sync] push', r.error.message); }); }
@@ -55,8 +57,12 @@
     sb.channel('supplier_sync_rt')
       .on('postgres_changes', {event:'*', schema:'public', table:'supplier_sync', filter:'id=eq.'+ROW_ID}, function(p){
         var row=p.new; if(!row||!row.data||row.updated_by===_uid) return;
-        applyRemote(row.data);
-        // Kullanıcı son 8 sn'de düzenlemediyse otomatik yenile (canlı); düzenliyorsa banner göster
+        var changed=applyRemote(row.data);
+        if(!changed.length) return;
+        // Sadece dönem listesi/etiketi değiştiyse: TAM SAYFA YENİLEME YOK (reload fırtınasını önler) — yalnızca dönem menüsünü tazele
+        var hard=changed.some(function(k){ return !SOFT[k]; });
+        if(!hard){ try{ if(typeof window.updateEditsVersionButton==='function') window.updateEditsVersionButton(); }catch(e){} return; }
+        // Gerçek veri değişti: kullanıcı son 8 sn'de düzenlemediyse otomatik yenile (canlı); düzenliyorsa banner göster
         if(Date.now()-_lastEdit > 8000){ location.reload(); } else { banner(); }
       }).subscribe();
   }
@@ -69,7 +75,9 @@
       var r=await sb.from('supplier_sync').select('data').eq('id',ROW_ID).maybeSingle();
       var remote=(r.data && r.data.data) ? r.data.data : null;
       if(remote && Object.keys(remote).length){
-        if(applyRemote(remote)){          // yerelden farklıysa uygula + bir kez yenile (uygulama taze okusun)
+        var chg=applyRemote(remote);      // yerelden farklıysa uygula
+        // Yalnızca dönem listesi/etiketi farklıysa reload'a GEREK YOK (fırtına önlemi); gerçek veri farkı varsa bir kez yenile
+        if(chg.some(function(k){ return !SOFT[k]; })){
           if(!sessionStorage.getItem('_syncReloaded')){ sessionStorage.setItem('_syncReloaded','1'); location.reload(); return; }
         }
       } else {

@@ -14783,8 +14783,11 @@
                 });
                 Object.keys(map).forEach(function(nm){ if (_isPeriodTombstoned(nm, map[nm].ts)) delete map[nm]; });
                 var arr = Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){ return new Date(b.ts||0)-new Date(a.ts||0); });
-                var json = JSON.stringify(arr);
-                if (localStorage.getItem('supplierPeriodIndex') !== json) localStorage.setItem('supplierPeriodIndex', json);
+                // YALNIZCA dönem ADI kümesi değiştiyse yaz. Tedarikçi sayısı / zaman damgası her makinede
+                // farklı olabildiği için bunları yazmak gereksiz senkron+reload fırtınası yaratıyordu.
+                var prevNames = _getPeriodIndex().map(function(e){ return (e&&e.name||'').trim(); }).filter(Boolean).sort().join('|');
+                var newNames = arr.map(function(e){ return (e.name||'').trim(); }).filter(Boolean).sort().join('|');
+                if (prevNames !== newNames) localStorage.setItem('supplierPeriodIndex', JSON.stringify(arr));
                 return arr;
             } catch(e) { console.warn('Dönem indeksi yazma:', e); return _getPeriodIndex(); }
         }
