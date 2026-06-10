@@ -14100,6 +14100,7 @@
                                     try{ var c=document.getElementById('controls'); if(c) c.classList.add('active'); }catch(e){}
                                     // Yüklenen veri YAYINLANAN güncel veri → dönem etiketini paylaşılan adla hizala (eski dönem görünümü oturumluktur)
                                     try{ var _sh=localStorage.getItem('_sharedCurrentPeriodName'); if(_sh && (localStorage.getItem('_currentPeriodName')||'')!==_sh) localStorage.setItem('_currentPeriodName', _sh); }catch(e){}
+                                    try{ if(typeof applyPerfOverrides==='function') applyPerfOverrides((localStorage.getItem('_currentPeriodName')||'').trim()); }catch(e){} // elle düzeltmeleri açılışta uygula
                                     displayResults();
                                     _loaded = true;
                                     console.log('✅ Açılışta yerel (güncel) veriden ' + allResults.length + ' tedarikçi yüklendi');
@@ -14862,10 +14863,12 @@
                 const searchInput = document.getElementById('searchInput');
                 if (searchInput) searchInput.value = '';
                 
+                // Elle performans düzeltmelerini bu döneme uygula (admin'in kaydettiği; herkeste görünür)
+                try{ if(typeof applyPerfOverrides==='function') applyPerfOverrides((localStorage.getItem('_currentPeriodName')||'').trim()); }catch(e){}
                 // Tabloyu ve dashboard'u yeniden render et (FİLTRESİZ)
                 renderTable(allResults);
                 updateDashboard(allResults);
-                
+
                 // Kontrol butonlarını göster
                 const controls = document.getElementById('controls');
                 if (controls) {
@@ -15046,6 +15049,8 @@
                     try{ loadSupplierCertData(); }catch(e){}
                     try{ loadSupplierStatusMap(); if(supplierStatusMap && supplierStatusMap.size) allResults.forEach(function(sp){ var k=normalizeName(sp.name); if(supplierStatusMap.has(k)) sp.status=supplierStatusMap.get(k); }); }catch(e){}
                     try{ loadSupplierInfoMap(); }catch(e){}
+                    // Elle performans düzeltmelerini (admin'in kaydettiği) HERKESTE uygula → diğer kullanıcılar da düzeltilmiş değeri görür
+                    try{ if(typeof applyPerfOverrides==='function') applyPerfOverrides((localStorage.getItem('_currentPeriodName')||'').trim()); }catch(e){}
                     try{ if(typeof displayResults==='function') displayResults(); }catch(e){}
                 }
                 try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
