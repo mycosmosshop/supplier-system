@@ -13569,7 +13569,8 @@
                 searchTerm: document.getElementById('searchInput').value,
                 selectedSuppliers: Array.from(selectedSuppliers),
                 selectedLocations: selectedLocations,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                period: (localStorage.getItem('_currentPeriodName')||'').trim()   // filtre YALNIZ bu döneme ait (ör. "Sanifoam 2025")
             };
 
             // LocalStorage'dan mevcut filtreleri al
@@ -13595,12 +13596,16 @@
             const filtersList = document.getElementById('savedFiltersList');
             const filtersSection = document.getElementById('savedFiltersSection');
 
-            // KAPSAM: Bir filtre yalnızca AİT OLDUĞU firmanın/dönemin tedarikçileri ekrandaysa görünür.
-            // (Filtreler tüm kullanıcılarda senkron — bu sadece GÖRÜNÜRLÜK; Sanifoam filtresi Saniteks/Ultech/Corefix/GmbH'de çıkmaz.)
-            // Yöntem: filtrenin seçili tedarikçilerinden en az biri mevcut listede (allResults) varsa göster.
+            // KAPSAM: Bir filtre yalnızca AİT OLDUĞU dönemde görünür (ör. "Sanifoam 2025" filtresi Sanifoam 2026'da çıkmaz).
+            // (Filtreler tüm kullanıcılarda senkron — bu sadece GÖRÜNÜRLÜK.)
+            // Yöntem: dönem etiketi (period) varsa SADECE o dönemde; yoksa (eski filtre) firma seviyesinde tedarikçi örtüşmesiyle.
+            const curPeriod = (localStorage.getItem('_currentPeriodName')||'').trim();
             const curKeys = new Set();
             try { (allResults || []).forEach(function(s){ if(s){ if(s.mapKey) curKeys.add(s.mapKey); if(s.name) curKeys.add(s.name); } }); } catch(e){}
             const savedFilters = allSavedFilters.filter(function(f){
+                const fp = (f && f.period || '').trim();
+                if (fp) return fp === curPeriod;     // dönem etiketli filtre: YALNIZ kendi döneminde (2025≠2026)
+                // Etiketsiz (eski) filtre → firma seviyesi (geriye dönük): tedarikçi örtüşmesi
                 const sel = (f && f.selectedSuppliers) || [];
                 if (!sel.length) return true;        // tedarikçi içermeyen genel filtre → her dönemde
                 if (!curKeys.size) return true;      // liste henüz yüklenmediyse gizleme (yükleyince tekrar çağrılır)
@@ -13608,6 +13613,7 @@
             });
 
             if (savedFilters.length === 0) {
+                if (filtersList) filtersList.innerHTML = '';   // bayat liste kalmasın (bu dönemde filtre yok)
                 filtersSection.style.display = 'none';
                 return;
             }
@@ -13862,6 +13868,7 @@
                 savedFilters[filterIndex].name = filterName;
                 savedFilters[filterIndex].selectedSuppliers = selectedSupplierNames;
                 savedFilters[filterIndex].timestamp = new Date().toISOString();
+                savedFilters[filterIndex].period = (localStorage.getItem('_currentPeriodName')||'').trim(); // düzenlerken bulunulan döneme kilitle (eski filtreyi bu dönemde düzenle→kaydet ile o döneme bağlarsın)
                 
                 // LocalStorage'a kaydet
                 localStorage.setItem('supplierFilters', JSON.stringify(savedFilters));
