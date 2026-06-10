@@ -85,9 +85,11 @@
         // Sadece dönem listesi/etiketi değiştiyse: TAM SAYFA YENİLEME YOK (reload fırtınasını önler) — yalnızca dönem menüsünü tazele
         var hard=changed.some(function(k){ return !SOFT[k]; });
         if(!hard){ try{ if(typeof window.updateEditsVersionButton==='function') window.updateEditsVersionButton(); }catch(e){} return; }
-        // Gerçek veri değişti: kullanıcı son 8 sn'de düzenlemediyse TAM SAYFA YENİLEME yerine YERİNDE uygula
-        // (beyaz parlama / scroll sıçraması olmaz). Düzenliyorsa NE değiştiğini yazan banner göster.
-        if(Date.now()-_lastEdit > 8000){
+        // Gerçek veri değişti → YERİNDE sessizce uygula (beyaz parlama/scroll sıçraması yok, banner yok).
+        // SADECE kullanıcı O AN bir kutuya yazıyorsa (aktif düzenleme) banner göster — yazısı render'la kaybolmasın.
+        var ae = document.activeElement;
+        var typing = !!(ae && (ae.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName||'')));
+        if(!typing){
           if(typeof window.applySyncedDataInPlace==='function'){ try{ window.applySyncedDataInPlace(); }catch(e){ location.reload(); } }
           else { location.reload(); }
         } else { banner(describeChanges(changed)); }
