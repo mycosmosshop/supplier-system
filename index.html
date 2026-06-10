@@ -3043,6 +3043,8 @@
             <div class="modal-body">
                 <label for="filterName">Filtre Adı:</label>
                 <input type="text" id="filterName" class="filter-name-input" placeholder="Örn: A Sınıfı Tedarikçiler">
+                <label for="filterPeriodSelect" style="display:block; margin-top:14px;">📅 Hangi dönemde görünsün:</label>
+                <select id="filterPeriodSelect" class="filter-name-input" style="margin-top:6px;" title="Bu filtre yalnızca seçilen dönemde görünür"></select>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeSaveFilterDialog()">İptal</button>
@@ -3062,6 +3064,10 @@
                 <div style="margin-bottom: 15px;">
                     <label for="editFilterName">Filtre Adı:</label>
                     <input type="text" id="editFilterName" class="filter-name-input" placeholder="Filtre adı">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label for="editFilterPeriodSelect">📅 Hangi dönemde görünsün:</label>
+                    <select id="editFilterPeriodSelect" class="filter-name-input" style="margin-top:6px;" title="Bu filtre yalnızca seçilen dönemde görünür"></select>
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label>Tedarikçiler:</label>
@@ -13513,9 +13519,27 @@
 
         // ======== Filtre Kaydetme/Yükleme Fonksiyonları ========
 
+        // Filtre diyaloglarındaki "Dönem" seçicisini doldur (tüm bilinen dönemler + "tüm dönemler"); varsayılan = verilen değer / güncel dönem
+        function populateFilterPeriodSelect(sel, selected){
+            if(!sel) return;
+            var cur = (localStorage.getItem('_currentPeriodName')||'').trim();
+            var names = [];
+            try { (_getPeriodIndex()||[]).forEach(function(e){ var n=(e&&e.name||'').trim(); if(n && names.indexOf(n)<0) names.push(n); }); } catch(e){}
+            if(cur && names.indexOf(cur)<0) names.push(cur);
+            // güncel etiketli olan da seçilebilsin
+            var want = (selected!=null ? String(selected) : cur).trim();
+            if(want && names.indexOf(want)<0) names.push(want);
+            names.sort();
+            var esc = function(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); };
+            var h = '<option value="">— Tüm dönemler (her dönemde göster) —</option>';
+            names.forEach(function(n){ h += '<option value="'+esc(n)+'">'+esc(n)+(n===cur?' (güncel)':'')+'</option>'; });
+            sel.innerHTML = h;
+            sel.value = want || '';
+        }
         function showSaveFilterDialog() {
             document.getElementById('saveFilterDialog').style.display = 'flex';
             document.getElementById('filterName').value = '';
+            populateFilterPeriodSelect(document.getElementById('filterPeriodSelect'), (localStorage.getItem('_currentPeriodName')||'').trim());
             document.getElementById('filterName').focus();
         }
 
@@ -13570,7 +13594,8 @@
                 selectedSuppliers: Array.from(selectedSuppliers),
                 selectedLocations: selectedLocations,
                 timestamp: new Date().toISOString(),
-                period: (localStorage.getItem('_currentPeriodName')||'').trim()   // filtre YALNIZ bu döneme ait (ör. "Sanifoam 2025")
+                // Filtre YALNIZ seçilen dönemde görünür (boş = tüm dönemler). Seçici varsayılanı güncel dönem.
+                period: (function(){ var s=document.getElementById('filterPeriodSelect'); return s ? (s.value||'').trim() : (localStorage.getItem('_currentPeriodName')||'').trim(); })()
             };
 
             // LocalStorage'dan mevcut filtreleri al
@@ -13624,10 +13649,14 @@
             savedFilters.forEach(filter => {
                 const isActive = currentFilterId === filter.id ? 'active' : '';
                 const date = new Date(filter.timestamp).toLocaleDateString('tr-TR');
+                const _fp = (filter.period||'').trim();
+                const _badge = _fp
+                    ? `<span style="font-size:0.72em;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:10px;padding:1px 8px;margin-left:6px;white-space:nowrap;" title="Bu filtre yalnızca bu dönemde görünür">📅 ${_fp}</span>`
+                    : `<span style="font-size:0.72em;background:#fff3e0;color:#e65100;border:1px solid #ffcc80;border-radius:10px;padding:1px 8px;margin-left:6px;white-space:nowrap;" title="Döneme bağlı değil — bu firmanın tüm dönemlerinde görünür. Düzenle→Dönem seçip kaydet ile bir döneme bağla.">📅 tüm dönemler</span>`;
                 html += `
                     <div class="saved-filter-item ${isActive}" onclick="applyFilter(${filter.id})">
                         <span class="saved-filter-name">${filter.name}</span>
-                        <span style="font-size: 0.85em; color: #666;">(${filter.selectedSuppliers.length} tedarikçi)</span>
+                        <span style="font-size: 0.85em; color: #666;">(${filter.selectedSuppliers.length} tedarikçi)</span>${_badge}
                         <div class="saved-filter-actions">
                             <button class="saved-filter-edit" onclick="event.stopPropagation(); showEditFilterDialog(${filter.id})" title="Düzenle">
                                 ✏️
@@ -13773,7 +13802,9 @@
             
             // Filtre adını doldur
             document.getElementById('editFilterName').value = filter.name;
-            
+            // Dönem seçicisini doldur (mevcut etiketi varsayılan; yoksa güncel dönem)
+            populateFilterPeriodSelect(document.getElementById('editFilterPeriodSelect'), (filter.period!=null && String(filter.period).trim()) ? String(filter.period).trim() : (localStorage.getItem('_currentPeriodName')||'').trim());
+
             // Tedarikçi listesini doldur
             populateEditSupplierList(filter.selectedSuppliers || []);
             normalizeSelectedSuppliers();
@@ -13868,7 +13899,8 @@
                 savedFilters[filterIndex].name = filterName;
                 savedFilters[filterIndex].selectedSuppliers = selectedSupplierNames;
                 savedFilters[filterIndex].timestamp = new Date().toISOString();
-                savedFilters[filterIndex].period = (localStorage.getItem('_currentPeriodName')||'').trim(); // düzenlerken bulunulan döneme kilitle (eski filtreyi bu dönemde düzenle→kaydet ile o döneme bağlarsın)
+                // Dönem etiketi: seçiciden (boş = tüm dönemler). Artık _currentPeriodName tahminine bağlı DEĞİL — kullanıcı açıkça seçer.
+                savedFilters[filterIndex].period = (function(){ var s=document.getElementById('editFilterPeriodSelect'); return s ? (s.value||'').trim() : (localStorage.getItem('_currentPeriodName')||'').trim(); })();
                 
                 // LocalStorage'a kaydet
                 localStorage.setItem('supplierFilters', JSON.stringify(savedFilters));
