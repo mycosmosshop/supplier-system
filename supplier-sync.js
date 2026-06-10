@@ -45,12 +45,32 @@
   localStorage.setItem=function(k,v){ _origSet(k,v); try{ if(isSynced(k)) schedulePush(); }catch(e){} };
   localStorage.removeItem=function(k){ _origRem(k); try{ if(isSynced(k)) schedulePush(); }catch(e){} };
 
-  function banner(){ if(document.getElementById('erpSyncBanner')) return;
+  // Değişen anahtarları okunur açıklamaya çevir (kullanıcı NE değiştiğini görsün)
+  function describeChanges(keys){
+    var L={ selectedSuppliers:'tedarikçi listesi / performans verileri', supplierStatusMap:'tedarikçi onay durumları',
+            supplierInfoMap:'tedarikçi bilgileri', supplierCertData:'kalite belge bilgileri', targetAgreements:'hedef anlaşmaları',
+            documentTypes:'doküman türleri', supplierFilters:'kayıtlı filtreler', supplierIatfData:'IATF bilgileri',
+            customQualityCertTypes:'kalite belge türleri', tdsData:'TDS verileri', supplierListForCOA:'COA tedarikçi listesi',
+            supplierStatusHistory:'durum geçmişi', supplierEditsHistory:'düzenleme geçmişi', statusChangeHistory:'durum değişiklik geçmişi', activityHistory:'işlem geçmişi' };
+    var names=[]; (keys||[]).forEach(function(k){
+      var lab=L[k] || (k.indexOf('ppmTarget_')===0?'PPM hedefleri':(k.indexOf('hataHedefi_')===0?'hata hedefleri':null));
+      if(lab && names.indexOf(lab)<0) names.push(lab);
+    });
+    return names.length ? names.slice(0,3).join(', ') : 'tedarikçi verileri';
+  }
+  function banner(desc){
+    var ex=document.getElementById('erpSyncBanner'); if(ex) ex.remove(); // yeni açıklamayla tazele
     var b=document.createElement('div'); b.id='erpSyncBanner';
-    b.style.cssText='position:fixed;bottom:16px;right:16px;z-index:2147483647;background:#0288d1;color:#fff;padding:10px 14px;border-radius:10px;font:600 14px sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.35);cursor:pointer';
-    b.textContent='🔄 Yeni veriler geldi — görmek için tıkla';
-    b.onclick=function(){ location.reload(); };
+    b.style.cssText='position:fixed;bottom:16px;right:16px;z-index:2147483647;background:#0288d1;color:#fff;padding:12px 14px;border-radius:10px;font:600 13px sans-serif;box-shadow:0 4px 16px rgba(0,0,0,.35);max-width:330px';
+    b.innerHTML='<div style="margin-bottom:9px;line-height:1.4">📥 Başka bir kullanıcı/oturum <b>'+(desc||'verileri')+'</b> güncelledi.'+
+      '<br><span style="font-weight:400;opacity:.92">Yenilersen ekrandaki görünüm en güncel veriyle değişir.</span></div>'+
+      '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+      '<button id="erpSyncDismiss" style="background:rgba(255,255,255,.22);color:#fff;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font:600 12px sans-serif">✕ Şimdilik kapat</button>'+
+      '<button id="erpSyncReload" style="background:#fff;color:#0277bd;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font:700 12px sans-serif">🔄 Yenile ve gör</button>'+
+      '</div>';
     (document.body||document.documentElement).appendChild(b);
+    var rb=document.getElementById('erpSyncReload'); if(rb) rb.onclick=function(){ location.reload(); };
+    var db2=document.getElementById('erpSyncDismiss'); if(db2) db2.onclick=function(){ b.remove(); };
   }
 
   function subscribe(){
@@ -62,8 +82,8 @@
         // Sadece dönem listesi/etiketi değiştiyse: TAM SAYFA YENİLEME YOK (reload fırtınasını önler) — yalnızca dönem menüsünü tazele
         var hard=changed.some(function(k){ return !SOFT[k]; });
         if(!hard){ try{ if(typeof window.updateEditsVersionButton==='function') window.updateEditsVersionButton(); }catch(e){} return; }
-        // Gerçek veri değişti: kullanıcı son 8 sn'de düzenlemediyse otomatik yenile (canlı); düzenliyorsa banner göster
-        if(Date.now()-_lastEdit > 8000){ location.reload(); } else { banner(); }
+        // Gerçek veri değişti: kullanıcı son 8 sn'de düzenlemediyse otomatik yenile (canlı); düzenliyorsa NE değiştiğini yazan banner göster
+        if(Date.now()-_lastEdit > 8000){ location.reload(); } else { banner(describeChanges(changed)); }
       }).subscribe();
   }
 
