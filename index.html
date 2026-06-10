@@ -4,7 +4,8 @@
 <script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search);};</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
-<script src="supplier-sync.js"></script>
+<script>/* supplier-sync.js'i sayfanın ?v= sürümüyle yükle → index.html ile AYNI anda tazelensin (ayrı önbelleğe takılıp eski admin/senkron kodu kalmasın) */
+document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?&]v=([^&]+)/)||[])[1])||'1') + '"><\/script>');</script>
 <style>
 /* Google Drive'a geçildi: eski yedek/paylaşım servisleri (JSONBin/Pantry/Gist/Storj) gizlendi */
 #shareServiceSelector, #jsonbinSettings, #pantrySettings, #gistSettings, #storjSettings { display: none !important; }
