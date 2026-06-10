@@ -1429,6 +1429,14 @@
         <!-- Buluttan (LeanSys/Supabase) yukle - Excel'e gerek yok; app kendi akisiyla Drive+canli senkron paylasir -->
         <div style="margin:0 0 16px; padding:14px 18px; background:linear-gradient(135deg,#e3f2fd,#e8f5e9); border:1px solid #90caf9; border-radius:12px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
             <span style="font-weight:700; color:#1565c0; font-size:1.05em;">☁️ LeanSys'ten Yükle:</span>
+            <label style="font-weight:600; color:#333;">Firma:
+                <select id="ptFirmaSelect" style="padding:6px 10px; border-radius:6px; border:1px solid #90caf9; font-size:1em; margin-left:4px;">
+                    <option value="SANIFOAM" selected>Sanifoam</option>
+                    <option value="SANITEKS">Saniteks</option>
+                    <option value="ULTECH">Ultech</option>
+                    <option value="COREFIX">Corefix</option>
+                </select>
+            </label>
             <label style="font-weight:600; color:#333;">Yıl:
                 <select id="ptYearSelect" style="padding:6px 10px; border-radius:6px; border:1px solid #90caf9; font-size:1em; margin-left:4px;">
                     <option value="2026">2026</option>
@@ -7892,10 +7900,10 @@
         // ============ ☁️ LeanSys verisini Supabase'den yükle (Excel'siz; app dönem akışına besler) ============
         const PT_SUPA = "https://nnubrxbpthmkitueixbh.supabase.co";
         const PT_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE";
-        async function ptFetchMonthly(year) {
+        async function ptFetchMonthly(firma, year) {
             let all = [];
             for (let off = 0; off < 60000; off += 1000) {
-                const url = PT_SUPA + "/rest/v1/supplier_monthly?year=eq." + year + "&select=*&order=supplier_norm,month&offset=" + off + "&limit=1000";
+                const url = PT_SUPA + "/rest/v1/supplier_monthly?firma=eq." + encodeURIComponent(firma) + "&year=eq." + year + "&select=*&order=supplier_norm,month&offset=" + off + "&limit=1000";
                 const r = await fetch(url, { headers: { apikey: PT_ANON, Authorization: "Bearer " + PT_ANON } });
                 if (!r.ok) throw new Error("Supabase " + r.status);
                 const d = await r.json();
@@ -7944,27 +7952,30 @@
             const st = document.getElementById('ptLoadStatus');
             try {
                 const yl = document.getElementById('ptYearSelect');
+                const ff = document.getElementById('ptFirmaSelect');
+                const firma = ff ? ff.value : 'SANIFOAM';
                 year = String(year || (yl ? yl.value : '2025')).trim();
-                if (st) st.textContent = "Yükleniyor (" + year + ")...";
-                const rows = await ptFetchMonthly(year);
-                if (!rows.length) { if (st) st.textContent = "⚠️ " + year + " için veri yok."; showAlert("⚠️ " + year + " için Supabase'de veri yok.", "error"); return; }
+                const donem = firma.charAt(0) + firma.slice(1).toLowerCase() + " " + year;
+                if (st) st.textContent = "Yükleniyor (" + donem + ")...";
+                const rows = await ptFetchMonthly(firma, year);
+                if (!rows.length) { if (st) st.textContent = "⚠️ " + donem + " için veri yok."; showAlert("⚠️ " + donem + " için Supabase'de veri yok.", "error"); return; }
                 // mevcut farklı dönem varsa kaybolmasın
                 try {
                     const curName = localStorage.getItem('_currentPeriodName') || '';
-                    if (typeof allResults !== 'undefined' && allResults && allResults.length && curName && curName !== year && typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(curName);
+                    if (typeof allResults !== 'undefined' && allResults && allResults.length && curName && curName !== donem && typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(curName);
                 } catch (e) {}
                 window._mergeOld = null; window._mergeMode = null; window._excelSaveAsName = null;
                 const counts8DMap = await (typeof loadAll8DCounts === "function" ? loadAll8DCounts().catch(() => new Map()) : Promise.resolve(new Map()));
                 processExcelData(ptBuildPpmAoa(rows), counts8DMap);
                 try { processMonthlyScores(XLSX.utils.aoa_to_sheet(ptBuildTerminAoa(rows))); } catch (e2) { console.warn("termin:", e2); }
                 // dönem olarak kaydet + paylaş (processFile onload'unun yaptığı)
-                try { if (typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(year); } catch (e) {}
-                try { localStorage.setItem('_currentPeriodName', year); } catch (e) {}
+                try { if (typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(donem); } catch (e) {}
+                try { localStorage.setItem('_currentPeriodName', donem); } catch (e) {}
                 try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch (e) {}
                 try { if (typeof displayResults === 'function') displayResults(); } catch (e) {}
                 try { if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') setTimeout(function () { try { uploadDatabaseToDrive(); } catch (e) {} }, 1500); } catch (e) {}
-                if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + year + ")";
-                showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + year + ") — Drive + canlı senkron ile paylaşıldı.", "success");
+                if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")";
+                showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + donem + ") — Drive + canlı senkron ile paylaşıldı.", "success");
             } catch (e) {
                 if (st) st.textContent = "❌ " + e.message;
                 showAlert("❌ Supabase hatası: " + e.message, "error");
