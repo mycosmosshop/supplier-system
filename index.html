@@ -15422,8 +15422,11 @@
                     return;
                 }
                 
-                loadSavedEdits(snapshot);
+                // ÖNCE dönem adını yaz — loadSavedEdits içindeki loadSavedFilters filtre kapsamını YENİ döneme göre çizsin.
+                // (Eski sıra yarış yaratıyordu: filtreler eski dönem adıyla render ediliyor, 2025 etiketli filtre 2026'da görünüyordu.)
                 try { localStorage.setItem('_currentPeriodName', snapshot.name || ''); } catch(e){}
+                loadSavedEdits(snapshot);
+                try { setTimeout(function(){ try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){} }, 800); } catch(e){} // async kuyruk bittikten sonra son tazeleme (garanti)
                 try { if(typeof updateEditsVersionButton==='function') setTimeout(updateEditsVersionButton, 500); } catch(e){}
 
                 const date = new Date(snapshot.timestamp);
