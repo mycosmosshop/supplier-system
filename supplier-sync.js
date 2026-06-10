@@ -42,8 +42,11 @@
   // localStorage'ı sarmala (uygulama fonksiyonlarına dokunmadan)
   var _origSet=localStorage.setItem.bind(localStorage);
   var _origRem=localStorage.removeItem.bind(localStorage);
-  localStorage.setItem=function(k,v){ _origSet(k,v); try{ if(isSynced(k)) schedulePush(); }catch(e){} };
-  localStorage.removeItem=function(k){ _origRem(k); try{ if(isSynced(k)) schedulePush(); }catch(e){} };
+  var _origGet=localStorage.getItem.bind(localStorage);
+  // ÖNEMLİ: değer GERÇEKTEN değiştiyse push planla. Drive yedeği selectedSuppliers'ı aynı değerle
+  // tekrar yazınca gereksiz push + diğer kullanıcılarda gereksiz yenileme oluyordu → titreme. Bu karşılaştırma onu keser.
+  localStorage.setItem=function(k,v){ var old=isSynced(k)?_origGet(k):null; _origSet(k,v); try{ if(isSynced(k) && old!==String(v)) schedulePush(); }catch(e){} };
+  localStorage.removeItem=function(k){ var had=isSynced(k)?(_origGet(k)!=null):false; _origRem(k); try{ if(isSynced(k) && had) schedulePush(); }catch(e){} };
 
   // Değişen anahtarları okunur açıklamaya çevir (kullanıcı NE değiştiğini görsün)
   function describeChanges(keys){
@@ -82,8 +85,12 @@
         // Sadece dönem listesi/etiketi değiştiyse: TAM SAYFA YENİLEME YOK (reload fırtınasını önler) — yalnızca dönem menüsünü tazele
         var hard=changed.some(function(k){ return !SOFT[k]; });
         if(!hard){ try{ if(typeof window.updateEditsVersionButton==='function') window.updateEditsVersionButton(); }catch(e){} return; }
-        // Gerçek veri değişti: kullanıcı son 8 sn'de düzenlemediyse otomatik yenile (canlı); düzenliyorsa NE değiştiğini yazan banner göster
-        if(Date.now()-_lastEdit > 8000){ location.reload(); } else { banner(describeChanges(changed)); }
+        // Gerçek veri değişti: kullanıcı son 8 sn'de düzenlemediyse TAM SAYFA YENİLEME yerine YERİNDE uygula
+        // (beyaz parlama / scroll sıçraması olmaz). Düzenliyorsa NE değiştiğini yazan banner göster.
+        if(Date.now()-_lastEdit > 8000){
+          if(typeof window.applySyncedDataInPlace==='function'){ try{ window.applySyncedDataInPlace(); }catch(e){ location.reload(); } }
+          else { location.reload(); }
+        } else { banner(describeChanges(changed)); }
       }).subscribe();
   }
 

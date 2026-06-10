@@ -7977,6 +7977,7 @@
                 try { localStorage.setItem('_sharedCurrentPeriodName', donem); } catch (e) {} // tüm kullanıcılar "(güncel dönem)" etiketini görsün
                 try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch (e) {}
                 try { if (typeof displayResults === 'function') displayResults(); } catch (e) {}
+                try { if (typeof loadSavedFilters === 'function') loadSavedFilters(); } catch (e) {} // filtre kapsamı yeni firmaya göre tazelensin
                 try { if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') setTimeout(function () { try { uploadDatabaseToDrive(); } catch (e) {} }, 1500); } catch (e) {}
                 if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")";
                 showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + donem + ") — Drive + canlı senkron ile paylaşıldı.", "success");
@@ -13590,17 +13591,29 @@
         }
 
         function loadSavedFilters() {
-            const savedFilters = JSON.parse(localStorage.getItem('supplierFilters') || '[]');
+            const allSavedFilters = JSON.parse(localStorage.getItem('supplierFilters') || '[]');
             const filtersList = document.getElementById('savedFiltersList');
             const filtersSection = document.getElementById('savedFiltersSection');
-            
+
+            // KAPSAM: Bir filtre yalnızca AİT OLDUĞU firmanın/dönemin tedarikçileri ekrandaysa görünür.
+            // (Filtreler tüm kullanıcılarda senkron — bu sadece GÖRÜNÜRLÜK; Sanifoam filtresi Saniteks/Ultech/Corefix/GmbH'de çıkmaz.)
+            // Yöntem: filtrenin seçili tedarikçilerinden en az biri mevcut listede (allResults) varsa göster.
+            const curKeys = new Set();
+            try { (allResults || []).forEach(function(s){ if(s){ if(s.mapKey) curKeys.add(s.mapKey); if(s.name) curKeys.add(s.name); } }); } catch(e){}
+            const savedFilters = allSavedFilters.filter(function(f){
+                const sel = (f && f.selectedSuppliers) || [];
+                if (!sel.length) return true;        // tedarikçi içermeyen genel filtre → her dönemde
+                if (!curKeys.size) return true;      // liste henüz yüklenmediyse gizleme (yükleyince tekrar çağrılır)
+                return sel.some(function(k){ return curKeys.has(k); });
+            });
+
             if (savedFilters.length === 0) {
                 filtersSection.style.display = 'none';
                 return;
             }
-            
+
             filtersSection.style.display = 'block';
-            
+
             let html = '';
             savedFilters.forEach(filter => {
                 const isActive = currentFilterId === filter.id ? 'active' : '';
@@ -14870,6 +14883,31 @@
             } catch(e){ console.warn('Dönem adı migrasyonu:', e); }
         }
 
+        // Canlı senkronla gelen değişikliği TAM SAYFA YENİLEME yapmadan ekrana uygula (titreme/scroll sıçraması olmaz).
+        // supplier-sync.js bunu reload yerine çağırır. Eski dönem görüntüleniyorsa ana veriyi EZMEZ, sadece menü/filtreleri tazeler.
+        window.applySyncedDataInPlace = function(){
+            try {
+                var viewingOld = (typeof isViewingOldPeriod === 'function' && isViewingOldPeriod());
+                if (!viewingOld) {
+                    var sd = localStorage.getItem('selectedSuppliers');
+                    if (sd) {
+                        var data = JSON.parse(sd);
+                        if (data && data.length) {
+                            allResults = data;
+                            allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined && s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
+                            try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
+                        }
+                    }
+                    try{ loadSupplierCertData(); }catch(e){}
+                    try{ loadSupplierStatusMap(); if(supplierStatusMap && supplierStatusMap.size) allResults.forEach(function(sp){ var k=normalizeName(sp.name); if(supplierStatusMap.has(k)) sp.status=supplierStatusMap.get(k); }); }catch(e){}
+                    try{ loadSupplierInfoMap(); }catch(e){}
+                    try{ if(typeof displayResults==='function') displayResults(); }catch(e){}
+                }
+                try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
+                try{ if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); }catch(e){}
+            } catch(e){ console.warn('applySyncedDataInPlace:', e); }
+        };
+
         function updateEditsVersionButton() {
             if (!db) {
                 const btn = document.getElementById('editsVersionBtn');
@@ -15275,6 +15313,7 @@
                             try{ loadSupplierStatusMap(); if (supplierStatusMap && supplierStatusMap.size) allResults.forEach(function(sp){ var k=normalizeName(sp.name); if(supplierStatusMap.has(k)) sp.status=supplierStatusMap.get(k); }); }catch(e){}
                             try{ loadSupplierInfoMap(); }catch(e){}
                             displayResults();
+                            try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){} // filtre kapsamı güncel firmaya göre
                             try{ if(typeof updateEditsVersionButton==='function') setTimeout(updateEditsVersionButton, 300); }catch(e){}
                             showAlert('✅ Güncel döneme dönüldü' + (sh ? ' ('+sh+')' : '') + '.', 'success');
                         } else { location.reload(); }
