@@ -13918,7 +13918,9 @@
                 
                 // Kaydedilmiş sürüm sayısını güncelle
                 updateEditsVersionButton();
-                
+                // Tek seferlik: eski yıl-adlı dönemleri "Sanifoam YYYY" olarak düzelt
+                try { migrateBareYearPeriods(); } catch(e){ console.warn('migrateBareYearPeriods:', e); }
+
                 // 8D rapor sayısını güncelle
                 update8DReportCount();
                 
@@ -14825,6 +14827,41 @@
                 try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch(e){}
                 return true;
             } catch(e) { console.warn('Dönem Drive senkronu:', e); return false; }
+        }
+
+        // Tek seferlik: firma öneksiz eski dönem adlarını düzelt (2025→Sanifoam 2025, 2026→Sanifoam 2026)
+        // Eski kayıtlar firma konvansiyonundan önce sadece yıl adıyla saklanmıştı (Sanifoam verisi).
+        async function migrateBareYearPeriods(){
+            if (!db) return;
+            if (localStorage.getItem('_periodYearMigrated_v1') === '1') return;
+            var RENAME = { '2025': 'Sanifoam 2025', '2026': 'Sanifoam 2026' };
+            try {
+                var recs = await new Promise(function(res){ var rq=db.transaction([STORE_NAME],'readonly').objectStore(STORE_NAME).getAll(); rq.onsuccess=function(){res(rq.result||[]);}; rq.onerror=function(){res([]);}; });
+                var targets = recs.filter(function(r){ return RENAME.hasOwnProperty((r.name||'').trim()); });
+                if (!targets.length) { localStorage.setItem('_periodYearMigrated_v1','1'); return; }
+                window._driveBackupInProgress = true; // yeniden adlandırma bitmeden otomatik yedek tetiklenmesin
+                try {
+                    await new Promise(function(res,rej){
+                        var tx=db.transaction([STORE_NAME],'readwrite'); tx.oncomplete=res; tx.onerror=function(){rej(tx.error);};
+                        var st=tx.objectStore(STORE_NAME);
+                        targets.forEach(function(r){ var nn=RENAME[(r.name||'').trim()]; var c=Object.assign({}, r); c.name=nn; st.put(c); }); // id korunur → yerinde adlandırma
+                    });
+                } finally { setTimeout(function(){ window._driveBackupInProgress=false; }, 800); }
+                // Güncel dönem etiketi eski adlardan biriyse onu da güncelle
+                ['_currentPeriodName','_sharedCurrentPeriodName'].forEach(function(k){ var v=(localStorage.getItem(k)||'').trim(); if(RENAME.hasOwnProperty(v)) localStorage.setItem(k, RENAME[v]); });
+                // Eski yıl-adlarını diğer makinelerin listesinden de düşür (tombstone) → yeni adlar görünsün
+                Object.keys(RENAME).forEach(function(old){ try{ if(typeof _tombstonePeriod==='function') _tombstonePeriod(old); }catch(e){} });
+                localStorage.setItem('_periodYearMigrated_v1','1');
+                try { if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); } catch(e){}
+                // Drive yedeği + canlı senkronu güncelle (yeni adlar herkese yayılsın)
+                setTimeout(function(){
+                    try { if(allResults && allResults.length && !(typeof isViewingOldPeriod==='function' && isViewingOldPeriod())) localStorage.setItem('selectedSuppliers', JSON.stringify(allResults)); } catch(e){}
+                    try { if(typeof getDriveSettings==='function' && getDriveSettings() && typeof uploadDatabaseToDrive==='function') uploadDatabaseToDrive(true); } catch(e){}
+                    try { if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); } catch(e){}
+                }, 1800);
+                console.log('✅ Dönem adları güncellendi: ' + targets.map(function(t){return (t.name||'').trim()+'→'+RENAME[(t.name||'').trim()];}).join(', '));
+                try { if(typeof showAlert==='function') showAlert('✅ Eski dönem adları güncellendi (Sanifoam 2025 / Sanifoam 2026).', 'success'); } catch(e){}
+            } catch(e){ console.warn('Dönem adı migrasyonu:', e); }
         }
 
         function updateEditsVersionButton() {
