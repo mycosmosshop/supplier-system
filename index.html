@@ -12690,7 +12690,7 @@
                     // Toplam Sevkiyat güncelle
                     if (cells[7]) {
                         const sevkSpan = cells[7].querySelector('span[contenteditable]');
-                        if (sevkSpan && !document.activeElement.contains(sevkSpan)) {
+                        if (sevkSpan && document.activeElement !== sevkSpan) {   // yalnız bu span O AN düzenleniyorsa atla
                             sevkSpan.textContent = supplier.totalSevk.toLocaleString('tr-TR');
                             sevkSpan.dataset.original = supplier.totalSevk;
                         }
@@ -12706,17 +12706,21 @@
                     // Toplam Hata güncelle
                     if (cells[13]) {
                         const hataSpan = cells[13].querySelector('span[contenteditable]');
-                        if (hataSpan && !document.activeElement.contains(hataSpan)) {
+                        if (hataSpan && document.activeElement !== hataSpan) {   // yalnız bu span O AN düzenleniyorsa atla
                             hataSpan.textContent = supplier.totalHata.toLocaleString('tr-TR');
                             hataSpan.dataset.original = supplier.totalHata;
                         }
                     }
                     
-                    // Hata Puanı güncelle (input içinde)
+                    // Hata Puanı güncelle (input VEYA metin hücresi olabilir — her iki düzeni de tazele)
                     if (cells[14]) {
                         const hataInput = cells[14].querySelector('input[type="number"]');
                         if (hataInput) {
                             hataInput.value = (supplier.hataPuan * 100).toFixed(0);
+                        } else {
+                            const hataSpan = cells[14].querySelector('span');
+                            if (hataSpan) hataSpan.textContent = (supplier.hataPuan * 100).toFixed(0);
+                            else cells[14].textContent = (supplier.hataPuan * 100).toFixed(0) + '%';
                         }
                     }
                     
