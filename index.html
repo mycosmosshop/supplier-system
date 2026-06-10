@@ -7971,6 +7971,7 @@
                 // dönem olarak kaydet + paylaş (processFile onload'unun yaptığı)
                 try { if (typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(donem); } catch (e) {}
                 try { localStorage.setItem('_currentPeriodName', donem); } catch (e) {}
+                try { localStorage.setItem('_sharedCurrentPeriodName', donem); } catch (e) {} // tüm kullanıcılar "(güncel dönem)" etiketini görsün
                 try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch (e) {}
                 try { if (typeof displayResults === 'function') displayResults(); } catch (e) {}
                 try { if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') setTimeout(function () { try { uploadDatabaseToDrive(); } catch (e) {} }, 1500); } catch (e) {}
@@ -8070,6 +8071,7 @@
                         setTimeout(function(){
                             try { saveEditsToIndexedDB(_saveAs); } catch(e){ console.warn('Excel dönem kaydetme hatası:', e); }
                             try { localStorage.setItem('_currentPeriodName', _saveAs); } catch(e){}
+                            try { localStorage.setItem('_sharedCurrentPeriodName', _saveAs); } catch(e){} // tüm kullanıcılar "(güncel dönem)" etiketini görsün
                             try { if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); } catch(e){}
                             // Yeni dönemi OTOMATİK Drive'a yükle (Drive ayarlıysa).
                             // uploadDatabaseToDrive ayrıca selectedSuppliers'ı güncelleyince Supabase canlı senkron tetiklenir
@@ -13938,6 +13940,8 @@
                                     try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
                                     try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
                                     try{ var c=document.getElementById('controls'); if(c) c.classList.add('active'); }catch(e){}
+                                    // Yüklenen veri YAYINLANAN güncel veri → dönem etiketini paylaşılan adla hizala (eski dönem görünümü oturumluktur)
+                                    try{ var _sh=localStorage.getItem('_sharedCurrentPeriodName'); if(_sh && (localStorage.getItem('_currentPeriodName')||'')!==_sh) localStorage.setItem('_currentPeriodName', _sh); }catch(e){}
                                     displayResults();
                                     _loaded = true;
                                     console.log('✅ Açılışta yerel (güncel) veriden ' + allResults.length + ' tedarikçi yüklendi');
@@ -13966,6 +13970,8 @@
 
                 // GÜVENLİK: Veriyi her ayrılışta kaydet → kaydedilmemiş düzenleme KAYBOLMAZ (çıkış / yenileme / modül değişimi / sekme değişimi)
                 function _flushLocalNow(){
+                    // Eski dönem görüntülenirken FLUSH YAPMA → eski dönem verisi "güncel" diye herkese yayılmasın
+                    try { if (typeof isViewingOldPeriod === 'function' && isViewingOldPeriod()) return; } catch(e) {}
                     try { if (typeof allResults !== 'undefined' && allResults && allResults.length > 0) { localStorage.setItem('selectedSuppliers', JSON.stringify(allResults)); } } catch(e) {}
                 }
                 window.addEventListener('beforeunload', _flushLocalNow);  // sekme/portal kapanma, yenileme
@@ -14738,6 +14744,89 @@
             }
         }
 
+        // ==== DÖNEM PAYLAŞIMI: dönem listesi TÜM kullanıcılarda görünür/seçilebilir ====
+        // Hafif dönem indeksi (supplierPeriodIndex) + silme kayıtları (supplierPeriodDeleted) canlı senkronla yayılır;
+        // eksik dönem VERİSİ Drive yedeğinden (GUNCEL_YEDEK.json -> supplierHistory) çekilip yerel IndexedDB'ye eklenir.
+        function isViewingOldPeriod(){
+            try {
+                var l = localStorage.getItem('_currentPeriodName') || '';
+                var s = localStorage.getItem('_sharedCurrentPeriodName') || '';
+                return !!(l && s && l !== s);
+            } catch(e) { return false; }
+        }
+        function _getPeriodIndex(){ try { return JSON.parse(localStorage.getItem('supplierPeriodIndex')||'[]')||[]; } catch(e){ return []; } }
+        function _getPeriodTombstones(){ try { return JSON.parse(localStorage.getItem('supplierPeriodDeleted')||'[]')||[]; } catch(e){ return []; } }
+        // Bir dönem adı, silinme kaydından (tombstone) daha ESKİ bir kayda aitse "silinmiş" sayılır
+        // (aynı adla DAHA SONRA tekrar kaydedilen dönem yaşamaya devam eder)
+        function _isPeriodTombstoned(name, ts){
+            var nm = (name||'').trim(); if(!nm) return false;
+            var t = _getPeriodTombstones().find(function(x){ return x && (x.name||'').trim() === nm; });
+            if (!t) return false;
+            return new Date(ts||0) <= new Date(t.ts||0);
+        }
+        // İndeksi yerel kayıtlarla BİRLEŞTİREREK yaz (kendi makinesinde az dönem olan kullanıcı indeksi küçültmesin)
+        function _writePeriodIndex(localRecords){
+            try {
+                var map = {};
+                _getPeriodIndex().forEach(function(e){ if(e && e.name) map[(e.name||'').trim()] = e; });
+                (localRecords||[]).forEach(function(r){
+                    var nm = (r.name||'').trim(); if(!nm) return;
+                    if (_isPeriodTombstoned(nm, r.timestamp)) return;
+                    var prev = map[nm];
+                    var ts = r.timestamp || (prev && prev.ts) || '';
+                    if (!prev || new Date(ts||0) >= new Date(prev.ts||0)) map[nm] = { name:nm, n:((r.data&&r.data.length)||(prev&&prev.n)||0), ts:ts };
+                });
+                Object.keys(map).forEach(function(nm){ if (_isPeriodTombstoned(nm, map[nm].ts)) delete map[nm]; });
+                var arr = Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){ return new Date(b.ts||0)-new Date(a.ts||0); });
+                var json = JSON.stringify(arr);
+                if (localStorage.getItem('supplierPeriodIndex') !== json) localStorage.setItem('supplierPeriodIndex', json);
+                return arr;
+            } catch(e) { console.warn('Dönem indeksi yazma:', e); return _getPeriodIndex(); }
+        }
+        // Dönem silindiğinde diğer makinelerin de silmesi için kayıt bırak + indeksten düş
+        function _tombstonePeriod(name){
+            try {
+                var nm = (name||'').trim(); if(!nm) return;
+                var arr = _getPeriodTombstones().filter(function(x){ return x && (x.name||'').trim() !== nm; });
+                arr.push({ name:nm, ts:new Date().toISOString() });
+                localStorage.setItem('supplierPeriodDeleted', JSON.stringify(arr.slice(-50)));
+                var idx = _getPeriodIndex().filter(function(e){ return e && (e.name||'').trim() !== nm; });
+                localStorage.setItem('supplierPeriodIndex', JSON.stringify(idx));
+            } catch(e) {}
+        }
+        // İndekste olup yerelde OLMAYAN dönemleri Drive yedeğinden indirip yerel IndexedDB'ye ekle
+        var _periodDriveSyncTried = false;
+        async function syncMissingPeriodsFromDrive(force){
+            if (!db) return false;
+            if (_periodDriveSyncTried && !force) return false;
+            _periodDriveSyncTried = true;
+            if (!(typeof getDriveSettings === 'function' && getDriveSettings() && typeof driveJsonp === 'function')) return false;
+            try {
+                var local = await new Promise(function(res){ var rq=db.transaction([STORE_NAME],'readonly').objectStore(STORE_NAME).getAll(); rq.onsuccess=function(){res(rq.result||[]);}; rq.onerror=function(){res([]);}; });
+                var have = {}; local.forEach(function(r){ have[(r.name||'').trim()] = true; });
+                var missing = _getPeriodIndex().filter(function(e){ return e && e.name && !have[(e.name||'').trim()] && !_isPeriodTombstoned(e.name, e.ts); });
+                if (!missing.length) return false;
+                console.log('📅 Eksik dönemler Drive\'dan alınıyor:', missing.map(function(m){return m.name;}).join(', '));
+                var r = await driveJsonp({action:'latest'});
+                if (!r || !r.content) return false;
+                var data = typeof r.content==='string' ? JSON.parse(r.content) : r.content;
+                var hist = (data && data.stores && data.stores.supplierHistory) || [];
+                var toAdd = hist.filter(function(rec){ var nm=((rec&&rec.name)||'').trim(); return nm && !have[nm] && !_isPeriodTombstoned(nm, rec.timestamp); });
+                if (!toAdd.length) return false;
+                window._driveBackupInProgress = true; // birleştirme bitmeden otomatik yedek tetiklenmesin (eksik liste Drive'a yazılmasın)
+                try {
+                    await new Promise(function(res,rej){
+                        var tx=db.transaction([STORE_NAME],'readwrite'); tx.oncomplete=res; tx.onerror=function(){rej(tx.error);};
+                        var st=tx.objectStore(STORE_NAME);
+                        toAdd.forEach(function(rec){ var c=Object.assign({}, rec); delete c.id; st.add(c); }); // id autoIncrement: çakışma olmasın
+                    });
+                } finally { setTimeout(function(){ window._driveBackupInProgress = false; }, 500); }
+                console.log('✅ ' + toAdd.length + ' dönem Drive\'dan yerel listeye eklendi');
+                try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch(e){}
+                return true;
+            } catch(e) { console.warn('Dönem Drive senkronu:', e); return false; }
+        }
+
         function updateEditsVersionButton() {
             if (!db) {
                 const btn = document.getElementById('editsVersionBtn');
@@ -14750,24 +14839,42 @@
             const getAllRequest = objectStore.getAll();
             
             getAllRequest.onsuccess = () => {
-                const records = getAllRequest.result || [];
+                let records = getAllRequest.result || [];
+                // Başka makinede silinen (tombstone'lu) dönemleri yerelden de temizle
+                try {
+                    const tombs = records.filter(r => _isPeriodTombstoned((r.name||'').trim(), r.timestamp));
+                    if (tombs.length) {
+                        const txd = db.transaction([STORE_NAME], 'readwrite'); const std = txd.objectStore(STORE_NAME);
+                        tombs.forEach(r => { try { std.delete(r.id); } catch(e){} });
+                        records = records.filter(r => !_isPeriodTombstoned((r.name||'').trim(), r.timestamp));
+                    }
+                } catch(e) { console.warn('Dönem tombstone temizliği:', e); }
                 const manualCount = records.filter(r => !(r.name || '').toLowerCase().startsWith('otomatik kayıt')).length;
                 const btn = document.getElementById('editsVersionBtn');
                 if (btn) {
                     btn.innerHTML = `📊 Kaydedilen Sürümler (${manualCount})`;
                 }
-                // "Dönem (Yıl)" seçici dropdown'ını da doldur (kayıtlı dönemler)
+                // "Dönem (Yıl)" seçici dropdown'ını da doldur (yerel + diğer kullanıcıların dönemleri)
                 try {
+                    // İlk geçiş: paylaşılan güncel dönem adı henüz hiç yazılmadıysa bu makinenin adıyla başlat
+                    try { if (records.length && !localStorage.getItem('_sharedCurrentPeriodName') && localStorage.getItem('_currentPeriodName')) localStorage.setItem('_sharedCurrentPeriodName', localStorage.getItem('_currentPeriodName')); } catch(e){}
+                    const idx = _writePeriodIndex(records);
                     const sel = document.getElementById('donemFilter');
                     if (sel) {
                         const arr = records.slice().sort((a,b)=> new Date(b.timestamp||0) - new Date(a.timestamp||0));
-                        const cur = localStorage.getItem('_currentPeriodName') || '';
+                        const cur = localStorage.getItem('_currentPeriodName') || localStorage.getItem('_sharedCurrentPeriodName') || '';
                         let h = cur ? `<option value="">📅 ${cur} (güncel dönem)</option>` : '<option value="">— Dönem seçilmedi —</option>';
-                        arr.filter(v => (v.name||'') !== cur).forEach(v=>{ const n=(v.data&&v.data.length)||0; h += `<option value="${v.id}">📅 ${v.name||'Sürüm'} (${n} ted.)</option>`; });
+                        const haveNames = {}; if (cur) haveNames[cur.trim()] = 1;
+                        arr.filter(v => (v.name||'') !== cur).forEach(v=>{ const n=(v.data&&v.data.length)||0; haveNames[(v.name||'').trim()]=1; h += `<option value="${v.id}">📅 ${v.name||'Sürüm'} (${n} ted.)</option>`; });
+                        // İndekste olup yerelde olmayan dönemler (başka kullanıcı kaydetti) → seçilince Drive'dan gelir
+                        const remoteOnly = (idx||[]).filter(e => e && e.name && !haveNames[(e.name||'').trim()]);
+                        remoteOnly.forEach(e => { h += `<option value="__REMOTE__:${encodeURIComponent(e.name)}">📅 ${e.name} (${e.n||'?'} ted.) ☁️</option>`; });
                         h += '<option value="__NAME__">✏️ Bu dönemi adlandır / kaydet…</option>';
                         if (arr.length) h += '<option value="__DELETE__">🗑️ Bir dönemi sil…</option>';
                         sel.innerHTML = h;
                         sel.value = '';
+                        // Eksik dönem verisini arka planda Drive'dan tamamla (dropdown seçimden önce hazır olsun)
+                        if (remoteOnly.length) { try { syncMissingPeriodsFromDrive(); } catch(e){} }
                     }
                 } catch(e) { console.warn('Dönem dropdown doldurma:', e); }
             };
@@ -15109,7 +15216,47 @@
 
         // Dönem (Yıl) seçici: seçilen dönemin performans verisine geç (belgeler/bilgi ayrı depoda, DEĞİŞMEZ)
         function onDonemChange(val){
-            if(!val) return; // güncel dönem placeholder — bir şey yapma
+            if(!val){
+                // Güncel dönem başlığı seçildi: eski dönem görüntüleniyorsa yayınlanan CANLI veriye geri dön
+                if (typeof isViewingOldPeriod === 'function' && isViewingOldPeriod()) {
+                    try {
+                        var sh = localStorage.getItem('_sharedCurrentPeriodName') || '';
+                        var sd0 = localStorage.getItem('selectedSuppliers');
+                        var d0 = sd0 ? JSON.parse(sd0) : null;
+                        if (d0 && d0.length) {
+                            allResults = d0;
+                            if (sh) localStorage.setItem('_currentPeriodName', sh); else localStorage.removeItem('_currentPeriodName');
+                            allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined && s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
+                            try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
+                            try{ loadSupplierCertData(); }catch(e){}
+                            try{ loadSupplierStatusMap(); if (supplierStatusMap && supplierStatusMap.size) allResults.forEach(function(sp){ var k=normalizeName(sp.name); if(supplierStatusMap.has(k)) sp.status=supplierStatusMap.get(k); }); }catch(e){}
+                            try{ loadSupplierInfoMap(); }catch(e){}
+                            displayResults();
+                            try{ if(typeof updateEditsVersionButton==='function') setTimeout(updateEditsVersionButton, 300); }catch(e){}
+                            showAlert('✅ Güncel döneme dönüldü' + (sh ? ' ('+sh+')' : '') + '.', 'success');
+                        } else { location.reload(); }
+                    } catch(e) { location.reload(); }
+                }
+                return;
+            }
+            if(val.indexOf('__REMOTE__:') === 0){
+                // Başka kullanıcının kaydettiği dönem: önce Drive'dan yerel listeye al, sonra geç
+                var pname = '';
+                try { pname = decodeURIComponent(val.slice('__REMOTE__:'.length)); } catch(e){ pname = val.slice('__REMOTE__:'.length); }
+                var sdr = document.getElementById('donemFilter'); if(sdr) sdr.value='';
+                showAlert('☁️ "'+pname+'" dönemi Drive yedeğinden alınıyor...', 'info');
+                syncMissingPeriodsFromDrive(true).then(function(){
+                    try {
+                        var rq = db.transaction([STORE_NAME],'readonly').objectStore(STORE_NAME).getAll();
+                        rq.onsuccess = function(){
+                            var f = (rq.result||[]).find(function(v){ return (v.name||'').trim() === pname.trim(); });
+                            if (f) { restoreEditsVersionFromIndexedDB(f.id); }
+                            else { showAlert('❌ "'+pname+'" dönemi Drive yedeğinde bulunamadı.', 'error'); }
+                        };
+                    } catch(e) { showAlert('❌ Dönem yüklenemedi: '+e.message, 'error'); }
+                });
+                return;
+            }
             if(val === '__DELETE__'){
                 var sd=document.getElementById('donemFilter'); if(sd) sd.value='';
                 var yr = prompt('🗑️ Hangi dönemi/yılı TAMAMEN silmek istersin?\n(adını yaz, örn. 2026)');
@@ -15172,6 +15319,7 @@
             if(!confirm('⚠️ "'+name+'" DÖNEMİ TAMAMEN SİLİNECEK!\n\n• Yerel kayıttan\n• Drive yedeğinden\n• (güncel dönemse Supabase güncellenir)\n\nBelgeler / DÖF / bilgi (ayrı depoda) ETKİLENMEZ.\n\nDevam edilsin mi?')) return;
             try {
                 await new Promise(function(res,rej){ var tx=db.transaction([STORE_NAME],'readwrite'); tx.oncomplete=res; tx.onerror=function(){rej(tx.error);}; tx.objectStore(STORE_NAME).delete(id); });
+                try { if (typeof _tombstonePeriod === 'function') _tombstonePeriod(name); } catch(e){} // diğer kullanıcılar da silsin (senkron)
                 var cur = localStorage.getItem('_currentPeriodName') || '';
                 if(cur === name){
                     // Silinen dönem GÜNCEL ise → kalan en yeni döneme geç (ekran + Supabase güncellensin)
@@ -15182,6 +15330,7 @@
                 }
                 setTimeout(function(){
                     try { if(allResults && allResults.length) localStorage.setItem('selectedSuppliers', JSON.stringify(allResults)); } catch(e){} // Supabase senkron tetikle
+                    try { var c2=localStorage.getItem('_currentPeriodName'); if(c2) localStorage.setItem('_sharedCurrentPeriodName', c2); else localStorage.removeItem('_sharedCurrentPeriodName'); } catch(e){} // güncel dönem etiketi herkes için güncellensin
                     try { if(typeof uploadDatabaseToDrive==='function') uploadDatabaseToDrive(true); } catch(e){}                 // Drive GUNCEL güncelle (silinen dönem kalksın)
                     try { if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); } catch(e){}
                 }, 1000);
@@ -15198,8 +15347,10 @@
             
             const transaction = db.transaction([STORE_NAME], 'readwrite');
             const objectStore = transaction.objectStore(STORE_NAME);
+            // Silmeden önce adı al → tombstone bırak (diğer kullanıcıların listesinden de düşsün)
+            try { const grq = objectStore.get(id); grq.onsuccess = () => { try { if (grq.result && grq.result.name && typeof _tombstonePeriod === 'function') _tombstonePeriod(grq.result.name); } catch(e){} }; } catch(e){}
             const deleteRequest = objectStore.delete(id);
-            
+
             deleteRequest.onsuccess = () => {
                 updateEditsVersionButton();
                 showAlert('✅ Sürüm silindi!', 'success');
@@ -18858,7 +19009,9 @@
         async function buildStorjBackupData(){
             if(!db){ showAlert('❌ Veritabanı hazır değil!', 'error'); return null; }
             var exportData={ exportedAt:new Date().toISOString(), version:db.version, stores:{} };
-            if(allResults && allResults.length>0){
+            // Eski dönem görüntülenirken ekrandaki (eski) veriyi DEĞİL, son yayınlanan güncel veriyi yedekle
+            var _snapMode = (typeof isViewingOldPeriod === 'function' && isViewingOldPeriod());
+            if(allResults && allResults.length>0 && !_snapMode){
                 exportData.stores['suppliers']=allResults.map(function(r){ var o=Object.assign({}, r);
                     o.normalizedName=r.normalizedName||normalizeName(r.name); o.certExpiryDates=r.certExpiryDates||{};
                     o.lokasyon=r.lokasyon||[]; o.monthlySevk=r.monthlySevk||[]; o.monthlyIade=r.monthlyIade||[]; o.monthlyPPM=r.monthlyPPM||[]; o.monthlyHata=r.monthlyHata||[]; o.monthlyTermin=r.monthlyTermin||[]; o.monthlyCompletion=r.monthlyCompletion||[]; o.monthlyTerminPuan=r.monthlyTerminPuan||[]; o.monthlyTamamlanmaPuan=r.monthlyTamamlanmaPuan||[]; o.monthlyKalitePuan=r.monthlyKalitePuan||[]; o.monthlyVdaPuan=r.monthlyVdaPuan||[]; o.monthlyPpmPuan=r.monthlyPpmPuan||[]; o.monthlyTerminGecikmeGun=r.monthlyTerminGecikmeGun||[];
@@ -18919,6 +19072,7 @@
                 try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
                 if(typeof load8DCountsFromDB==='function'){ try{ await load8DCountsFromDB(); }catch(e){} }
             }
+            try{ if(typeof updateEditsVersionButton==='function') updateEditsVersionButton(); }catch(e){} // Dönem (Yıl) dropdown'ı geri yüklenen dönemlerle tazelensin
             showAlert('✅ Yedek başarıyla yüklendi!\n📊 '+(allResults?allResults.length:0)+' tedarikçi tabloda.', 'success');
         }
         async function uploadDatabaseToDrive(silent){
@@ -24590,7 +24744,8 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 };
                 
                 // 1. ÖNCE allResults'tan suppliers al (aktif veriler - Excel'den yüklenmiş olabilir)
-                if (allResults && allResults.length > 0) {
+                // Eski dönem görüntülenirken ekrandaki (eski) veriyi "güncel" diye yazma — son yayınlanan veriyi kullan
+                if (allResults && allResults.length > 0 && !(typeof isViewingOldPeriod === 'function' && isViewingOldPeriod())) {
                     // TÜM tedarikçi verilerini olduğu gibi kaydet (tüm alanlar dahil)
                     exportData.stores['suppliers'] = allResults.map(r => ({
                         ...r, // Tüm alanları kopyala
