@@ -14612,7 +14612,7 @@
                     if (supplier.ppmTarget) {
                         savePPMTargetToStorage(supplier.name, supplier.ppmTarget);
                     }
-                    if (supplier.hataHedefi !== undefined) {
+                    if (supplier.hataHedefi !== undefined && supplier.hataHedefi !== null) {
                         saveHataHedefiToStorage(supplier.name, supplier.hataHedefi);
                     }
                     
@@ -14743,11 +14743,16 @@
                 // Tedarikçi filtresini yeniden doldur
                 populateSupplierFilter();
                 
-                // KAYDEDİLMİŞ FİLTRELERİ GERİ YÜKLE (snapshot'tan)
-                if (editsSnapshot.savedFilters && Array.isArray(editsSnapshot.savedFilters)) {
-                    localStorage.setItem('supplierFilters', JSON.stringify(editsSnapshot.savedFilters));
-                    console.log(`💾 ${editsSnapshot.savedFilters.length} filtre geri yüklendi!`);
-                }
+                // Filtreler artık CANLI ortak veri (senkron + dönem etiketli) — snapshot'taki ESKİ liste güncel filtrelerin
+                // üzerine YAZILMAZ (dönem değiştirince az önce verilen dönem etiketini siliyordu = filtre her dönemde görünüyordu).
+                // Snapshot filtreleri yalnızca hiç filtre yokken (eski yedekten dönüş) kurtarma olarak kullanılır.
+                try {
+                    const _curF = JSON.parse(localStorage.getItem('supplierFilters') || '[]');
+                    if ((!_curF || !_curF.length) && editsSnapshot.savedFilters && Array.isArray(editsSnapshot.savedFilters) && editsSnapshot.savedFilters.length) {
+                        localStorage.setItem('supplierFilters', JSON.stringify(editsSnapshot.savedFilters));
+                        console.log(`💾 ${editsSnapshot.savedFilters.length} filtre (yedekten) geri yüklendi`);
+                    }
+                } catch(e) {}
                 
                 // Kaydedilmiş filtreleri yükle
                 loadSavedFilters();
@@ -19098,6 +19103,8 @@
             try {
                 // Test/paylaşım modunda (view/share/supplier/documents) Drive'a YAZMA — sadece okuma, gerçek veriyi ezme
                 if (/[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search)) return;
+                // localhost / yerel dosya / önizleme ortamından OTOMATİK yedek YASAK — test verisi gerçek GUNCEL_YEDEK'i ezmesin
+                if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname) || location.protocol === 'file:') return;
                 if (window._driveBackupInProgress) return; // kendi yazımı tetiklemesin (döngü koruması)
                 if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') {
                     clearTimeout(_autoDriveTimer);
@@ -19199,6 +19206,11 @@
         async function uploadDatabaseToDrive(silent){
             // Test/paylaşım modunda (view/share/supplier/documents) Drive'a YAZMA — gerçek GUNCEL ezilmesin
             if (/[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search)) { if(!silent) showAlert('ℹ️ Test/paylaşım modunda Drive\'a yazılmaz.', 'info'); return; }
+            // localhost / yerel dosya / önizleme: sessiz yedek YASAK; elle yüklemede açık onay iste (test verisi gerçek yedeği ezmesin)
+            if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname) || location.protocol === 'file:') {
+                if (silent) return;
+                if (!confirm('⚠️ YEREL/TEST ortamından çalışıyorsun (' + (location.hostname||'dosya') + ').\n\nBu ortamın verisi gerçek GUNCEL_YEDEK.json üzerine yazılacak ve TÜM kullanıcıların Drive yedeğini değiştirecek.\n\nEmin misin?')) { showAlert('İptal edildi (yerel ortam koruması).', 'info'); return; }
+            }
             var s=getDriveSettings(); if(!s){ if(!silent) showAlert('⚠️ Önce Drive Script URL girip kaydedin!', 'error'); return; }
             window._driveBackupInProgress = true;   // döngü koruması (senkron tekrar tetiklemesin)
             try{
