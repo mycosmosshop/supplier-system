@@ -7981,10 +7981,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { processMonthlyScores(XLSX.utils.aoa_to_sheet(ptBuildTerminAoa(rows))); } catch (e2) { console.warn("termin:", e2); }
                 // ELLE DÜZELTMELERİ GERİ UYGULA (Sevk/Hata/Termin/Tamamlanma) — LeanSys verisi kullanıcının elle
                 // yaptığı düzeltmeleri EZMEZ; snapshot da düzeltilmiş haliyle kaydedilsin diye saveEdits'ten ÖNCE.
+                // ÖNCE 8D'yi RAPORLARDAN kesin reconcile et (orphan temizlenir; rapor yoksa 0) — SONRA elle override'lar bunun ÜSTÜNE uygulanır
+                try { if (typeof load8DCountsFromDB === 'function') await load8DCountsFromDB(); } catch (e) {}
+                // ELLE DÜZELTMELERİ GERİ UYGULA (Sevk/Hata/Hata Puanı/VDA/Termin/Tamamlanma/8D) — LeanSys verisi elle yazdıklarınızı EZMEZ;
+                // snapshot da düzeltilmiş haliyle kaydedilsin diye saveEdits'ten ÖNCE.
                 var _ovr = 0;
                 try { if (typeof applyPerfOverrides === 'function') _ovr = applyPerfOverrides(donem); } catch (e) {}
-                // 8D sayılarını RAPORLARDAN kesin reconcile et (orphan değer temizlenir; rapor yoksa 0) + skor/sınıf tazelenir → snapshot DOĞRU 8D ile kaydedilsin
-                try { if (typeof load8DCountsFromDB === 'function') await load8DCountsFromDB(); } catch (e) {}
                 // dönem olarak kaydet + paylaş (processFile onload'unun yaptığı)
                 try { if (typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(donem); } catch (e) {}
                 try { localStorage.setItem('_currentPeriodName', donem); } catch (e) {}
@@ -11527,8 +11529,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         window.isUpdatingCells=false; // termin/tamamlanma guard'ı engellemesin
                         if(o.sevk!=null){ try{ updateTotalSevk(sup.name, String(o.sevk)); }catch(e){} }
                         if(o.hata!=null){ try{ updateTotalHata(sup.name, String(o.hata)); }catch(e){} }
+                        if(o.vda!=null && typeof updateVDAPuan==='function'){ try{ updateVDAPuan(sup.name, o.vda); }catch(e){} }
                         if(o.trm!=null){ try{ updateTerminPuan(sup.name, o.trm); }catch(e){} }
                         if(o.tmm!=null){ try{ updateTamamlanmaPuan(sup.name, o.tmm); }catch(e){} }
+                        // Hata Puanı DİREKT override (hpd) — Toplam Hata'dan hesaplananın üstüne yazsın diye EN SON
+                        if(o.hpd!=null && typeof updateDefectScorePuan==='function'){ try{ updateDefectScorePuan(sup.name, o.hpd); }catch(e){} }
                         n++;
                     });
                 } finally { window._applyingPerfOverrides = false; }
@@ -11539,7 +11544,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // Yönetim penceresi: kayıtlı elle düzeltmeleri listele / tek tek veya tümünü sil
         function showPerfOverridesDialog(){
             var all=_getPerfOverrides(); var keys=Object.keys(all).sort();
-            var FL={sevk:'Toplam Sevk', hata:'Toplam Hata', trm:'Termin Puanı', tmm:'Tamamlanma Puanı'};
+            var FL={sevk:'Toplam Sevk', hata:'Toplam Hata', hpd:'Hata Puanı (direkt)', vda:'VDA/Denetim Puanı', trm:'Termin Puanı', tmm:'Tamamlanma Puanı'};
             var _adm=isErpAdmin();
             var h='<div style="text-align:left;max-height:420px;overflow:auto;">';
             h+='<div style="margin-bottom:10px;color:#555;font-size:0.9em;">Elle yapılan Sevk/Hata/Termin/Tamamlanma düzeltmeleri burada saklanır ve <b>LeanSys yenilemesinden sonra otomatik geri uygulanır</b> (tüm kullanıcılarda görünür).'
@@ -12407,13 +12412,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         function updateVDAPuan(supplierName, newPuan) {
+            if(!_perfEditAllowed(supplierName)) return;   // sadece admin
             let puan = parseFloat(newPuan) || 0;
             if (puan < 0) puan = 0;
             if (puan > 100) puan = 100;
-            
+
             const supplier = allResults.find(r => r.name === supplierName);
             if (supplier) {
                 supplier.vdaPuan = puan;
+                recordPerfOverride(supplierName, 'vda', puan);   // kalıcı: LeanSys yenilemesi ezmesin
                 // Tüm aylara da uygula (eğer aylık veri yoksa)
                 for (let m = 0; m < 12; m++) {
                     if (!supplier.monthlyVdaPuan[m]) {
@@ -12432,9 +12439,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         function update8D(supplierName, type, newValue) {
+            if(!_perfEditAllowed(supplierName)) return;   // sadece admin
             const value = parseInt(newValue) || 0;
             const supplier = allResults.find(r => r.name === supplierName);
-            
+
             if (supplier) {
                 if (type === 'talep') {
                     supplier.talepEdilen8D = value;
@@ -20156,15 +20164,17 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         }
 
         function updateDefectScorePuan(supplierName, newValue) {
+            if(!_perfEditAllowed(supplierName)) return;   // sadece admin
             // Scroll pozisyonunu kaydet
             const scrollY = window.pageYOffset || document.documentElement.scrollTop;
             const tableWrapper = document.querySelector('.table-wrapper');
             const horizontalScrollLeft = tableWrapper ? tableWrapper.scrollLeft : 0;
-            
+
             const value = Math.max(0, Math.min(100, parseFloat(newValue) || 0));
             const supplier = allResults.find(r => r.name === supplierName);
             if (supplier) {
                 supplier.hataPuan = value / 100;
+                recordPerfOverride(supplierName, 'hpd', value);   // kalıcı: direkt Hata Puanı, LeanSys yenilemesi ezmesin
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
                 supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
                 updateSupplierCells(supplierName);
