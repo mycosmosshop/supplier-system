@@ -7522,8 +7522,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const uploadBtn = document.getElementById('uploadDocBtn');
             const typeSelect = document.getElementById('documentTypeSelect');
             
-            // Upload alanı tıklama
-            uploadArea.onclick = () => fileInput.click();
+            // Upload alanı tıklama → dosya penceresini aç (input'un kendisine tıklanırsa çift açılmasın)
+            uploadArea.onclick = (e) => { if (e.target !== fileInput) fileInput.click(); };
             
             // Drag and drop
             uploadArea.ondragover = (e) => {
@@ -7562,10 +7562,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const description = descInput ? descInput.value.trim() : '';
                 
                 if (!file) {
-                    showAlert('❌ Lütfen bir dosya seçin', 'error');
+                    // Dosya seçilmemiş → "Doküman Seç" atlanmış olabilir; dosya penceresini OTOMATİK aç (Yükle'ye basınca seçtirsin)
+                    showAlert('📁 Önce bir dosya seçin — dosya penceresi açılıyor…', 'info');
+                    fileInput.click();
                     return;
                 }
-                
+
                 if (!docType) {
                     showAlert('❌ Lütfen doküman türü seçin', 'error');
                     return;
