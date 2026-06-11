@@ -7983,6 +7983,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // yaptığı düzeltmeleri EZMEZ; snapshot da düzeltilmiş haliyle kaydedilsin diye saveEdits'ten ÖNCE.
                 var _ovr = 0;
                 try { if (typeof applyPerfOverrides === 'function') _ovr = applyPerfOverrides(donem); } catch (e) {}
+                // 8D sayılarını RAPORLARDAN kesin reconcile et (orphan değer temizlenir; rapor yoksa 0) + skor/sınıf tazelenir → snapshot DOĞRU 8D ile kaydedilsin
+                try { if (typeof load8DCountsFromDB === 'function') await load8DCountsFromDB(); } catch (e) {}
                 // dönem olarak kaydet + paylaş (processFile onload'unun yaptığı)
                 try { if (typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(donem); } catch (e) {}
                 try { localStorage.setItem('_currentPeriodName', donem); } catch (e) {}
@@ -9270,12 +9272,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     certExpiryDates: {},
                     kalitePuan: kalitePuan,
                     vdaPuan: vdaPuan,
-                    talepEdilen8D: existingSupplier?.talepEdilen8D || counts8DMap.get(supplier.normalizedName)?.talepEdilen8D || 0,
-                    cevaplanan8D: existingSupplier?.cevaplanan8D || counts8DMap.get(supplier.normalizedName)?.cevaplanan8D || 0,
+                    // 8D sayıları YALNIZ kalıcı 8D sayı deposundan (counts8DMap) gelir — existingSupplier'daki ORPHAN değer korunmaz
+                    // (re-pull sonrası load8DCountsFromDB raporlardan kesin reconcile eder; rapor yoksa 0). Dönüş oranı = cevap/talep.
+                    talepEdilen8D: counts8DMap.get(supplier.normalizedName)?.talepEdilen8D || 0,
+                    cevaplanan8D: counts8DMap.get(supplier.normalizedName)?.cevaplanan8D || 0,
                     donusOrani8D: (() => {
-                        const talep = existingSupplier?.talepEdilen8D || counts8DMap.get(supplier.normalizedName)?.talepEdilen8D || 0;
+                        const talep = counts8DMap.get(supplier.normalizedName)?.talepEdilen8D || 0;
                         if (talep === 0) return 100; // Hiç 8D talebi yoksa %100
-                        return existingSupplier?.donusOrani8D || counts8DMap.get(supplier.normalizedName)?.donusOrani8D || donusOrani8D;
+                        const cevap = counts8DMap.get(supplier.normalizedName)?.cevaplanan8D || 0;
+                        return Math.min(100, (cevap / talep) * 100);
                     })(),
                     terminPuan: terminPuan,
                     tamamlanmaPuan: tamamlanmaPuan,
@@ -28140,12 +28145,13 @@ Devam etmek istiyor musunuz?`;
             }
             
             console.log('8D sayıları veritabanından yükleniyor...');
-            
-            try {
+
+            return new Promise((resolve) => {
+              try {
                 const transaction = db.transaction([REPORT_8D_STORE_NAME], 'readonly');
                 const objectStore = transaction.objectStore(REPORT_8D_STORE_NAME);
                 const getAllRequest = objectStore.getAll();
-                
+
                 getAllRequest.onsuccess = () => {
                     const allReports = getAllRequest.result;
                     console.log(`Toplam ${allReports.length} adet 8D raporu bulundu`);
@@ -28188,21 +28194,21 @@ Devam etmek istiyor musunuz?`;
                                 supplier.talepEdilen8D = counts.talepEdilen;
                                 supplier.cevaplanan8D = counts.cevaplanan;
                                 
-                                // Dönüş oranını hesapla
+                                // Dönüş oranını hesapla (8D yok = %100 — ekranla ve diğer no-8D tedarikçilerle TUTARLI; 8D olmaması iyi)
                                 if (supplier.talepEdilen8D > 0) {
                                     supplier.donusOrani8D = (supplier.cevaplanan8D / supplier.talepEdilen8D) * 100;
                                 } else {
-                                    supplier.donusOrani8D = 0;
+                                    supplier.donusOrani8D = 100;
                                 }
-                                
+
                                 updatedCount++;
                                 console.log(`8D güncellendi: ${supplierName} - Talep: ${counts.talepEdilen}, Cevaplanan: ${counts.cevaplanan}`);
                             } else {
-                                // Raporu olmayan tedarikçi - sayıları sıfırla
+                                // Raporu olmayan tedarikçi - sayıları sıfırla (8D yok = dönüş oranı %100, mükemmel)
                                 if (supplier.talepEdilen8D > 0 || supplier.cevaplanan8D > 0) {
                                     supplier.talepEdilen8D = 0;
                                     supplier.cevaplanan8D = 0;
-                                    supplier.donusOrani8D = 0;
+                                    supplier.donusOrani8D = 100;
                                     clearedCount++;
                                     console.log(`8D temizlendi: ${supplierName} - Silinen raporlar kaldırıldı`);
                                 }
@@ -28210,21 +28216,34 @@ Devam etmek istiyor musunuz?`;
                         });
                         
                         console.log(`✅ ${updatedCount} tedarikçinin 8D sayıları güncellendi, ${clearedCount} tedarikçi temizlendi`);
-                        
+
+                        // 8D değişti → tedarikçi puanı ve SINIFI yeniden hesapla (sınıf 8D'ye bağlı)
+                        try {
+                            allResults.forEach(function(s){
+                                if (typeof calculateTedarikcipuani === 'function') s.tedarikcipuani = calculateTedarikcipuani(s);
+                                if (typeof calculateTedarikcisınıfı === 'function') s.tedarikcisınıfı = calculateTedarikcisınıfı(s.tedarikcipuani);
+                            });
+                        } catch(e){ console.warn('8D sonrası skor hesaplama:', e); }
+
                         // Tabloyu güncelle
                         if (typeof renderTable === 'function') {
                             renderTable(lastFilteredResults || allResults);
                         }
+                        try { if (typeof updateDashboard === 'function') updateDashboard(lastFilteredResults && lastFilteredResults.length ? lastFilteredResults : allResults); } catch(e){}
                     }
+                    resolve();
                 };
-                
+
                 getAllRequest.onerror = () => {
                     console.error('8D raporları yükleme hatası:', getAllRequest.error);
+                    resolve();
                 };
-                
-            } catch (e) {
+
+              } catch (e) {
                 console.error('8D sayıları yükleme hatası:', e);
-            }
+                resolve();
+              }
+            });
         }
         
         // Tedarikçi verisindeki 8D sayılarını güncelle
