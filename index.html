@@ -16848,10 +16848,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                                 }).join('')}
                                             </tr>
                                         ` : ''}
+                                        ${chart.tableData.puan !== undefined ? `
                                         <tr style="background: ${chart.tableData.gun !== undefined || chart.tableData.sevk !== undefined ? '#f9f9f9' : '#fff'};">
                                             <td style="padding: 5px; border: 1px solid #ddd; font-weight: 600; background: ${chart.color}20;">Puan (%)</td>
-                                            ${Array(12).fill(0).map((_, idx) => `<td style="padding: 5px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${(chart.tableData.puan[idx] || 0).toFixed(1)}%</td>`).join('')}
+                                            ${Array(12).fill(0).map((_, idx) => `<td style="padding: 5px; border: 1px solid #ddd; text-align: right; font-weight: 600;">${((chart.tableData.puan && chart.tableData.puan[idx]) || 0).toFixed(1)}%</td>`).join('')}
                                         </tr>
+                                        ` : ''}
                                     </tbody>
                                 </table>
                             </div>
