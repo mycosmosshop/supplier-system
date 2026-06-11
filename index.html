@@ -1637,7 +1637,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <button class="btn btn-primary" onclick="showEditsDialog()" style="display:none">💾 Düzenlemeleri Kaydet</button>
                     <button class="btn btn-primary" id="editsVersionBtn" onclick="showEditsHistory()" style="background: #ff9800; border-color: #ff9800;">📊 Kaydedilen Sürümler (0)</button>
                     <button class="btn btn-primary" onclick="showSaveFilterDialog()">🔍 Filtreyi Kaydet</button>
-                    <button class="btn btn-primary" onclick="showPerfOverridesDialog()" title="Elle yapılan Sevk/Hata/Termin/Tamamlanma düzeltmeleri — LeanSys yenilemesi bunları ezmez" style="background: #6d4c41; border-color: #6d4c41;">✋ Elle Düzeltmeler</button>
+                    <button id="perfOverridesBtn" class="btn btn-primary" onclick="showPerfOverridesDialog()" title="Elle yapılan Sevk/Hata/Termin/Tamamlanma düzeltmeleri — LeanSys yenilemesi bunları ezmez (yalnızca yönetici)" style="background: #6d4c41; border-color: #6d4c41; display: none;">✋ Elle Düzeltmeler</button>
                     <button class="btn btn-primary" id="report8DListBtn" onclick="show8DReportList()" style="background: #1e3c72; border-color: #1e3c72;">📋 8D Raporlar (<span id="report8DCount">0</span>)</button>
                     <button class="btn btn-primary" onclick="showDocumentMatrixModal()" style="background: #9c27b0; border-color: #9c27b0;">📊 Doküman Matrisi</button>
                     <button class="btn btn-primary" onclick="showQualityCertMatrixModal()" style="background: #00897b; border-color: #00897b;">📋 Kalite Belge Matrisi</button>
@@ -11503,8 +11503,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // ADMIN: elle performans düzeltmelerini YALNIZ admin yapabilir (window.ERP_IS_ADMIN, supplier-sync erp_users.is_admin'den set eder).
         // Çözülene kadar (undefined) güvenli taraf = düzenleme KAPALI; admin'de erp-admin-ready ile tablo tazelenir.
         function isErpAdmin(){ return window.ERP_IS_ADMIN === true; }
-        // Admin durumu (supplier-sync'ten) çözülünce tabloyu tazele → düzenlenebilirlik (contenteditable/disabled) doğru yansısın
-        try{ window.addEventListener('erp-admin-ready', function(){ try{ if(allResults && allResults.length && typeof displayResults==='function') displayResults(); }catch(e){} }); }catch(e){}
+        // "Elle Düzeltmeler" butonu YALNIZCA admin'e görünür (varsayılan gizli; admin çözülünce gösterilir)
+        function _updateAdminUI(){ try{ var b=document.getElementById('perfOverridesBtn'); if(b) b.style.display = isErpAdmin() ? '' : 'none'; }catch(e){} }
+        // Admin durumu (supplier-sync'ten) çözülünce: tabloyu tazele (düzenlenebilirlik) + admin-only UI'yı göster/gizle
+        try{ window.addEventListener('erp-admin-ready', function(){ _updateAdminUI(); try{ if(allResults && allResults.length && typeof displayResults==='function') displayResults(); }catch(e){} }); }catch(e){}
+        try{ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', _updateAdminUI); } else { _updateAdminUI(); } }catch(e){} // erp-admin-ready zaten geçmişse de uygula
         function _perfEditAllowed(supplierName){
             if (isErpAdmin() || window._applyingPerfOverrides) return true;   // admin VEYA otomatik geri-uygulama serbest
             try{ showAlert('🔒 Bu değeri yalnızca yönetici (admin) düzenleyebilir. Görebilirsiniz ama değiştiremezsiniz.', 'error'); }catch(e){}
