@@ -4315,11 +4315,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         // ======== Doküman Modal Fonksiyonları ========
-        async function openDocumentModal(supplierName) {
+        async function openDocumentModal(supplierName, skipDriveSync) {
             const modal = document.getElementById('documentModal');
             if (!modal) {
                 showAlert('❌ Modal öğesi bulunamadı', 'error');
                 return;
+            }
+            // Drive'daki güncel dokümanları arka planda çek (oturumda 1 kez); yeni geldiyse modalı yeniden çiz (tüm kullanıcılar admin'in yüklediklerini görsün)
+            if (!skipDriveSync) {
+                try { syncDocumentsFromDriveBackup(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentModal'); if(mm && mm.style.display==='flex') openDocumentModal(supplierName, true); } }); } catch(e){}
             }
 
             // Başlığı güncelle
@@ -5180,11 +5184,45 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         let matrixCurrentSuppliers = [];
         let matrixDocTypes = [];
         
-        async function showDocumentMatrixModal() {
+        // Dokümanları Drive YEDEĞİNDEN tüm kullanıcılara senkronla.
+        // Dokümanlar canlı senkronda değil (büyük); canlı senkron tedarikçi verisini verince yerel "dolu" sayılıp
+        // açılıştaki Drive çekimi atlanıyordu → non-admin'ler admin'in yüklediği dokümanları göremiyordu. Bu fonksiyon onu çözer.
+        // Yalnız OKUMA (Drive'a yazmaz); supplierDocuments store'una Drive'daki daha YENİ kayıtları yazar (lastUpdated'a göre).
+        async function syncDocumentsFromDriveBackup(force){
+            try{
+                if(!db) return 0;
+                if(!force && sessionStorage.getItem('_docsSyncedFromDrive')) return 0;
+                if(!(typeof getDriveSettings==='function' && getDriveSettings() && typeof driveJsonp==='function')) return 0;
+                var r = await driveJsonp({action:'latest'});
+                if(!r || !r.content){ sessionStorage.setItem('_docsSyncedFromDrive','1'); return 0; }
+                var data = typeof r.content==='string' ? JSON.parse(r.content) : r.content;
+                var remoteDocs = (data && data.stores && data.stores.supplierDocuments) || [];
+                var n=0;
+                for(var i=0;i<remoteDocs.length;i++){
+                    var rec=remoteDocs[i]; if(!rec || !rec.normalizedName) continue;
+                    var local = await new Promise(function(res){ var rq=db.transaction([DOC_STORE_NAME],'readonly').objectStore(DOC_STORE_NAME).get(rec.normalizedName); rq.onsuccess=function(){res(rq.result);}; rq.onerror=function(){res(null);}; });
+                    var rT=new Date(rec.lastUpdated||0).getTime();
+                    var lT=local?new Date(local.lastUpdated||0).getTime():-1;
+                    if(!local || rT>lT){
+                        await new Promise(function(res,rej){ var tx=db.transaction([DOC_STORE_NAME],'readwrite'); tx.oncomplete=res; tx.onerror=function(){rej(tx.error);}; tx.objectStore(DOC_STORE_NAME).put(rec); });
+                        n++;
+                    }
+                }
+                sessionStorage.setItem('_docsSyncedFromDrive','1');
+                if(n) console.log('📄 '+n+' tedarikçinin dokümanları Drive yedeğinden senkronlandı (tüm kullanıcılar görür)');
+                return n;
+            }catch(e){ console.warn('Doküman Drive senkron:', e); return 0; }
+        }
+
+        async function showDocumentMatrixModal(skipDriveSync) {
             const modal = document.getElementById('documentMatrixModal');
             if (!modal) {
                 showAlert('❌ Modal bulunamadı', 'error');
                 return;
+            }
+            // Drive'daki güncel dokümanları arka planda çek (oturumda 1 kez); yeni geldiyse matrisi yeniden çiz (döngüsüz)
+            if (!skipDriveSync) {
+                try { syncDocumentsFromDriveBackup(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentMatrixModal'); if(mm && mm.style.display==='flex') showDocumentMatrixModal(true); } }); } catch(e){}
             }
 
             // Filtrelenmiş sonuçları kullan
@@ -14156,6 +14194,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         // Yerelden yüklendiyse Drive yedeğini de arka planda güncelle (tek kaynak güncel kalsın)
                         if (_loaded && typeof autoDriveBackup === 'function') { setTimeout(function(){ try{ autoDriveBackup(); }catch(e){} }, 4000); }
                         if (allResults && allResults.length > 0 && typeof load8DCountsFromDB === 'function') { await load8DCountsFromDB(); }
+                        // NOT: Doküman Drive senkronu açılışta DEĞİL, doküman matrisi/modalı ilk açıldığında (oturumda 1 kez) çalışır — gereksiz ağır indirme olmasın.
                     } catch(e) { console.warn('Açılış otomatik yükleme hatası:', e); }
                     // NOT: "Kaydedilmiş Sürümler" penceresi artık otomatik açılmaz; gerekirse butondan açılır.
                 }, 500);
@@ -24983,9 +25022,12 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         // Base64'ü blob'a çevir (helper fonksiyon)
         function base64ToBlob(base64) {
             try {
-                // Data URL formatını parse et (data:image/png;base64,...)
+                // Geçerli data URL değilse sessizce null dön (bozuk/eksik kayıt konsolu kirletmesin)
+                if (!base64 || typeof base64 !== 'string') return null;
                 const arr = base64.split(',');
-                const mime = arr[0].match(/:(.*?);/)[1];
+                const mimeMatch = arr[0] ? arr[0].match(/:(.*?);/) : null;
+                if (!mimeMatch || arr.length < 2 || !arr[1]) return null;   // 'data:...;base64,xxx' değil
+                const mime = mimeMatch[1];
                 const bstr = atob(arr[1]);
                 let n = bstr.length;
                 const u8arr = new Uint8Array(n);
