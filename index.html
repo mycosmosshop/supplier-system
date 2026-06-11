@@ -3941,7 +3941,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                     fileName: file.name,
                                     timestamp: new Date().toISOString()
                                 });
-                                try { if (typeof backupDocumentsToDrive === 'function') backupDocumentsToDrive(true); } catch(e){} // belgeyi AYRI Drive dosyasına yedekle (tüm kullanıcılar görsün)
+                                try { if (typeof backupOneSupplierDocsToDrive === 'function') backupOneSupplierDocsToDrive(supplierName, true); } catch(e){} // bu tedarikçinin belgelerini ayrı Drive dosyasına yedekle
                                 resolve(record);
                             };
                             putRequest.onerror = () => reject(putRequest.error);
@@ -4169,7 +4169,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                         timestamp: new Date().toISOString()
                                     });
                                 }
-                                try { if (typeof backupDocumentsToDrive === 'function') backupDocumentsToDrive(true); } catch(e){} // silmeyi de ayrı Drive dosyasına yansıt
+                                try { if (typeof backupOneSupplierDocsToDrive === 'function') backupOneSupplierDocsToDrive(supplierName, true); } catch(e){} // silmeyi de bu tedarikçinin Drive dosyasına yansıt
                                 resolve(record);
                             };
                             putRequest.onerror = () => reject(putRequest.error);
@@ -4322,11 +4322,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 showAlert('❌ Modal öğesi bulunamadı', 'error');
                 return;
             }
-            // Drive'daki güncel dokümanları arka planda çek (oturumda 1 kez); yeni geldiyse modalı yeniden çiz (tüm kullanıcılar admin'in yüklediklerini görsün)
+            // Doküman penceresi: YALNIZ bu tedarikçinin tam dosyasını indir (içerik dahil); geldiyse modalı yeniden çiz
             if (!skipDriveSync) {
                 try {
-                    if(!sessionStorage.getItem('_docsSyncedFromDrive')) showAlert('⏳ Dokümanlar Drive\'dan yükleniyor (birkaç saniye sürebilir)…', 'info');
-                    syncDocumentsFromDriveBackup(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentModal'); if(mm && mm.style.display==='flex') openDocumentModal(supplierName, true); } });
+                    var _nm=supplierName;
+                    _docGet(normalizeName(_nm)).then(function(loc){ if(!loc || loc.__metaOnly) showAlert('⏳ Doküman içeriği Drive\'dan yükleniyor…', 'info'); }).catch(function(){});
+                    syncOneSupplierDocsFromDrive(_nm).then(function(ch){ if(ch){ var mm=document.getElementById('documentModal'); if(mm && mm.style.display==='flex') openDocumentModal(_nm, true); } });
                 } catch(e){}
             }
 
@@ -5188,53 +5189,89 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         let matrixCurrentSuppliers = [];
         let matrixDocTypes = [];
         
-        // Dokümanları Drive YEDEĞİNDEN tüm kullanıcılara senkronla.
-        // Dokümanlar canlı senkronda değil (büyük); canlı senkron tedarikçi verisini verince yerel "dolu" sayılıp
-        // açılıştaki Drive çekimi atlanıyordu → non-admin'ler admin'in yüklediği dokümanları göremiyordu. Bu fonksiyon onu çözer.
-        // Yalnız OKUMA (Drive'a yazmaz); supplierDocuments store'una Drive'daki daha YENİ kayıtları yazar (lastUpdated'a göre).
-        // Dokümanları AYRI Drive dosyasına (DOCS_BACKUP.json) yedekle — ana yedekten bağımsız, yalnız doküman değişince çağrılır.
-        // BOŞ yedek YAZMAZ (Drive'daki belgeleri silmemek için koruma). Sadece OKUMA/yazma, salt-okuma değil.
-        async function backupDocumentsToDrive(silent){
+        // ======== DOKÜMAN DRIVE SENKRONU — TEDARİKÇİ BAŞINA AYRI DOSYA ========
+        // Belgeler canlı senkronda değil (büyük base64). Her tedarikçinin belgeleri AYRI Drive dosyasında: DOC_<norm>.json.
+        // Hafif DOCS_INDEX.json hangi tedarikçide hangi tür belge var (metadata, içerik YOK) → matris bunu çeker (küçük).
+        // Doküman penceresi açılınca yalnız O tedarikçinin DOC_<norm>.json'u indirilir (tüm belgeleri indirmeye gerek yok).
+        function _docGet(norm){ return new Promise(function(res){ try{ var rq=db.transaction([DOC_STORE_NAME],'readonly').objectStore(DOC_STORE_NAME).get(norm); rq.onsuccess=function(){res(rq.result||null);}; rq.onerror=function(){res(null);}; }catch(e){res(null);} }); }
+        function _docPut(rec){ return new Promise(function(res,rej){ try{ var tx=db.transaction([DOC_STORE_NAME],'readwrite'); tx.oncomplete=res; tx.onerror=function(){rej(tx.error);}; tx.objectStore(DOC_STORE_NAME).put(rec); }catch(e){rej(e);} }); }
+        function _docDriveName(norm){ return 'DOC_'+String(norm||'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,80)+'.json'; }
+        async function _fetchDocsIndex(){ try{ var r=await driveJsonp({action:'getfile', name:'DOCS_INDEX.json'}); if(r&&r.content){ var d=typeof r.content==='string'?JSON.parse(r.content):r.content; if(d&&d.suppliers) return d; } }catch(e){} return {suppliers:{}}; }
+
+        // Tek tedarikçinin belgelerini Drive'a yaz (DOC_<norm>.json) + hafif indeksi güncelle. Yazımları sırala (indeks yarışı olmasın).
+        var _docBackupQueue = Promise.resolve();
+        function backupOneSupplierDocsToDrive(supplierName, silent){ _docBackupQueue = _docBackupQueue.then(function(){ return _backupOneSupplierImpl(supplierName, silent); }).catch(function(){}); return _docBackupQueue; }
+        async function _backupOneSupplierImpl(supplierName, silent){
             try{
                 if(!db) return;
                 if (/[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search)) return;
                 if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname) || location.protocol === 'file:') return; // localhost/önizleme yazmaz
                 var s=(typeof getDriveSettings==='function') ? getDriveSettings() : null; if(!s) return;
-                var allData=await new Promise(function(res,rej){ var tx=db.transaction([DOC_STORE_NAME],'readonly'); var rq=tx.objectStore(DOC_STORE_NAME).getAll(); rq.onsuccess=function(){res(rq.result||[]);}; rq.onerror=function(){rej(rq.error);}; });
-                var nfiles=0;
-                for(var d=0;d<allData.length;d++){ var rec=allData[d]; if(rec&&rec.documents){ for(var dt in rec.documents){ var files=rec.documents[dt]||[]; nfiles+=files.length; for(var f=0;f<files.length;f++){ var file=files[f]; if(file&&file.blob){ try{ if(!file.data && typeof blobToBase64==='function') file.data=await blobToBase64(file.blob); }catch(e){} delete file.blob; } } } } }
-                if(nfiles===0){ if(!silent) showAlert('ℹ️ Yedeklenecek doküman yok.', 'info'); return; }   // BOŞ yazma yok → Drive'daki belgeler korunur
-                var json=JSON.stringify({ exportedAt:new Date().toISOString(), stores:{ supplierDocuments:allData } });
-                await fetch(s.url, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'save', secret:s.secret, name:'DOCS_BACKUP.json', content:json})});
-                if(!silent) showAlert('✅ Dokümanlar Drive\'a yedeklendi ('+nfiles+' dosya).', 'success'); else console.log('📄 Dokümanlar Drive\'a yedeklendi ('+nfiles+' dosya)');
-            }catch(e){ console.warn('Doküman Drive yedek:', e); }
+                var norm=normalizeName(supplierName);
+                var rec=await _docGet(norm);
+                var file=_docDriveName(norm);
+                var docMeta={}, nfiles=0;
+                if(rec && rec.documents){ for(var dt in rec.documents){ var files=rec.documents[dt]||[]; var metaArr=[]; for(var f=0;f<files.length;f++){ var fi=files[f]; if(fi && fi.blob){ try{ if(!fi.data && typeof blobToBase64==='function') fi.data=await blobToBase64(fi.blob); }catch(e){} delete fi.blob; } metaArr.push({id:fi.id,name:fi.name,size:fi.size,type:fi.type,timestamp:fi.timestamp,status:fi.status,description:fi.description}); nfiles++; } if(metaArr.length) docMeta[dt]=metaArr; } }
+                // 1) tedarikçi-başına TAM dosya (içerik dahil)
+                var full=JSON.stringify({ exportedAt:new Date().toISOString(), record: Object.assign({}, rec||{normalizedName:norm, supplierName:supplierName, documents:{}, exemptDocTypes:[]}, {__metaOnly:false}) });
+                await fetch(s.url, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'save', secret:s.secret, name:file, content:full})});
+                // 2) hafif indeksi güncelle (içerik YOK)
+                var idx=await _fetchDocsIndex();
+                if(nfiles>0){ idx.suppliers[norm]={ name:supplierName, file:file, lastUpdated:(rec&&rec.lastUpdated)||new Date().toISOString(), exemptDocTypes:(rec&&rec.exemptDocTypes)||[], docMeta:docMeta }; }
+                else { delete idx.suppliers[norm]; } // tüm belgeler silindi → indeksten çıkar
+                idx.updatedAt=new Date().toISOString();
+                await fetch(s.url, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'save', secret:s.secret, name:'DOCS_INDEX.json', content:JSON.stringify(idx)})});
+                if(!silent) showAlert('✅ '+supplierName+' dokümanları Drive\'a kaydedildi.', 'success'); else console.log('📄 '+supplierName+' dokümanları Drive\'a kaydedildi ('+nfiles+' dosya)');
+            }catch(e){ console.warn('Tedarikçi doküman yedek:', e); }
         }
 
-        async function syncDocumentsFromDriveBackup(force){
+        // MATRİS için: hafif indeksten her tedarikçinin belge VARLIĞINI (içeriksiz) yerele yaz → matris ✓/✗ gösterir
+        async function syncDocsIndexFromDrive(force){
             try{
                 if(!db) return 0;
-                if(!force && sessionStorage.getItem('_docsSyncedFromDrive')) return 0;
+                if(!force && sessionStorage.getItem('_docsIdxSynced')) return 0;
                 if(!(typeof getDriveSettings==='function' && getDriveSettings() && typeof driveJsonp==='function')) return 0;
-                // Belgeler AYRI dosyada (DOCS_BACKUP.json); ana 15MB yedeği çekmeye gerek yok
-                var r = await driveJsonp({action:'getfile', name:'DOCS_BACKUP.json'});
-                if(!r || !r.content){ sessionStorage.setItem('_docsSyncedFromDrive','1'); return 0; }
-                var data = typeof r.content==='string' ? JSON.parse(r.content) : r.content;
-                var remoteDocs = (data && data.stores && data.stores.supplierDocuments) || [];
-                var n=0;
-                for(var i=0;i<remoteDocs.length;i++){
-                    var rec=remoteDocs[i]; if(!rec || !rec.normalizedName) continue;
-                    var local = await new Promise(function(res){ var rq=db.transaction([DOC_STORE_NAME],'readonly').objectStore(DOC_STORE_NAME).get(rec.normalizedName); rq.onsuccess=function(){res(rq.result);}; rq.onerror=function(){res(null);}; });
-                    var rT=new Date(rec.lastUpdated||0).getTime();
-                    var lT=local?new Date(local.lastUpdated||0).getTime():-1;
-                    if(!local || rT>lT){
-                        await new Promise(function(res,rej){ var tx=db.transaction([DOC_STORE_NAME],'readwrite'); tx.oncomplete=res; tx.onerror=function(){rej(tx.error);}; tx.objectStore(DOC_STORE_NAME).put(rec); });
+                var idx=await _fetchDocsIndex(); var sup=idx.suppliers||{}; var n=0;
+                for(var norm in sup){ var e=sup[norm];
+                    var local=await _docGet(norm);
+                    var rT=new Date(e.lastUpdated||0).getTime(); var lT=local?new Date(local.lastUpdated||0).getTime():-1;
+                    // Yerelde TAM (içerikli) ve güncel kayıt varsa dokunma; yoksa içeriksiz "presence" yaz
+                    if(!local || ((local.__metaOnly) ? rT>=lT : rT>lT)){
+                        var documents={}; var dm=e.docMeta||{};
+                        for(var dt in dm){ documents[dt]=(dm[dt]||[]).map(function(m){ return Object.assign({__remote:true}, m); }); }
+                        await _docPut({ normalizedName:norm, supplierName:e.name, lastUpdated:e.lastUpdated, exemptDocTypes:e.exemptDocTypes||[], documents:documents, __metaOnly:true });
                         n++;
                     }
                 }
-                sessionStorage.setItem('_docsSyncedFromDrive','1');
-                if(n) console.log('📄 '+n+' tedarikçinin dokümanları Drive yedeğinden senkronlandı (tüm kullanıcılar görür)');
+                sessionStorage.setItem('_docsIdxSynced','1');
+                if(n) console.log('📄 İndeks: '+n+' tedarikçi belge varlığı senkronlandı');
                 return n;
-            }catch(e){ console.warn('Doküman Drive senkron:', e); return 0; }
+            }catch(e){ console.warn('Doküman indeks senkron:', e); return 0; }
+        }
+
+        // DOKÜMAN PENCERESİ için: yalnız O tedarikçinin TAM dosyasını (içerikli) indir
+        async function syncOneSupplierDocsFromDrive(supplierName){
+            try{
+                if(!db) return false;
+                if(!(typeof getDriveSettings==='function' && getDriveSettings() && typeof driveJsonp==='function')) return false;
+                var norm=normalizeName(supplierName);
+                var local0=await _docGet(norm);
+                // Yerelde içerikli (meta-only DEĞİL) kayıt varsa ve bu oturumda zaten çektiysek tekrar indirme
+                var key='_docFetched_'+norm;
+                if(local0 && !local0.__metaOnly && sessionStorage.getItem(key)) return false;
+                var idx=await _fetchDocsIndex(); var e=(idx.suppliers||{})[norm];
+                var file=(e&&e.file)||_docDriveName(norm);
+                var r=await driveJsonp({action:'getfile', name:file});
+                if(!r||!r.content){ sessionStorage.setItem(key,'1'); return false; }
+                var d=typeof r.content==='string'?JSON.parse(r.content):r.content;
+                var rec=d&&d.record; if(!rec||!rec.normalizedName){ sessionStorage.setItem(key,'1'); return false; }
+                var local=await _docGet(norm);
+                var rT=new Date(rec.lastUpdated||0).getTime(); var lT=local?new Date(local.lastUpdated||0).getTime():-1;
+                var changed=false;
+                if(!local || local.__metaOnly || rT>lT){ rec.__metaOnly=false; await _docPut(rec); changed=true; }
+                sessionStorage.setItem(key,'1');
+                return changed;
+            }catch(e){ console.warn('Tedarikçi doküman indir:', e); return false; }
         }
 
         async function showDocumentMatrixModal(skipDriveSync) {
@@ -5243,11 +5280,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 showAlert('❌ Modal bulunamadı', 'error');
                 return;
             }
-            // Drive'daki güncel dokümanları arka planda çek (oturumda 1 kez); yeni geldiyse matrisi yeniden çiz (döngüsüz)
+            // Matris: hafif İNDEKSİ çek (tüm belgeleri İNDİRMEZ) → belge varlığı (✓/✗) gelir; yeni geldiyse matrisi yeniden çiz (döngüsüz)
             if (!skipDriveSync) {
                 try {
-                    if(!sessionStorage.getItem('_docsSyncedFromDrive')) showAlert('⏳ Dokümanlar Drive\'dan yükleniyor (birkaç saniye sürebilir)…', 'info');
-                    syncDocumentsFromDriveBackup(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentMatrixModal'); if(mm && mm.style.display==='flex') showDocumentMatrixModal(true); } });
+                    syncDocsIndexFromDrive(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentMatrixModal'); if(mm && mm.style.display==='flex') showDocumentMatrixModal(true); } });
                 } catch(e){}
             }
 
