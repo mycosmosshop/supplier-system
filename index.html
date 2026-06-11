@@ -10465,7 +10465,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                               data-original="${result.totalHata || 0}"
                               onkeydown="if(event.key==='Enter'){event.preventDefault();const v=this.textContent.replace(/\\./g,'').replace(/,/g,'');if(v!=this.dataset.original){updateTotalHata(this.dataset.supplier,this.textContent);this.dataset.original=v;}this.blur();return false;}"
                               onfocus="this.style.background='#fffde7';this.dataset.original=this.textContent.replace(/\\./g,'').replace(/,/g,'');"
-                              onblur="this.style.background=''">${(result.totalHata || 0).toLocaleString('tr-TR')}</span>
+                              onblur="this.style.background='';const v=this.textContent.replace(/\\./g,'').replace(/,/g,'');if(v!=this.dataset.original&&v!==''){updateTotalHata(this.dataset.supplier,this.textContent);this.dataset.original=v;}">${(result.totalHata || 0).toLocaleString('tr-TR')}</span>
                     </td>
                     <td class="text-right">
                         <div style="display: inline-flex; align-items: center; gap: 2px;">
