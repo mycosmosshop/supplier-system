@@ -445,7 +445,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             background: #d4edda !important;
             color: #155724 !important;
         }
-        
+        .status-dropdown.status-onaysiz {
+            background: #f8d7da !important;   /* kırmızı — onaysız */
+            color: #721c24 !important;
+        }
+        .status-dropdown.status-musteri {
+            background: #cfe2ff !important;   /* mavi — müşteri */
+            color: #084298 !important;
+        }
+
         .ppm-value {
             font-weight: 600;
         }
@@ -10341,12 +10349,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (result.iso45001) belgeler.push('ISO 45001' + (result.certExpiryDates?.iso45001 ? ` (${new Date(result.certExpiryDates.iso45001).toLocaleDateString('tr-TR')})` : ''));
             const belgeText = belgeler.length > 0 ? belgeler.join(', ') : '-';
             
-            // Tedarikçi sınıfına göre durum rengi
-            let statusBadgeClass = statusClass;
-            if (result.tedarikcisınıfı === 'D') {
-                statusBadgeClass = 'status-class-d'; // Kırmızı
-            } else if (result.tedarikcisınıfı === 'C') {
-                statusBadgeClass = 'status-class-c'; // Sarı
+            // Durum rozeti rengi = ONAY DURUMUNA göre (sınıf DEĞİL; sınıf zaten ayrı sütunda A/B/C/D olarak gösterilir)
+            let statusBadgeClass;
+            {
+                const _stU = (result.status || 'ONAYLI').toUpperCase();
+                if (_stU.includes('MÜŞTERİ')) statusBadgeClass = 'status-musteri';           // mavi
+                else if (_stU.includes('ONAYSIZ') || _stU.includes('BEKLEM')) statusBadgeClass = 'status-onaysiz'; // kırmızı
+                else statusBadgeClass = 'status-onaylı';                                       // yeşil (ONAYLI — sınıf C/D olsa bile)
             }
 
             const infoExists = hasSupplierInfo(result.name);
@@ -10853,12 +10862,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (result.iso9001) belgeler.push('ISO 9001' + (result.certExpiryDates?.iso9001 ? ` (${new Date(result.certExpiryDates.iso9001).toLocaleDateString('tr-TR')})` : ''));
             if (result.iso14001) belgeler.push('ISO 14001' + (result.certExpiryDates?.iso14001 ? ` (${new Date(result.certExpiryDates.iso14001).toLocaleDateString('tr-TR')})` : ''));
             if (result.iso45001) belgeler.push('ISO 45001' + (result.certExpiryDates?.iso45001 ? ` (${new Date(result.certExpiryDates.iso45001).toLocaleDateString('tr-TR')})` : ''));
-                // Tedarikçi sınıfına göre durum rengi
-                let statusBadgeClass = statusClass;
-                if (result.tedarikcisınıfı === 'D') {
-                    statusBadgeClass = 'status-class-d'; // Kırmızı
-                } else if (result.tedarikcisınıfı === 'C') {
-                    statusBadgeClass = 'status-class-c'; // Sarı
+                // Durum rozeti rengi = ONAY DURUMUNA göre (sınıf DEĞİL)
+                let statusBadgeClass;
+                {
+                    const _stU = (result.status || 'ONAYLI').toUpperCase();
+                    if (_stU.includes('MÜŞTERİ')) statusBadgeClass = 'status-musteri';
+                    else if (_stU.includes('ONAYSIZ') || _stU.includes('BEKLEM')) statusBadgeClass = 'status-onaysiz';
+                    else statusBadgeClass = 'status-onaylı';
                 }
 
                 html += `
