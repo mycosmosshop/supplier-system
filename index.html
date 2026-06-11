@@ -3941,7 +3941,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                     fileName: file.name,
                                     timestamp: new Date().toISOString()
                                 });
-                                try { if (typeof autoDriveBackup === 'function') autoDriveBackup(); } catch(e){}
+                                try { if (typeof backupDocumentsToDrive === 'function') backupDocumentsToDrive(true); } catch(e){} // belgeyi AYRI Drive dosyasına yedekle (tüm kullanıcılar görsün)
                                 resolve(record);
                             };
                             putRequest.onerror = () => reject(putRequest.error);
@@ -4169,6 +4169,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                         timestamp: new Date().toISOString()
                                     });
                                 }
+                                try { if (typeof backupDocumentsToDrive === 'function') backupDocumentsToDrive(true); } catch(e){} // silmeyi de ayrı Drive dosyasına yansıt
                                 resolve(record);
                             };
                             putRequest.onerror = () => reject(putRequest.error);
@@ -4323,7 +4324,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
             // Drive'daki güncel dokümanları arka planda çek (oturumda 1 kez); yeni geldiyse modalı yeniden çiz (tüm kullanıcılar admin'in yüklediklerini görsün)
             if (!skipDriveSync) {
-                try { syncDocumentsFromDriveBackup(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentModal'); if(mm && mm.style.display==='flex') openDocumentModal(supplierName, true); } }); } catch(e){}
+                try {
+                    if(!sessionStorage.getItem('_docsSyncedFromDrive')) showAlert('⏳ Dokümanlar Drive\'dan yükleniyor (birkaç saniye sürebilir)…', 'info');
+                    syncDocumentsFromDriveBackup(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentModal'); if(mm && mm.style.display==='flex') openDocumentModal(supplierName, true); } });
+                } catch(e){}
             }
 
             // Başlığı güncelle
@@ -5188,12 +5192,31 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // Dokümanlar canlı senkronda değil (büyük); canlı senkron tedarikçi verisini verince yerel "dolu" sayılıp
         // açılıştaki Drive çekimi atlanıyordu → non-admin'ler admin'in yüklediği dokümanları göremiyordu. Bu fonksiyon onu çözer.
         // Yalnız OKUMA (Drive'a yazmaz); supplierDocuments store'una Drive'daki daha YENİ kayıtları yazar (lastUpdated'a göre).
+        // Dokümanları AYRI Drive dosyasına (DOCS_BACKUP.json) yedekle — ana yedekten bağımsız, yalnız doküman değişince çağrılır.
+        // BOŞ yedek YAZMAZ (Drive'daki belgeleri silmemek için koruma). Sadece OKUMA/yazma, salt-okuma değil.
+        async function backupDocumentsToDrive(silent){
+            try{
+                if(!db) return;
+                if (/[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search)) return;
+                if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname) || location.protocol === 'file:') return; // localhost/önizleme yazmaz
+                var s=(typeof getDriveSettings==='function') ? getDriveSettings() : null; if(!s) return;
+                var allData=await new Promise(function(res,rej){ var tx=db.transaction([DOC_STORE_NAME],'readonly'); var rq=tx.objectStore(DOC_STORE_NAME).getAll(); rq.onsuccess=function(){res(rq.result||[]);}; rq.onerror=function(){rej(rq.error);}; });
+                var nfiles=0;
+                for(var d=0;d<allData.length;d++){ var rec=allData[d]; if(rec&&rec.documents){ for(var dt in rec.documents){ var files=rec.documents[dt]||[]; nfiles+=files.length; for(var f=0;f<files.length;f++){ var file=files[f]; if(file&&file.blob){ try{ if(!file.data && typeof blobToBase64==='function') file.data=await blobToBase64(file.blob); }catch(e){} delete file.blob; } } } } }
+                if(nfiles===0){ if(!silent) showAlert('ℹ️ Yedeklenecek doküman yok.', 'info'); return; }   // BOŞ yazma yok → Drive'daki belgeler korunur
+                var json=JSON.stringify({ exportedAt:new Date().toISOString(), stores:{ supplierDocuments:allData } });
+                await fetch(s.url, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({action:'save', secret:s.secret, name:'DOCS_BACKUP.json', content:json})});
+                if(!silent) showAlert('✅ Dokümanlar Drive\'a yedeklendi ('+nfiles+' dosya).', 'success'); else console.log('📄 Dokümanlar Drive\'a yedeklendi ('+nfiles+' dosya)');
+            }catch(e){ console.warn('Doküman Drive yedek:', e); }
+        }
+
         async function syncDocumentsFromDriveBackup(force){
             try{
                 if(!db) return 0;
                 if(!force && sessionStorage.getItem('_docsSyncedFromDrive')) return 0;
                 if(!(typeof getDriveSettings==='function' && getDriveSettings() && typeof driveJsonp==='function')) return 0;
-                var r = await driveJsonp({action:'latest'});
+                // Belgeler AYRI dosyada (DOCS_BACKUP.json); ana 15MB yedeği çekmeye gerek yok
+                var r = await driveJsonp({action:'getfile', name:'DOCS_BACKUP.json'});
                 if(!r || !r.content){ sessionStorage.setItem('_docsSyncedFromDrive','1'); return 0; }
                 var data = typeof r.content==='string' ? JSON.parse(r.content) : r.content;
                 var remoteDocs = (data && data.stores && data.stores.supplierDocuments) || [];
@@ -5222,7 +5245,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
             // Drive'daki güncel dokümanları arka planda çek (oturumda 1 kez); yeni geldiyse matrisi yeniden çiz (döngüsüz)
             if (!skipDriveSync) {
-                try { syncDocumentsFromDriveBackup(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentMatrixModal'); if(mm && mm.style.display==='flex') showDocumentMatrixModal(true); } }); } catch(e){}
+                try {
+                    if(!sessionStorage.getItem('_docsSyncedFromDrive')) showAlert('⏳ Dokümanlar Drive\'dan yükleniyor (birkaç saniye sürebilir)…', 'info');
+                    syncDocumentsFromDriveBackup(false).then(function(nn){ if(nn>0){ var mm=document.getElementById('documentMatrixModal'); if(mm && mm.style.display==='flex') showDocumentMatrixModal(true); } });
+                } catch(e){}
             }
 
             // Filtrelenmiş sonuçları kullan
@@ -19333,11 +19359,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 if(sd){ try{ var sup=JSON.parse(sd); if(sup&&sup.length>0){ exportData.stores['suppliers']=sup; } else { showAlert('❌ Yedeklenecek tedarikçi verisi yok!', 'error'); return null; } }catch(e){ showAlert('❌ Tedarikçi verisi okunamadı!', 'error'); return null; } }
                 else { showAlert('❌ Yedeklenecek tedarikçi verisi yok!', 'error'); return null; }
             }
-            var storeNames=['supplierHistory','supplierLocations','supplierDocuments','report8D','supplier8DCounts'];
+            // NOT: supplierDocuments (büyük base64 belgeler) ANA yedekte DEĞİL — ayrı DOCS_BACKUP.json'da tutulur.
+            // Böylece dokümanı olmayan oturumların sık autoDriveBackup'ı belgeleri EZMEZ (veri kaybı önlemi).
+            var storeNames=['supplierHistory','supplierLocations','report8D','supplier8DCounts'];
             for(var i=0;i<storeNames.length;i++){ var sn=storeNames[i];
                 try{
                     var allData=await new Promise(function(res,rej){ var tx=db.transaction([sn],'readonly'); var rq=tx.objectStore(sn).getAll(); rq.onsuccess=function(){res(rq.result);}; rq.onerror=function(){rej(rq.error);}; });
-                    if(sn==='supplierDocuments'){ for(var d=0;d<allData.length;d++){ var rec=allData[d]; if(rec&&rec.documents){ for(var dt in rec.documents){ var files=rec.documents[dt]||[]; for(var f=0;f<files.length;f++){ var file=files[f]; if(file&&file.blob&&typeof file.blob!=='string'){ try{ file.data=await blobToBase64(file.blob); delete file.blob; }catch(e){} } } } } } }
                     exportData.stores[sn]=allData;
                 }catch(e){ exportData.stores[sn]=[]; }
             }
