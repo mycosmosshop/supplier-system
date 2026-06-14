@@ -5186,18 +5186,20 @@ async function loadKmCostFromLeanSys(type) {
     const to   = (document.getElementById('kmLsTo')   || {}).value || '';
     setSt((isMk ? 'Mal Kabul' : 'Sevkler') + ' — LeanSys ajanına bağlanılıyor…');
     try {
-        // 1) ajan: Mikro → Supabase ara tablo
+        // ajan Mikro'dan çeker ve JSON dizisini DOĞRUDAN döner (Supabase tablosu yok)
         let ag = null;
         try {
             const qs = 'type=' + type + (from ? '&from=' + encodeURIComponent(from) : '') + (to ? '&to=' + encodeURIComponent(to) : '');
             const ar = await fetch('http://127.0.0.1:17777/kmcost?' + qs, { mode: 'cors' });
             ag = await ar.json();
         } catch (e) { setSt(''); showToast('LeanSys ajanı kapalı/erişilemedi (127.0.0.1:17777). Ajanı başlatın.', 'error'); return; }
-        if (!ag || !ag.ok) { setSt(''); showToast('LeanSys çekme başarısız: ' + ((ag && ag.error) || '?'), 'error'); return; }
-        if (ag.count === undefined) { setSt(''); showToast('LeanSys ajanı GÜNCEL DEĞİL — LeanSys_Agent.ps1\'i yeniden başlatın.', 'error'); return; }
-        setSt('Veri alınıyor… (' + (ag.count || 0) + ' satır)');
-        // 2) Supabase ara tablodan oku
-        const srcRows = await _fetchKmFromSupabase(isMk ? 'km_malkabul' : 'km_sevk');
+        if (!Array.isArray(ag)) {
+            setSt('');
+            if (ag && ag.ok === false) showToast('LeanSys çekme başarısız: ' + (ag.error || '?'), 'error');
+            else showToast('LeanSys ajanı GÜNCEL DEĞİL — LeanSys_Agent.ps1\'i yeniden başlatın.', 'error');
+            return;
+        }
+        const srcRows = ag;
         if (!srcRows.length) { setSt(''); showToast('Bu tarih aralığında ' + (isMk ? 'mal kabul' : 'sevk') + ' kaydı yok.', 'warning'); return; }
         // 3) Excel ile BİREBİR aynı başlıklara çevir (buildBirimFiyatMap / buildSevkBirimFiyatMap bu adları okur)
         const raw = srcRows.map(r => isMk
