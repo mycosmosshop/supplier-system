@@ -2810,6 +2810,16 @@ document.getElementById('attModal').addEventListener('click', function(e){ if(e.
 // Startup: load attachment counts
 loadAttachCounts();
 
+// Açılışta: en son kayıtlı (paylaşımlı) snapshot varsa OTOMATİK yükle → her seferinde "Kayıtlar"dan yüklemeye gerek yok
+(async function _autoLoadLatestSnapshot(){
+  try{
+    const r = await fetch(_DOFSB_URL+"/rest/v1/dof_snapshots?select=id&order=id.desc&limit=1",{headers:_dofSbH()});
+    if(!r.ok) return;
+    const arr = await r.json();
+    if(arr && arr.length){ await loadSnapshot(arr[0].id); }   // en son kaydı yükle → liste görünür
+  }catch(e){ /* kayıt yok / erişilemedi → yükleme ekranı kalır */ }
+})();
+
 // Close dashboard on backdrop click
 document.getElementById('dashModal').addEventListener('click', function(e){ if(e.target===this) closeDashboard(); });
 </script>
