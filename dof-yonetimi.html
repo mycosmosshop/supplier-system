@@ -1813,6 +1813,13 @@ async function startCategorization(){
   if(!_rawRows.length){ setAiCatStatus('Veri yok.', 'err'); return; }
   if(!_aiCategories.length){ setAiCatStatus('En az bir kategori ekleyin.', 'err'); return; }
   saveDofKey();
+  // ── Ön-kontrol: seçili sağlayıcı için API anahtarı var mı? ──
+  const _prov = localStorage.getItem('ai_provider')||'groq';
+  const _provName = {groq:'Groq', gemini:'Gemini', openai:'OpenAI', openrouter:'OpenRouter'}[_prov]||_prov;
+  if(!getDofKey(_prov)){
+    const m = `❌ ${_provName} için API anahtarı girilmemiş. Yukarıdaki "${_provName}" sekmesine geçerli bir API anahtarı yapıştırıp "Test" ile doğrulayın, sonra tekrar kategorize edin.`;
+    setAiCatStatus(m, 'err'); alert(m); return;
+  }
   _aiRunning = true;
   document.getElementById('aiRunBtn').disabled = true;
   document.getElementById('suggestBtn').disabled = true;
@@ -1830,6 +1837,7 @@ async function startCategorization(){
   const total = todo.length;
   let done = 0;
   let failedBatches = 0;
+  let lastErrMsg = '';
   setAiCatProgress(0, total);
 
   try{
@@ -1855,6 +1863,7 @@ async function startCategorization(){
           } else {
             // All retries failed — mark these rows as 'İşlenemedi' and continue
             failedBatches++;
+            lastErrMsg = msg;
             setAiCatStatus(`⚠️ Batch ${batchLabel} atlandı: ${msg.slice(0,100)}`, 'info');
             results = null;
           }
@@ -1881,9 +1890,13 @@ async function startCategorization(){
     }
 
     const summary = failedBatches > 0
-      ? `⚠️ Tamamlandı — ${total} kayıt işlendi, ${failedBatches} batch atlandı (AI hatası). Atlananlarda "İşlenemedi" yazıyor.`
+      ? `⚠️ Tamamlandı — ${total} kayıt işlendi, ${failedBatches} batch atlandı (AI hatası). Atlananlarda "İşlenemedi" yazıyor. Sebep: ${lastErrMsg.slice(0,160)}`
       : `✅ Tamamlandı! ${total} kayıt kategorilere ayrıldı.`;
-    setAiCatStatus(summary, failedBatches>0 ? 'info' : 'ok');
+    setAiCatStatus(summary, failedBatches>0 ? 'err' : 'ok');
+    // Hepsi başarısızsa gerçek sebebi açıkça göster (anahtar/rate-limit/model) — "İşlenemedi" neden çıktığı belli olsun
+    if(done>0 && failedBatches>0 && (failedBatches*BATCH) >= total){
+      alert('AI kategorize edilemedi — TÜM batch\'ler başarısız.\n\nGerçek sebep:\n'+lastErrMsg+'\n\nÇözüm: AI Kategorize modalında seçili sağlayıcının sekmesine geçerli bir API anahtarı girip "Test" ile doğrulayın. Hata "rate limit" ise birkaç dakika bekleyip tekrar deneyin (yalnızca "İşlenemedi" satırlar yeniden denenir).');
+    }
     _aiCatDone = true;
     refreshAiCatFilter();
     applyFilters();
