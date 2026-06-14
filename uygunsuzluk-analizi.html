@@ -1164,6 +1164,18 @@
         <input type="file" id="fileInput" accept=".xlsx,.xls">
         <div id="fileInfo" style="margin-top:12px;font-size:0.88em;color:#555;display:none;"></div>
         <div id="uygFileList" style="margin-top:6px;"></div>
+
+        <!-- ☁️ LeanSys'ten canlı çek (Excel yöntemi de aynen çalışır) -->
+        <div style="margin-top:14px;padding-top:12px;border-top:1px dashed #d8b4e8;">
+            <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                <span style="font-weight:700;color:#2e7d32;font-size:1.02em;">☁️ LeanSys'ten Çek</span>
+                <label style="font-size:.85em;color:#444;">Başlangıç<br><input type="date" id="lsUygFrom" style="padding:6px;border:1px solid #ccc;border-radius:6px;"></label>
+                <label style="font-size:.85em;color:#444;">Bitiş<br><input type="date" id="lsUygTo" style="padding:6px;border:1px solid #ccc;border-radius:6px;"></label>
+                <button onclick="loadUygFromLeanSys()" style="background:#2e7d32;color:#fff;border:none;padding:9px 22px;border-radius:8px;cursor:pointer;font-weight:700;">⬇️ Çek</button>
+                <span id="lsUygStatus" style="color:#555;font-size:.88em;"></span>
+            </div>
+            <p class="hint" style="margin-top:6px;">LeanSys uygunsuzluk kayıtlarını canlı çeker (yerel LeanSys ajanı açık olmalı). Excel ile yükleme yöntemi de aynen çalışmaya devam eder.</p>
+        </div>
     </div>
 
     <!-- Stats -->
@@ -2830,6 +2842,77 @@ function processFile(file) {
         }
     };
     reader.readAsArrayBuffer(file);
+}
+
+/* ☁️ LeanSys'ten canlı çek → Supabase ara tablo → modülün KENDİ ingest yoluna (Excel ile birebir) */
+const _LSUYG_SUPA = "https://nnubrxbpthmkitueixbh.supabase.co";
+const _LSUYG_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE";
+async function _fetchUygFromSupabase() {
+    let all = [];
+    for (let off = 0; off < 200000; off += 1000) {
+        const url = _LSUYG_SUPA + "/rest/v1/uygunsuzluk_records?select=*&order=nckey.desc&offset=" + off + "&limit=1000";
+        const r = await fetch(url, { headers: { apikey: _LSUYG_ANON, Authorization: "Bearer " + _LSUYG_ANON } });
+        if (!r.ok) throw new Error("Supabase " + r.status);
+        const d = await r.json();
+        all = all.concat(d);
+        if (!d.length || d.length < 1000) break;
+    }
+    return all;
+}
+async function loadUygFromLeanSys() {
+    const st = document.getElementById('lsUygStatus');
+    const setSt = (t) => { if (st) st.textContent = t; };
+    const from = (document.getElementById('lsUygFrom') || {}).value || '';
+    const to   = (document.getElementById('lsUygTo')   || {}).value || '';
+    showLoading(true); setSt('LeanSys ajanına bağlanılıyor…');
+    try {
+        // 1) Yerel ajan: LeanSys → Supabase ara tabloyu tazele
+        let agentRes = null;
+        try {
+            const qs = (from ? '&from=' + encodeURIComponent(from) : '') + (to ? '&to=' + encodeURIComponent(to) : '');
+            const ar = await fetch('http://127.0.0.1:17777/uygunsuzluk?' + qs.replace(/^&/, ''), { mode: 'cors' });
+            agentRes = await ar.json();
+        } catch (e) {
+            showLoading(false); setSt('');
+            showToast('LeanSys ajanı kapalı/erişilemedi (127.0.0.1:17777). Masaüstündeki LeanSys ajanını başlatın.', 'error');
+            return;
+        }
+        if (!agentRes || !agentRes.ok) {
+            showLoading(false); setSt('');
+            showToast('LeanSys çekme başarısız: ' + ((agentRes && agentRes.error) || '?'), 'error');
+            return;
+        }
+        setSt('Veri alınıyor… (' + (agentRes.count || 0) + ' kayıt)');
+        // 2) Supabase ara tablodan oku
+        const rows = await _fetchUygFromSupabase();
+        if (!rows.length) {
+            showLoading(false); setSt('');
+            showToast('Bu tarih aralığında LeanSys uygunsuzluk kaydı yok.', 'warning');
+            return;
+        }
+        // 3) Excel yüklemesiyle BİREBİR aynı ingest yolu
+        const id = 'uyg_' + Date.now();
+        const savedAt = new Date().toISOString();
+        const fileName = 'LeanSys ' + (from || '…') + ' → ' + (to || '…');
+        let index = (await dbGet('uyg_index')) || [];
+        const newMeta = { id, fileName, sheetName: 'LeanSys', savedAt, rowCount: rows.length };
+        index.push(newMeta);
+        await dbSet('uyg_index', index);
+        await dbSet('uyg_data_' + id, { rows, fileName, sheetName: 'LeanSys', savedAt });
+        await dbSet('uyg_active', id);
+        _activeUygId = id;
+        allData = rows;
+        filteredData = [...allData];
+        _ppmUygFileName = fileName;
+        _uygIndexCache = index;
+        _renderUygFileList(index, id);
+        initUI();
+        showLoading(false); setSt('');
+        showToast('☁️ LeanSys\'ten yüklendi: ' + rows.length + ' uygunsuzluk kaydı', 'success');
+    } catch (err) {
+        showLoading(false); setSt('');
+        showToast('LeanSys yükleme hatası: ' + err.message, 'error');
+    }
 }
 
 /* Render the stored uygunsuzluk file list */
