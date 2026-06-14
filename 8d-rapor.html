@@ -437,6 +437,7 @@
                 <option value="Uygunsuzluk">⚠️ Uygunsuzluk Analizi</option>
                 <option value="Kapsamlı Rapor">📊 Kapsamlı Rapor</option>
                 <option value="Balık Kılçığı">🐟 Balık Kılçığı</option>
+                <option value="LeanSys">☁️ LeanSys (DÖF/8D)</option>
                 <option value="Genel">📋 Genel / Diğer</option>
             </select>
         </div>
@@ -1594,7 +1595,7 @@ function renderList(reports) {
     }
 
     // Kaynak ikonu
-    const srcIcon = { 'Tedarikçi':'🏭', 'Uygunsuzluk':'⚠️', 'Balık Kılçığı':'🐟', 'Genel':'📋' };
+    const srcIcon = { 'Tedarikçi':'🏭', 'Uygunsuzluk':'⚠️', 'Balık Kılçığı':'🐟', 'LeanSys':'☁️', 'Genel':'📋' };
 
     // Group key: Tedarikçi raporları supplierName'e göre; diğerleri source'a göre
     const groups = {};
@@ -2558,9 +2559,10 @@ function _ls8dIso(s){ const m=String(s||'').match(/^(\d{2})\.(\d{2})\.(\d{4})/);
 function _8dToReport(r){
   const yy=(r.seri||'').replace(/\D/g,'').slice(-2)||''; const sira3=String(r.sira||'').padStart(3,'0'); const rapNo='8D-'+yy+'-'+sira3;
   const causes=[['Yönetim',r.rYonetim],['Metot',r.rMethod],['Makine',r.rMakine],['İnsan',r.rInsan],['Malzeme',r.rMalzeme]].filter(x=>x[1]&&String(x[1]).trim()).map(x=>({type:x[0],description:x[1]}));
-  const closed = r.durum && /kapal|kapan|tamam|closed/i.test(r.durum);
+  // DURUM: LeanSys DOF_KAPATILDI bit'i → Closed/Open (durum metni /8d'de gelmiyor, kapatildi güvenilir)
+  const closed = !!r.kapatildi;
   return {
-    inckey:r.inckey, supplierName:(r.cari||'(LeanSys)'), source:'Tedarikçi', konu:r.baslik, timestamp:new Date().toISOString(),
+    inckey:r.inckey, supplierName:(r.cari||''), source:'LeanSys', konu:r.baslik, timestamp:new Date().toISOString(),
     head:{ reportNumber:rapNo, version:'', title:r.baslik, startDate:_ls8dIso(r.acma), subject:r.baslik, currentDate:_ls8dIso(r.acma),
       customer:r.cari, status:(closed?'Closed':'Open'), email:'', phone:'', additionalInfo:'',
       partNumber:r.stokKodu, partName:r.stokAdi, defectDescription:r.tarif, defectQuantity:String(r.hatali||''), totalCheckedQuantity:'', defectRate:'', detectionPoint:r.subeAdi||'', defectPhotos:[] },
