@@ -716,7 +716,7 @@ td.nowrap{white-space:nowrap;}
   <div class="snap-box">
     <button class="snap-close" onclick="closeSnapModal()">✕</button>
     <h3>🗂 Kayıtlı Durumlar</h3>
-    <p class="snap-sub">IndexedDB'de saklanır — tarayıcı çerezlerinden bağımsız, kalıcıdır.</p>
+    <p class="snap-sub">🌐 Supabase'de saklanır — paylaşımlı, tüm kullanıcılar görür.</p>
     <!-- Save form -->
     <div class="snap-name-row">
       <input class="snap-name-inp" id="snapNameInp" placeholder="Kayıt adı (isteğe bağlı)..." onkeydown="if(event.key==='Enter')saveSnapshot()">
@@ -1073,7 +1073,7 @@ function initUI(){
   buildFilterGrid();
   refreshAiCatFilter();
   syncFilterDOM();
-  renderFilterPresets();
+  loadFilterPresets();   // paylaşımlı filtreleri Supabase'den getir + render
   applyFilters();
 }
 
@@ -1379,30 +1379,40 @@ function toggleFilters(){
 // ─────────────────────────────────────────────
 //  FILTER PRESETS  (localStorage)
 // ─────────────────────────────────────────────
-const FILTER_PRESETS_KEY = 'dof_filter_presets';
-function getFilterPresets(){ try{ return JSON.parse(localStorage.getItem(FILTER_PRESETS_KEY)||'[]'); }catch{ return []; } }
+// ── PAYLAŞIMLI DEPO (Supabase) — filtre presetleri + kayıtlar TÜM kullanıcılarda görünür ──
+const _DOFSB_URL = "https://nnubrxbpthmkitueixbh.supabase.co";
+const _DOFSB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE";
+const _dofSbH = (extra)=>Object.assign({ apikey:_DOFSB_KEY, Authorization:"Bearer "+_DOFSB_KEY }, extra||{});
 
-function saveFilterPreset(){
+let _filterPresetsCache = [];
+async function loadFilterPresets(){
+  try{ const r=await fetch(_DOFSB_URL+"/rest/v1/dof_filter_presets?select=id,payload&order=id",{headers:_dofSbH()});
+       _filterPresetsCache = r.ok ? (await r.json()).map(x=>Object.assign({id:x.id}, x.payload||{})) : []; }
+  catch(e){ _filterPresetsCache=[]; }
+  renderFilterPresets();
+}
+function getFilterPresets(){ return _filterPresetsCache; }
+
+async function saveFilterPreset(){
   const fv = JSON.parse(JSON.stringify(_filterVals));
   const gs = document.getElementById('globalSearch')?.value||'';
   if(!Object.keys(fv).length && !gs){ showToast('⚠️ Aktif filtre yok.'); return; }
-  // Build a descriptive auto-name
   const parts = Object.entries(fv).map(([k,v])=>v).filter(Boolean);
   const autoName = [...parts, gs].filter(Boolean).slice(0,3).join(' · ') || 'Filtre';
   const name = prompt('Filtre adı:', autoName);
   if(name === null) return;
-  const presets = getFilterPresets();
-  presets.push({ name: name.trim() || autoName, filterVals: fv, globalSearch: gs, savedAt: Date.now() });
-  localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets));
-  renderFilterPresets();
-  showToast('📌 Filtre kaydedildi: '+(name.trim()||autoName));
+  try{
+    await fetch(_DOFSB_URL+"/rest/v1/dof_filter_presets",{method:'POST',headers:_dofSbH({'Content-Type':'application/json',Prefer:'return=minimal'}),
+      body:JSON.stringify({payload:{name:name.trim()||autoName, filterVals:fv, globalSearch:gs, savedAt:Date.now()}})});
+    await loadFilterPresets();
+    showToast('📌 Filtre kaydedildi (paylaşımlı): '+(name.trim()||autoName));
+  }catch(e){ showToast('❌ Filtre kaydedilemedi: '+e.message); }
 }
 
-function deleteFilterPreset(idx){
-  const presets = getFilterPresets();
-  presets.splice(idx, 1);
-  localStorage.setItem(FILTER_PRESETS_KEY, JSON.stringify(presets));
-  renderFilterPresets();
+async function deleteFilterPreset(idx){
+  const p=_filterPresetsCache[idx]; if(!p){ return; }
+  try{ await fetch(_DOFSB_URL+"/rest/v1/dof_filter_presets?id=eq."+p.id,{method:'DELETE',headers:_dofSbH({Prefer:'return=minimal'})}); }catch(e){}
+  await loadFilterPresets();
 }
 
 function applyFilterPreset(idx){
@@ -2233,16 +2243,17 @@ async function renderSnapList(){
   const list = document.getElementById('snapList');
   list.innerHTML = '<div class="snap-empty">⏳ Yükleniyor...</div>';
   let snaps = [];
-  try{ snaps = await idbGetAll(); } catch(e){ list.innerHTML='<div class="snap-empty">❌ IndexedDB hatası: '+e.message+'</div>'; return; }
+  try{ const r=await fetch(_DOFSB_URL+"/rest/v1/dof_snapshots?select=id,name,saved_at,row_count,has_ai&order=id.desc",{headers:_dofSbH()}); snaps = r.ok? await r.json():[]; }
+  catch(e){ list.innerHTML='<div class="snap-empty">❌ Supabase hatası: '+e.message+'</div>'; return; }
   if(!snaps.length){ list.innerHTML='<div class="snap-empty">📂 Henüz kayıtlı durum yok.</div>'; return; }
   list.innerHTML = snaps.map(s=>{
-    const d   = new Date(s.savedAt);
+    const d   = new Date(s.saved_at||Date.now());
     const dt  = d.toLocaleDateString('tr-TR')+' '+d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
-    const aiBadge = s.rows.some(r=>r._aiKategori) ? ' • 🤖 AI kat.' : '';
+    const aiBadge = s.has_ai ? ' • 🤖 AI kat.' : '';
     return `<div class="snap-item" id="snap_${s.id}">
       <div class="snap-item-info">
         <div class="snap-item-name">${esc(s.name||'Kayıt #'+s.id)}</div>
-        <div class="snap-item-meta">${dt} • ${s.rows.length} kayıt${aiBadge}</div>
+        <div class="snap-item-meta">${dt} • ${s.row_count||0} kayıt${aiBadge} • 🌐 paylaşımlı</div>
       </div>
       <button class="snap-load-btn" onclick="loadSnapshot(${s.id})">⬆️ Yükle</button>
       <button class="snap-del-btn"  onclick="deleteSnapshot(${s.id})">✕</button>
@@ -2266,20 +2277,18 @@ async function saveSnapshot(){
     globalSearch: document.getElementById('globalSearch')?.value||'',
   };
   try{
-    await idbPut(record);
-    showToast('✅ Kayıt oluşturuldu: '+record.name);
+    const r = await fetch(_DOFSB_URL+"/rest/v1/dof_snapshots",{method:'POST',headers:_dofSbH({'Content-Type':'application/json',Prefer:'return=minimal'}),
+      body:JSON.stringify({name:record.name, saved_at:record.savedAt, row_count:_rawRows.length, has_ai:_rawRows.some(r=>r._aiKategori), payload:record})});
+    if(!r.ok) throw new Error('Supabase '+r.status+(r.status===404?' — dof_snapshots tablosu yok (DDL çalıştırın)':''));
+    showToast('✅ Kayıt oluşturuldu (paylaşımlı): '+record.name);
     await renderSnapList();
     document.getElementById('snapNameInp').value='';
   } catch(e){ showToast('❌ Kaydetme hatası: '+e.message); }
 }
 
 async function loadSnapshot(id){
-  const db = await idbOpen();
-  const rec = await new Promise((res,rej)=>{
-    const req = db.transaction(IDB_STORE,'readonly').objectStore(IDB_STORE).get(id);
-    req.onsuccess = e=>res(e.target.result);
-    req.onerror   = e=>rej(e.target.error);
-  });
+  let rec=null;
+  try{ const r=await fetch(_DOFSB_URL+"/rest/v1/dof_snapshots?id=eq."+id+"&select=payload",{headers:_dofSbH()}); const arr=r.ok?await r.json():[]; rec = (arr[0]&&arr[0].payload)||null; }catch(e){}
   if(!rec){ showToast('❌ Kayıt bulunamadı.'); return; }
   _rawRows      = rec.rows;
   _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
@@ -2297,9 +2306,9 @@ async function loadSnapshot(id){
 }
 
 async function deleteSnapshot(id){
-  if(!confirm('Bu kayıt silinsin mi?')) return;
+  if(!confirm('Bu kayıt silinsin mi? (Paylaşımlı — tüm kullanıcılardan kalkar; LeanSys\'e dokunulmaz)')) return;
   try{
-    await idbDelete(id);
+    await fetch(_DOFSB_URL+"/rest/v1/dof_snapshots?id=eq."+id,{method:'DELETE',headers:_dofSbH({Prefer:'return=minimal'})});
     document.getElementById('snap_'+id)?.remove();
     const remaining = document.querySelectorAll('#snapList .snap-item').length;
     if(!remaining) document.getElementById('snapList').innerHTML='<div class="snap-empty">📂 Henüz kayıtlı durum yok.</div>';
