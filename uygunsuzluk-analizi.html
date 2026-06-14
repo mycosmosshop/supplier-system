@@ -1426,6 +1426,16 @@
                     </div>
                 </div>
 
+                <!-- ☁️ LeanSys'ten Çek (Mikro Mal Kabul 0062 + Sevkiyat 0157) — Excel yöntemi de aynen kalır -->
+                <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:#f0fdf4;border:1px dashed #6ee7b7;border-radius:10px;">
+                    <span style="font-weight:700;color:#065f46;">☁️ LeanSys'ten Çek</span>
+                    <label style="font-size:.8em;color:#065f46;">Başlangıç<br><input type="date" id="kmLsFrom" style="padding:5px;border:1px solid #bbf7d0;border-radius:6px;"></label>
+                    <label style="font-size:.8em;color:#065f46;">Bitiş<br><input type="date" id="kmLsTo" style="padding:5px;border:1px solid #bbf7d0;border-radius:6px;"></label>
+                    <button onclick="loadKmCostFromLeanSys('mk')" style="background:#059669;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;">📦 Mal Kabul Çek</button>
+                    <button onclick="loadKmCostFromLeanSys('sv')" style="background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:700;">🚚 Sevkleri Çek</button>
+                    <span id="kmLsStatus" style="font-size:.85em;color:#555;"></span>
+                </div>
+
                 <!-- ── İki yükleme alanı yan yana ── -->
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
 
@@ -5150,6 +5160,77 @@ async function processSevklerFile(file) {
         }
     };
     reader.readAsArrayBuffer(file);
+}
+
+/* ☁️ LeanSys'ten Kalite Maliyeti kaynağı çek (Mikro Mal Kabul 0062 / Sevkiyat 0157) → modülün KENDİ ingest yolu (Excel ile birebir) */
+const _KMC_SUPA = "https://nnubrxbpthmkitueixbh.supabase.co";
+const _KMC_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE";
+async function _fetchKmFromSupabase(table) {
+    let all = [];
+    for (let off = 0; off < 200000; off += 1000) {
+        const url = _KMC_SUPA + "/rest/v1/" + table + "?select=*&offset=" + off + "&limit=1000";
+        const r = await fetch(url, { headers: { apikey: _KMC_ANON, Authorization: "Bearer " + _KMC_ANON } });
+        if (r.status === 404) throw new Error("TABLO_YOK");
+        if (!r.ok) throw new Error("Supabase " + r.status);
+        const d = await r.json();
+        all = all.concat(d);
+        if (!d.length || d.length < 1000) break;
+    }
+    return all;
+}
+async function loadKmCostFromLeanSys(type) {
+    const isMk = (type === 'mk');
+    const st = document.getElementById('kmLsStatus');
+    const setSt = (t) => { if (st) st.textContent = t; };
+    const from = (document.getElementById('kmLsFrom') || {}).value || '';
+    const to   = (document.getElementById('kmLsTo')   || {}).value || '';
+    setSt((isMk ? 'Mal Kabul' : 'Sevkler') + ' — LeanSys ajanına bağlanılıyor…');
+    try {
+        // 1) ajan: Mikro → Supabase ara tablo
+        let ag = null;
+        try {
+            const qs = 'type=' + type + (from ? '&from=' + encodeURIComponent(from) : '') + (to ? '&to=' + encodeURIComponent(to) : '');
+            const ar = await fetch('http://127.0.0.1:17777/kmcost?' + qs, { mode: 'cors' });
+            ag = await ar.json();
+        } catch (e) { setSt(''); showToast('LeanSys ajanı kapalı/erişilemedi (127.0.0.1:17777). Ajanı başlatın.', 'error'); return; }
+        if (!ag || !ag.ok) { setSt(''); showToast('LeanSys çekme başarısız: ' + ((ag && ag.error) || '?'), 'error'); return; }
+        if (ag.count === undefined) { setSt(''); showToast('LeanSys ajanı GÜNCEL DEĞİL — LeanSys_Agent.ps1\'i yeniden başlatın.', 'error'); return; }
+        setSt('Veri alınıyor… (' + (ag.count || 0) + ' satır)');
+        // 2) Supabase ara tablodan oku
+        const srcRows = await _fetchKmFromSupabase(isMk ? 'km_malkabul' : 'km_sevk');
+        if (!srcRows.length) { setSt(''); showToast('Bu tarih aralığında ' + (isMk ? 'mal kabul' : 'sevk') + ' kaydı yok.', 'warning'); return; }
+        // 3) Excel ile BİREBİR aynı başlıklara çevir (buildBirimFiyatMap / buildSevkBirimFiyatMap bu adları okur)
+        const raw = srcRows.map(r => isMk
+            ? { 'Stok Kodu': r.stok_kodu, 'Stok Adı': r.stok_adi || '', 'Miktar': r.miktar, 'İrsaliye Tutar TL': r.tutar, 'İrsaliye Tarihi': r.tarih }
+            : { 'Stok Kodu': r.stok_kodu, 'Stok Adı': r.stok_adi || '', 'İrsaliye Miktarı': r.miktar, 'Tutar': r.tutar, 'İrsaliye Tarihi': r.tarih });
+        // 4) modülün KENDİ ingest yolu (processMalKabulFile / processSevklerFile gövdesiyle aynı; prompt yok)
+        const fileName = 'LeanSys ' + (isMk ? 'Mal Kabul' : 'Sevk') + ' ' + (from || '…') + '→' + (to || '…');
+        const savedAt = new Date().toISOString();
+        const uygId = (typeof _activeUygId !== 'undefined') ? _activeUygId : null;
+        const uygFileName = uygId && _uygIndexCache ? (_uygIndexCache.find(u => u.id === uygId)?.fileName || '') : '';
+        const idxKey = isMk ? 'kmMK_index' : 'kmSV_index';
+        const dbKey  = (isMk ? 'kmMK_' : 'kmSV_') + Date.now();
+        if (isMk) { birimFiyatDetail = []; buildBirimFiyatMap(raw); } else { sevkBirimFiyatDetail = []; buildSevkBirimFiyatMap(raw); }
+        const year = _detectFileYear(isMk ? birimFiyatDetail : sevkBirimFiyatDetail);
+        let index = (await dbGet(idxKey)) || [];
+        const oldEntries = index.filter(e => e.fileName === fileName);
+        for (const old of oldEntries) await dbDelete(old.key).catch(() => {});
+        index = index.filter(e => e.fileName !== fileName);
+        index.push({ key: dbKey, fileName, savedAt, year, rowCount: raw.length, uygId, uygFileName });
+        await dbSet(dbKey, { rows: raw, fileName, savedAt, year, rowCount: raw.length, uygId, uygFileName });
+        await dbSet(idxKey, index);
+        if (isMk) { await _rebuildBirimFiyatMapFromDB(); _renderKmFileList(index); }
+        else      { await _rebuildSevkBirimFiyatMapFromDB(); _renderSvFileList(index); }
+        document.getElementById('kmParetoContent').style.display = 'block';
+        renderKaliteMaliyetiPareto();
+        renderKmBirimFiyatTable();
+        setSt('');
+        showToast('☁️ LeanSys\'ten ' + (isMk ? 'Mal Kabul' : 'Sevkler') + ': ' + raw.length.toLocaleString('tr') + ' kayıt yüklendi', 'success');
+    } catch (err) {
+        setSt('');
+        if (err && err.message === 'TABLO_YOK') showToast('Supabase\'de ' + (isMk ? 'km_malkabul' : 'km_sevk') + ' tablosu YOK. _km_DDL.sql\'i Supabase\'de çalıştırın.', 'error');
+        else showToast('LeanSys yükleme hatası: ' + err.message, 'error');
+    }
 }
 
 function buildSevkBirimFiyatMap(rows) {
