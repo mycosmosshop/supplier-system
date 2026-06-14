@@ -446,6 +446,7 @@ td.nowrap{white-space:nowrap;}
   </div>
   <div class="sp"></div>
   <button class="tbb" onclick="document.getElementById('excelInput').click()">📂 DÖF Excel Yükle</button>
+  <button class="tbb" style="background:rgba(5,150,105,.6);border-color:rgba(5,150,105,.75);" onclick="loadDofFromLeanSys()">☁️ LeanSys'ten Çek</button>
   <button class="tbb" style="background:rgba(14,116,144,.55);border-color:rgba(14,116,144,.7);" onclick="document.getElementById('musteriInput').click()">📋 Müşteri Şik. Ekle</button>
   <input type="file" id="musteriInput" accept=".xlsx,.xls,.csv" onchange="handleMusteriFile(this)" style="display:none">
   <button class="tbb" onclick="exportCSV()">⬇️ CSV İndir</button>
@@ -1018,6 +1019,28 @@ function applyMappingDirect(){
   _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
   _filterVals = {};
   initUI();
+}
+
+// ☁️ LeanSys'ten DÖF çek (KLT006_DOFRAPOR_VW) → modülün KENDİ ingest yolu (Excel ile birebir). Excel yöntemi aynen kalır.
+async function loadDofFromLeanSys(){
+  const btn = (typeof event!=='undefined' && event) ? event.target : null;
+  const orig = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Çekiliyor…'; }
+  try{
+    let ag;
+    try{ const r = await fetch('http://127.0.0.1:17777/dof', {mode:'cors'}); ag = await r.json(); }
+    catch(e){ alert('LeanSys ajanı kapalı/erişilemedi (127.0.0.1:17777). Masaüstündeki LeanSys ajanını başlatın.'); return; }
+    if(!Array.isArray(ag)){
+      alert(ag && ag.ok===false ? ('LeanSys çekme başarısız: '+(ag.error||'?')) : 'LeanSys ajanı GÜNCEL DEĞİL — çalışan LeanSys_Agent.ps1\'i yeniden başlatın.');
+      return;
+    }
+    if(!ag.length){ alert('LeanSys\'te DÖF kaydı bulunamadı.'); return; }
+    _rawRows = ag;
+    _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
+    _filterVals = {};
+    initUI();
+  } catch(err){ alert('LeanSys yükleme hatası: '+err.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent=orig; } }
 }
 
 // Quick filter keys — always visible above the table
