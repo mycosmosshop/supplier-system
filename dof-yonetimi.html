@@ -446,7 +446,12 @@ td.nowrap{white-space:nowrap;}
   </div>
   <div class="sp"></div>
   <button class="tbb" onclick="document.getElementById('excelInput').click()">📂 DÖF Excel Yükle</button>
-  <button class="tbb" style="background:rgba(5,150,105,.6);border-color:rgba(5,150,105,.75);" onclick="loadDofFromLeanSys()">☁️ LeanSys'ten Çek</button>
+  <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(5,150,105,.18);border:1px solid rgba(5,150,105,.45);border-radius:8px;padding:2px 8px;">
+    <input type="date" id="dofLsFrom" title="Başlangıç (boş=tümü)" style="font-size:.8rem;padding:3px;border-radius:5px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.9);">
+    <span style="color:#fff;opacity:.7;">→</span>
+    <input type="date" id="dofLsTo" title="Bitiş (boş=tümü)" style="font-size:.8rem;padding:3px;border-radius:5px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.9);">
+    <button class="tbb" style="background:rgba(5,150,105,.7);border-color:rgba(5,150,105,.85);margin:0;" onclick="loadDofFromLeanSys()">☁️ LeanSys'ten Çek</button>
+  </span>
   <button class="tbb" style="background:rgba(14,116,144,.55);border-color:rgba(14,116,144,.7);" onclick="document.getElementById('musteriInput').click()">📋 Müşteri Şik. Ekle</button>
   <input type="file" id="musteriInput" accept=".xlsx,.xls,.csv" onchange="handleMusteriFile(this)" style="display:none">
   <button class="tbb" onclick="exportCSV()">⬇️ CSV İndir</button>
@@ -1027,8 +1032,11 @@ async function loadDofFromLeanSys(){
   const orig = btn ? btn.textContent : '';
   if(btn){ btn.disabled=true; btn.textContent='⏳ Çekiliyor…'; }
   try{
+    const from = (document.getElementById('dofLsFrom')||{}).value || '';
+    const to   = (document.getElementById('dofLsTo')||{}).value || '';
+    const qs = (from ? '&from='+encodeURIComponent(from) : '') + (to ? '&to='+encodeURIComponent(to) : '');
     let ag;
-    try{ const r = await fetch('http://127.0.0.1:17777/dof', {mode:'cors'}); ag = await r.json(); }
+    try{ const r = await fetch('http://127.0.0.1:17777/dof?'+qs.replace(/^&/,''), {mode:'cors'}); ag = await r.json(); }
     catch(e){ alert('LeanSys ajanı kapalı/erişilemedi (127.0.0.1:17777). Masaüstündeki LeanSys ajanını başlatın.'); return; }
     if(!Array.isArray(ag)){
       alert(ag && ag.ok===false ? ('LeanSys çekme başarısız: '+(ag.error||'?')) : 'LeanSys ajanı GÜNCEL DEĞİL — çalışan LeanSys_Agent.ps1\'i yeniden başlatın.');
