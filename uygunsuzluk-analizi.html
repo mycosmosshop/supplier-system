@@ -2852,6 +2852,7 @@ async function _fetchUygFromSupabase() {
     for (let off = 0; off < 200000; off += 1000) {
         const url = _LSUYG_SUPA + "/rest/v1/uygunsuzluk_records?select=*&order=nckey.desc&offset=" + off + "&limit=1000";
         const r = await fetch(url, { headers: { apikey: _LSUYG_ANON, Authorization: "Bearer " + _LSUYG_ANON } });
+        if (r.status === 404) throw new Error("TABLO_YOK");
         if (!r.ok) throw new Error("Supabase " + r.status);
         const d = await r.json();
         all = all.concat(d);
@@ -2880,6 +2881,11 @@ async function loadUygFromLeanSys() {
         if (!agentRes || !agentRes.ok) {
             showLoading(false); setSt('');
             showToast('LeanSys çekme başarısız: ' + ((agentRes && agentRes.error) || '?'), 'error');
+            return;
+        }
+        if (agentRes.count === undefined) {
+            showLoading(false); setSt('');
+            showToast('LeanSys ajanı GÜNCEL DEĞİL — /uygunsuzluk route\'u yok. Çalışan LeanSys_Agent.ps1\'i kapatıp yeniden başlatın.', 'error');
             return;
         }
         setSt('Veri alınıyor… (' + (agentRes.count || 0) + ' kayıt)');
@@ -2911,7 +2917,11 @@ async function loadUygFromLeanSys() {
         showToast('☁️ LeanSys\'ten yüklendi: ' + rows.length + ' uygunsuzluk kaydı', 'success');
     } catch (err) {
         showLoading(false); setSt('');
-        showToast('LeanSys yükleme hatası: ' + err.message, 'error');
+        if (err && err.message === 'TABLO_YOK') {
+            showToast('Supabase\'de uygunsuzluk_records tablosu YOK. _uygunsuzluk_DDL.sql\'i Supabase SQL Editor\'de bir kez çalıştırın.', 'error');
+        } else {
+            showToast('LeanSys yükleme hatası: ' + err.message, 'error');
+        }
     }
 }
 
