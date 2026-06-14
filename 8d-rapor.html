@@ -1343,24 +1343,23 @@ function openReportForEdit(reportId) {
     req.onsuccess = () => {
         const doc = req.result;
         if (!doc) { showAlert('❌ Rapor bulunamadı!','error'); return; }
-        current8DData = doc;
-        clear8DForm();
-        populate8DForm(doc);
-        loadSupplierList(doc.supplierName || '');
-        document.getElementById('meta_month').value            = doc.monthIndex   || '';
-        document.getElementById('meta_source').value           = doc.source       || 'Tedarikçi';
-        onSourceChange(doc.konu || '');
-        const titleLabel = doc.source === 'Tedarikçi' ? (doc.supplierName || '') : (doc.konu || doc.source || '');
-        document.getElementById('formTitle').textContent       = `📋 8D RAPOR — ${titleLabel}`;
-        document.getElementById('deleteFormBtn').style.display = 'inline-block';
-        // Kaydedilmiş değerlerle birlikte uygunsuzluk dropdown'larını doldur
-        showFormView({
-            errorType     : doc.d2?.errorType,
-            errorLocation : doc.d2?.errorLocation,
-            detectionPoint: doc.head?.detectionPoint
-        });
+        _open8dDoc(doc);
     };
     req.onerror = () => showAlert('❌ Rapor açılamadı!','error');
+}
+// Bir reportData nesnesini forma yükle (hem IndexedDB hem Supabase/LeanSys kayıtları için)
+function _open8dDoc(doc){
+    current8DData = doc;
+    clear8DForm();
+    populate8DForm(doc);
+    loadSupplierList(doc.supplierName || '');
+    document.getElementById('meta_month').value  = doc.monthIndex || '';
+    document.getElementById('meta_source').value = doc.source || 'Tedarikçi';
+    onSourceChange(doc.konu || '');
+    const titleLabel = doc.source === 'Tedarikçi' ? (doc.supplierName || '') : (doc.konu || doc.source || '');
+    document.getElementById('formTitle').textContent = `📋 8D RAPOR — ${titleLabel}`;
+    document.getElementById('deleteFormBtn').style.display = 'inline-block';
+    showFormView({ errorType: doc.d2?.errorType, errorLocation: doc.d2?.errorLocation, detectionPoint: doc.head?.detectionPoint });
 }
 
 /* ================================================================
@@ -1566,7 +1565,7 @@ async function refreshList() {
     if (!db) return;
     const tx  = db.transaction([STORE_8D],'readonly');
     const req = tx.objectStore(STORE_8D).getAll();
-    req.onsuccess = () => renderList(req.result || []);
+    req.onsuccess = () => { renderList(req.result || []); _renderSb8dGroup(); };
     req.onerror   = () => showAlert('❌ Raporlar yüklenemedi!','error');
 }
 
@@ -2536,7 +2535,7 @@ async function loadLeanSys8D(){
   if(!ag.length){ el.innerHTML='<p style="color:#888;padding:14px;">Bu aralıkta 8D kaydı yok.</p>'; return; }
   el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:.86em;">'
     +'<thead><tr style="background:#f1f5f9;text-align:left;">'
-    +['DÖF','Başlık','Tip','Stok','Cari','Şikayet','FR13'].map(h=>`<th style="padding:7px 9px;border-bottom:2px solid #e2e8f0;">${h}</th>`).join('')+'</tr></thead><tbody>'
+    +['DÖF','Başlık','Tip','Stok','Cari','Şikayet','Kaydet','FR13'].map(h=>`<th style="padding:7px 9px;border-bottom:2px solid #e2e8f0;">${h}</th>`).join('')+'</tr></thead><tbody>'
     +ag.map((r,i)=>`<tr style="border-bottom:1px solid #eef2f7;">
         <td style="padding:6px 9px;font-weight:600;white-space:nowrap;">${_ls8dEsc(r.seri)}-${_ls8dEsc(r.sira)}</td>
         <td style="padding:6px 9px;">${_ls8dEsc((r.baslik||'').slice(0,46))}</td>
@@ -2544,8 +2543,90 @@ async function loadLeanSys8D(){
         <td style="padding:6px 9px;white-space:nowrap;">${_ls8dEsc(r.stokKodu)}</td>
         <td style="padding:6px 9px;">${_ls8dEsc((r.cari||'').slice(0,24))}</td>
         <td style="padding:6px 9px;white-space:nowrap;">${_ls8dEsc(r.sikayet)}</td>
+        <td style="padding:6px 9px;"><button onclick="save8dToSupabase(${i},this)" style="background:#2563eb;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:700;white-space:nowrap;">💾 Kaydet</button></td>
         <td style="padding:6px 9px;"><button onclick="generate8DExcel(${i})" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:700;white-space:nowrap;">📥 FR13 İndir</button></td>
-      </tr>`).join('')+'</tbody></table>';
+      </tr>`).join('')+'</tbody></table>'
+    +'<div style="padding:10px 2px;"><button onclick="saveAll8dToSupabase(this)" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-weight:700;">💾 Hepsini 8D Listesine Kaydet</button> <span style="font-size:.85em;color:#64748b;">(paylaşımlı — 8D Raporlar listesinde görünür)</span></div>';
+}
+
+// ── Supabase paylaşımlı 8D kayıtları (dof_8d_reports). LeanSys'e ASLA yazma/silme. ──
+const _8D_SUPA = "https://nnubrxbpthmkitueixbh.supabase.co";
+const _8D_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE";
+const _8dSbH = (extra)=>Object.assign({ apikey:_8D_ANON, Authorization:"Bearer "+_8D_ANON }, extra||{});
+function _ls8dIso(s){ const m=String(s||'').match(/^(\d{2})\.(\d{2})\.(\d{4})/); return m?`${m[3]}-${m[2]}-${m[1]}`:''; }
+// LeanSys 8D kaydı → modülün reportData şeması (liste + form + FR13 ortak)
+function _8dToReport(r){
+  const yy=(r.seri||'').replace(/\D/g,'').slice(-2)||''; const sira3=String(r.sira||'').padStart(3,'0'); const rapNo='8D-'+yy+'-'+sira3;
+  const causes=[['Yönetim',r.rYonetim],['Metot',r.rMethod],['Makine',r.rMakine],['İnsan',r.rInsan],['Malzeme',r.rMalzeme]].filter(x=>x[1]&&String(x[1]).trim()).map(x=>({type:x[0],description:x[1]}));
+  const closed = r.durum && /kapal|kapan|tamam|closed/i.test(r.durum);
+  return {
+    inckey:r.inckey, supplierName:(r.cari||'(LeanSys)'), source:'Tedarikçi', konu:r.baslik, timestamp:new Date().toISOString(),
+    head:{ reportNumber:rapNo, version:'', title:r.baslik, startDate:_ls8dIso(r.acma), subject:r.baslik, currentDate:_ls8dIso(r.acma),
+      customer:r.cari, status:(closed?'Closed':'Open'), email:'', phone:'', additionalInfo:'',
+      partNumber:r.stokKodu, partName:r.stokAdi, defectDescription:r.tarif, defectQuantity:String(r.hatali||''), totalCheckedQuantity:'', defectRate:'', detectionPoint:r.subeAdi||'', defectPhotos:[] },
+    d1:{ teamMembers:(r.uyeler||'').split(/[,;]/).map(s=>s.trim()).filter(Boolean).map(n=>({name:n,department:'',position:'',contact:''})) },
+    d2:{ symptom:r.baslik, problem:r.tarif, errorType:'', errorLocation:'', riskAssessment:'', riskDate:'', attachments:[] },
+    d3:{ actions: r.acilOnlem?[{description:r.acilOnlem, responsible:r.acilSorumlu||'', date:_ls8dIso(r.acilHedef)}]:[] },
+    d4:{ rootCauses: causes },
+    d5:{ actions: r.planlanan?[{description:r.planlanan, responsible:r.planSorumlu||'', date:_ls8dIso(r.planHedef)}]:[] },
+    d6:{}, d7:{ actions: r.onleyici?[{description:r.onleyici, responsible:r.onlSorumlu||'', date:_ls8dIso(r.onlHedef)}]:[] },
+    d8:{ closeDate:_ls8dIso(r.kapatma), bildirimTrh:_ls8dIso(r.bildirimTrh), result:r.sonuc||'' },
+    _kapatildi: !!r.kapatildi
+  };
+}
+async function save8dToSupabase(i, btn){
+  const r=_ls8dRows[i]; if(!r) return;
+  if(btn){ btn.disabled=true; btn.textContent='⏳'; }
+  try{
+    const rep=_8dToReport(r);
+    const body={ inckey:(r.inckey!=null?r.inckey:null), seri:r.seri, sira:String(r.sira||''), baslik:r.baslik, status:rep.head.status, payload:rep };
+    const res=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?on_conflict=inckey",{method:'POST',headers:_8dSbH({'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(body)});
+    if(!res.ok) throw new Error('Supabase '+res.status+(res.status===404?' — dof_8d_reports tablosu yok (DDL çalıştırın)':''));
+    if(btn){ btn.textContent='✓ Kaydedildi'; btn.style.background='#16a34a'; if(typeof refreshList==='function') refreshList(); }
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent='💾 Kaydet'; } alert('Kaydetme hatası: '+e.message); }
+}
+async function saveAll8dToSupabase(btn){
+  if(!_ls8dRows.length) return;
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Kaydediliyor…'; }
+  let ok=0,err=0;
+  for(let i=0;i<_ls8dRows.length;i++){ try{ await save8dToSupabase(i,null); ok++; }catch(e){ err++; } }
+  if(btn){ btn.disabled=false; btn.textContent='💾 Hepsini 8D Listesine Kaydet'; }
+  alert(ok+' kayıt 8D listesine kaydedildi (paylaşımlı)'+(err?(', '+err+' hata'):'')+'.');
+  if(typeof refreshList==='function') refreshList();
+}
+// 8D listesine paylaşımlı (Supabase) grubu ekle
+async function _renderSb8dGroup(){
+  let rows=[];
+  try{ const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?select=id,seri,sira,baslik,status,inckey&order=id.desc",{headers:_8dSbH()}); rows = r.ok? await r.json():[]; }catch(e){ return; }
+  if(!rows.length) return;
+  const cont=document.getElementById('reportListContainer');
+  // boş-durum kartını kaldır
+  const emp=cont.querySelector('.empty-state'); if(emp) emp.remove();
+  const cards=rows.map(s=>{
+    const st=s.status||'Open'; const cls=st==='Closed'?'status-closed':'status-open'; const ico=st==='Closed'?'✓':'○';
+    return `<div class="report-card" onclick="open8dSb(${s.id})">
+      <div class="report-card-head">
+        <div><div class="report-card-title">${_ls8dEsc(s.seri)}-${_ls8dEsc(s.sira)}</div>
+          <div style="font-size:.8em;color:#888;margin-top:2px;">${_ls8dEsc((s.baslik||'').slice(0,40))}</div></div>
+        <div class="report-card-actions" onclick="event.stopPropagation()">
+          <button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" onclick="open8dSb(${s.id})">✏️</button>
+          <button class="card-btn" style="background:#f44336;color:#fff;" title="Sil (yalnız Supabase)" onclick="del8dSb(${s.id})">🗑️</button>
+        </div></div>
+      <div class="report-card-meta"><span class="status-badge ${cls}">${ico} ${st}</span></div>
+    </div>`;
+  }).join('');
+  const grp=document.createElement('div'); grp.className='supplier-group';
+  grp.innerHTML=`<div class="supplier-header">🌐 LeanSys 8D (paylaşımlı) &nbsp;<span style="font-size:0.8em;opacity:0.8;">${rows.length} rapor</span></div><div class="supplier-cards">${cards}</div>`;
+  cont.appendChild(grp);
+}
+async function open8dSb(id){
+  try{ const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?id=eq."+id+"&select=payload",{headers:_8dSbH()}); const arr=r.ok?await r.json():[]; const doc=arr[0]&&arr[0].payload; if(!doc){ showAlert('❌ Kayıt bulunamadı.','error'); return; } doc._sbId=id; _open8dDoc(doc); }
+  catch(e){ showAlert('❌ Açılamadı: '+e.message,'error'); }
+}
+async function del8dSb(id){
+  if(!confirm('Bu 8D kaydı SİLİNECEK.\n\n• Yalnız Supabase (paylaşımlı arşiv) ve bu listeden kalkar.\n• LeanSys\'e KESİNLİKLE dokunulmaz.\n\nDevam?')) return;
+  try{ await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?id=eq."+id,{method:'DELETE',headers:_8dSbH({Prefer:'return=minimal'})}); showAlert('🗑 Kayıt silindi (Supabase).','success'); refreshList(); }
+  catch(e){ showAlert('❌ Silme hatası: '+e.message,'error'); }
 }
 async function generate8DExcel(i){
   const r=_ls8dRows[i]; if(!r) return;
