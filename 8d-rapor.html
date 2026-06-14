@@ -3,6 +3,7 @@
 <head>
 <script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search);};</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
 
     <meta charset="UTF-8">
@@ -361,8 +362,26 @@
         <a href="uygunsuzluk-analizi.html"     class="nav-btn nav-btn-nonconf">⚠️ Uygunsuzluk</a>
         <a href="balik-kilcigi.html"           class="nav-btn nav-btn-fish">🐟 Balık Kılçığı</a>
         <a href="5-neden-analizi.html"           class="nav-btn" style="background:linear-gradient(135deg,#5b21b6,#7c3aed);">🔍 5 Neden</a>
+        <button onclick="openLeanSys8D()"      class="nav-btn" style="background:linear-gradient(135deg,#059669,#10b981);">☁️ LeanSys 8D + FR13</button>
         <button onclick="startNewReport()"     class="nav-btn nav-btn-new">➕ Yeni Rapor</button>
     </div>
+</div>
+
+<!-- ☁️ LeanSys 8D → FR13 Excel modal -->
+<div id="ls8dModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;">
+  <div style="background:#fff;border-radius:14px;max-width:1000px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.4);">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e5e7eb;">
+      <div style="font-weight:800;color:#065f46;font-size:1.1em;">☁️ LeanSys 8D → FR13 Excel</div>
+      <button onclick="document.getElementById('ls8dModal').style.display='none'" style="background:none;border:none;font-size:1.4em;cursor:pointer;color:#888;">✕</button>
+    </div>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;padding:14px 20px;background:#f0fdf4;">
+      <label style="font-size:.85em;color:#065f46;">Başlangıç<br><input type="date" id="ls8dFrom" style="padding:6px;border:1px solid #bbf7d0;border-radius:6px;"></label>
+      <label style="font-size:.85em;color:#065f46;">Bitiş<br><input type="date" id="ls8dTo" style="padding:6px;border:1px solid #bbf7d0;border-radius:6px;"></label>
+      <button onclick="loadLeanSys8D()" style="background:#059669;color:#fff;border:none;padding:9px 22px;border-radius:8px;cursor:pointer;font-weight:700;">⬇️ Çek</button>
+      <span id="ls8dStatus" style="font-size:.88em;color:#555;"></span>
+    </div>
+    <div id="ls8dList" style="padding:6px 20px 20px;max-height:60vh;overflow:auto;"></div>
+  </div>
 </div>
 
 <!-- ALERT -->
@@ -2497,6 +2516,85 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>`;
     }
 });
+
+// ═══════════════════════════════════════════════════════════════
+//  ☁️ LeanSys 8D → FR13 Excel (şablon gömülü, ExcelJS ile birebir doldur)
+// ═══════════════════════════════════════════════════════════════
+let _ls8dRows = [];
+function openLeanSys8D(){ document.getElementById('ls8dModal').style.display='flex'; }
+function _ls8dEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+async function loadLeanSys8D(){
+  const st=document.getElementById('ls8dStatus'); const setSt=t=>{ if(st)st.textContent=t; };
+  const from=(document.getElementById('ls8dFrom')||{}).value||''; const to=(document.getElementById('ls8dTo')||{}).value||'';
+  setSt('LeanSys ajanına bağlanılıyor…');
+  let ag;
+  try{ const qs=(from?'&from='+encodeURIComponent(from):'')+(to?'&to='+encodeURIComponent(to):''); const r=await fetch('http://127.0.0.1:17777/8d?'+qs.replace(/^&/,''),{mode:'cors'}); ag=await r.json(); }
+  catch(e){ setSt(''); alert('LeanSys ajanı kapalı/erişilemedi (127.0.0.1:17777).'); return; }
+  if(!Array.isArray(ag)){ setSt(''); alert(ag&&ag.ok===false?('LeanSys çekme başarısız: '+(ag.error||'?')):'LeanSys ajanı GÜNCEL DEĞİL — LeanSys_Agent.ps1\'i yeniden başlatın.'); return; }
+  _ls8dRows=ag; setSt(ag.length+' kayıt');
+  const el=document.getElementById('ls8dList');
+  if(!ag.length){ el.innerHTML='<p style="color:#888;padding:14px;">Bu aralıkta 8D kaydı yok.</p>'; return; }
+  el.innerHTML='<table style="width:100%;border-collapse:collapse;font-size:.86em;">'
+    +'<thead><tr style="background:#f1f5f9;text-align:left;">'
+    +['DÖF','Başlık','Tip','Stok','Cari','Şikayet','FR13'].map(h=>`<th style="padding:7px 9px;border-bottom:2px solid #e2e8f0;">${h}</th>`).join('')+'</tr></thead><tbody>'
+    +ag.map((r,i)=>`<tr style="border-bottom:1px solid #eef2f7;">
+        <td style="padding:6px 9px;font-weight:600;white-space:nowrap;">${_ls8dEsc(r.seri)}-${_ls8dEsc(r.sira)}</td>
+        <td style="padding:6px 9px;">${_ls8dEsc((r.baslik||'').slice(0,46))}</td>
+        <td style="padding:6px 9px;white-space:nowrap;">${_ls8dEsc(r.tip)}</td>
+        <td style="padding:6px 9px;white-space:nowrap;">${_ls8dEsc(r.stokKodu)}</td>
+        <td style="padding:6px 9px;">${_ls8dEsc((r.cari||'').slice(0,24))}</td>
+        <td style="padding:6px 9px;white-space:nowrap;">${_ls8dEsc(r.sikayet)}</td>
+        <td style="padding:6px 9px;"><button onclick="generate8DExcel(${i})" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:700;white-space:nowrap;">📥 FR13 İndir</button></td>
+      </tr>`).join('')+'</tbody></table>';
+}
+async function generate8DExcel(i){
+  const r=_ls8dRows[i]; if(!r) return;
+  try{
+    const tplBuf = await (await fetch('8d-fr13-template.xlsx')).arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(tplBuf);
+    const ws = wb.worksheets[0];
+    const yy = (r.seri||'').replace(/\D/g,'').slice(-2) || (r.acma||'').slice(-2);
+    const sira3 = String(r.sira||'').padStart(3,'0');
+    const rapNo = '8D-'+yy+'-'+sira3;
+    const set=(ref,val)=>{ try{ ws.getCell(ref).value = (val==null?'':String(val)); }catch(e){} };
+    // ── Başlık / D1 (Team Formation) ──
+    set('A5', 'Report No: '+rapNo+'     ·     NCR: NCR-'+yy+'-'+sira3);
+    set('B7', r.lider);            set('F7', r.tahminiKap);
+    set('B8', r.sikayet);          set('F8', r.uyeler);
+    set('B9', r.acma);             set('F9', r.cins);
+    set('B10', r.tip);
+    // ── D2 (Problem Description) ──
+    set('B12', r.stokKodu);        set('F12', r.acma);
+    set('B13', r.stokAdi);         set('F13', rapNo);
+    set('B14', r.cari);            set('F14', r.waybill);
+    set('A15', r.tarif || 'Problem Description');
+    set('A16', 'Hatalı Miktar: '+(r.hatali||''));
+    // ── D3 (Acil Önlem / Containment) ──
+    set('B18', r.acilOnlem);
+    set('B19', [r.acilSorumlu, r.acilHedef, r.acilSonuc].filter(Boolean).join(' · '));
+    // ── D4 (Ana Sebep / Root Cause) ──
+    set('A22', r.rYonetim);  set('C22', r.rMethod);  set('E22', r.rMakine);
+    set('A26', r.rInsan);    set('C26', r.rMalzeme);
+    set('G21', r.baslik);    // sağdaki "Hatalı/PROBLEM" kutusu
+    // ── D5 (Düzeltici) ──
+    set('A30', r.planlanan); set('G30', r.planHedef); set('H30', r.planSorumlu);
+    // ── D6 (Geçerli kılma) ──
+    set('A33', r.planSonuc);
+    // ── D7 (Önleyici) ──
+    set('A36', r.onleyici);  set('G36', r.onlHedef);  set('H36', r.onlSorumlu);
+    // ── D8 (Kapanış) ──
+    set('B38', r.kapatma);   set('F38', r.kapatildi? 'Kapalı':'Açık');
+    set('B39', r.bildirimTrh); set('B40', r.bildirimYontemi);
+    set('B41', r.fiiliKapatma); set('B42', r.ilgili);
+    set('B43', r.sonuc);     set('B45', r.kapatan);
+    set('A46', '8 D Raporu KAPALI / AÇIK  →  '+(r.kapatildi?'KAPALI':'AÇIK'));
+    // indir
+    const out = await wb.xlsx.writeBuffer();
+    const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=rapNo+' ('+(r.stokKodu||r.seri)+').xlsx'; a.click(); URL.revokeObjectURL(a.href);
+  }catch(e){ alert('FR13 üretme hatası: '+e.message); }
+}
 </script>
 
 <!-- D4 BAĞLA MODAL -->
