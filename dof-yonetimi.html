@@ -501,6 +501,7 @@ td.nowrap{white-space:nowrap;}
       <input type="search" class="filter-search" id="globalSearch" name="dofGenelArama"
         autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
         data-lpignore="true" data-1p-ignore data-form-type="other"
+        readonly onfocus="this.removeAttribute('readonly')"
         placeholder="Genel arama (tüm alanlarda)..." oninput="applyFilters()">
       <button class="filter-reset" onclick="resetFilters()">✕ Sıfırla</button>
       <button class="filter-save-preset" onclick="saveFilterPreset()">📌 Filtre Kaydet</button>
@@ -1411,7 +1412,7 @@ function getFilterPresets(){ return _filterPresetsCache; }
 
 async function saveFilterPreset(){
   const fv = JSON.parse(JSON.stringify(_filterVals));
-  const gs = document.getElementById('globalSearch')?.value||'';
+  const gs = _safeGS(document.getElementById('globalSearch')?.value);
   if(!Object.keys(fv).length && !gs){ showToast('⚠️ Aktif filtre yok.'); return; }
   const parts = Object.entries(fv).map(([k,v])=>v).filter(Boolean);
   const autoName = [...parts, gs].filter(Boolean).slice(0,3).join(' · ') || 'Filtre';
@@ -1431,11 +1432,14 @@ async function deleteFilterPreset(idx){
   await loadFilterPresets();
 }
 
+// Genel arama değeri e-posta gibi görünüyorsa kullanma (tarayıcı autofill kalıntısı) → boş döndür
+function _safeGS(v){ const s=(v||'').trim(); return /\S+@\S+\.\S+/.test(s) ? '' : s; }
+
 function applyFilterPreset(idx){
   const p = getFilterPresets()[idx];
   if(!p) return;
   _filterVals = JSON.parse(JSON.stringify(p.filterVals));
-  if(document.getElementById('globalSearch')) document.getElementById('globalSearch').value = p.globalSearch||'';
+  if(document.getElementById('globalSearch')) document.getElementById('globalSearch').value = _safeGS(p.globalSearch);
   syncFilterDOM();
   applyFilters();
   showToast('📌 Filtre yüklendi: '+p.name);
@@ -2303,7 +2307,7 @@ async function saveSnapshot(){
     mapping     : JSON.parse(JSON.stringify(_mapping)),
     aiCategories: JSON.parse(JSON.stringify(_aiCategories)),
     filterVals  : JSON.parse(JSON.stringify(_filterVals)),
-    globalSearch: document.getElementById('globalSearch')?.value||'',
+    globalSearch: _safeGS(document.getElementById('globalSearch')?.value),
   };
   try{
     const r = await fetch(_DOFSB_URL+"/rest/v1/dof_snapshots",{method:'POST',headers:_dofSbH({'Content-Type':'application/json',Prefer:'return=minimal'}),
@@ -2329,7 +2333,8 @@ async function loadSnapshot(id){
   closeSnapModal();
   initUI();
   // Restore global search (syncFilterDOM handles _filterVals → selects/inputs)
-  if(rec.globalSearch) document.getElementById('globalSearch').value = rec.globalSearch;
+  // E-posta görünümlü değeri YÜKLEME — tarayıcı autofill'i geçmiş kayda sızmış olabilir
+  document.getElementById('globalSearch').value = _safeGS(rec.globalSearch);
   applyFilters();
   showToast('✅ Yüklendi: '+rec.name+(Object.keys(_filterVals).length||rec.globalSearch ? ' (filtre geri yüklendi)' : ''));
 }
