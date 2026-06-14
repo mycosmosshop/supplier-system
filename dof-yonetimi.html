@@ -1043,7 +1043,8 @@ async function loadDofFromLeanSys(){
       return;
     }
     if(!ag.length){ alert('LeanSys\'te DÖF kaydı bulunamadı.'); return; }
-    _rawRows = ag;
+    // Modül tüm değerleri STRING bekler (Excel öyle verir); sayısal alanları (dof_inckey) string'e çevir
+    _rawRows = ag.map(r=>{ const o={}; for(const k in r){ o[k] = (r[k]===null||r[k]===undefined) ? '' : String(r[k]); } return o; });
     _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
     _filterVals = {};
     initUI();
