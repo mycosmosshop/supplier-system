@@ -497,7 +497,9 @@ td.nowrap{white-space:nowrap;}
   <div class="filter-bar">
     <div class="filter-bar-top">
       <label>Filtrele</label>
-      <input type="text" class="filter-search" id="globalSearch"
+      <input type="search" class="filter-search" id="globalSearch" name="dofGenelArama"
+        autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+        data-lpignore="true" data-1p-ignore data-form-type="other"
         placeholder="Genel arama (tüm alanlarda)..." oninput="applyFilters()">
       <button class="filter-reset" onclick="resetFilters()">✕ Sıfırla</button>
       <button class="filter-save-preset" onclick="saveFilterPreset()">📌 Filtre Kaydet</button>
