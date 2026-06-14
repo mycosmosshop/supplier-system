@@ -1571,16 +1571,15 @@ async function refreshList() {
 }
 
 function renderList(reports) {
-    const closed     = reports.filter(r => r.head?.status === 'Closed').length;
-    const inProgress = reports.filter(r => r.head?.status === 'In Progress').length;
-    const open       = reports.filter(r => r.head?.status === 'Open' || !r.head?.status).length;
-    const suppliers  = new Set(reports.map(r => (r.source||'Tedarikçi') === 'Tedarikçi' ? r.supplierName : r.source)).size;
-
-    document.getElementById('statTotal').textContent      = reports.length;
-    document.getElementById('statClosed').textContent     = closed;
-    document.getElementById('statInProgress').textContent = inProgress;
-    document.getElementById('statOpen').textContent       = open;
-    document.getElementById('statSuppliers').textContent  = suppliers;
+    // Yerel (IndexedDB) sayıları sakla → paylaşımlı LeanSys 8D ile birleştirilir
+    _localStat = {
+        total: reports.length,
+        closed: reports.filter(r => r.head?.status === 'Closed').length,
+        inProgress: reports.filter(r => r.head?.status === 'In Progress').length,
+        open: reports.filter(r => r.head?.status === 'Open' || !r.head?.status).length,
+        supSet: new Set(reports.map(r => (r.source||'Tedarikçi') === 'Tedarikçi' ? r.supplierName : r.source).filter(Boolean))
+    };
+    _applyCombinedStats();
 
     const container = document.getElementById('reportListContainer');
 
@@ -2600,13 +2599,29 @@ async function saveAll8dToSupabase(btn){
 let _sb8dRows=[];
 let _sb8dView=(localStorage.getItem('sb8d_view')||'card');
 let _sb8dLoc=(localStorage.getItem('sb8d_loc')||'');
+let _localStat={total:0,closed:0,inProgress:0,open:0,supSet:new Set()};
 function _8dLoc(s){ return (s && (s.loc||'').trim()) || 'Belirtilmemiş'; }
+// Üst dashboard kartları = yerel (IndexedDB) + paylaşımlı LeanSys 8D (Supabase) birleşik
+function _applyCombinedStats(){
+  const sb=_sb8dRows||[];
+  const sbClosed = sb.filter(r=>(r.status||'Open')==='Closed').length;
+  const sbOpen   = sb.length - sbClosed;            // /8d yalnız Closed/Open döndürür
+  const supSet   = new Set(_localStat.supSet);
+  sb.forEach(r=>supSet.add('📍'+_8dLoc(r)));         // paylaşımlı 8D'de lokasyon = konu/birim
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+  set('statTotal',      _localStat.total      + sb.length);
+  set('statClosed',     _localStat.closed     + sbClosed);
+  set('statInProgress', _localStat.inProgress + 0);
+  set('statOpen',       _localStat.open       + sbOpen);
+  set('statSuppliers',  supSet.size);
+}
 async function _renderSb8dGroup(){
   let rows=[];
   // lokasyon (şube) payload->head->detectionPoint içinden okunur — ayrı sütun/DDL gerekmez
   try{ const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?select=id,seri,sira,baslik,status,inckey,loc:payload->head->>detectionPoint&order=id.desc",{headers:_8dSbH()}); rows = r.ok? await r.json():[]; }catch(e){ return; }
-  if(!rows.length) return;
   _sb8dRows=rows;
+  _applyCombinedStats();   // üst kartlar paylaşımlı 8D'leri de saysın
+  if(!rows.length) return;
   _paintSb8d();
 }
 function _set8dView(v){ _sb8dView=v; localStorage.setItem('sb8d_view',v); _paintSb8d(); }
