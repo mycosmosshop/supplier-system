@@ -489,6 +489,7 @@ td.nowrap{white-space:nowrap;}
     <div class="stat-chip">Toplam: <span id="statTotal">0</span></div>
     <div class="stat-chip">Görünen: <span id="statVisible">0</span></div>
     <div class="stat-chip">Açık: <span id="statOpen">—</span></div>
+    <div class="stat-chip">Kapalı: <span id="statDone">—</span></div>
     <div class="stat-chip">Geciken: <span id="statLate">—</span></div>
     <div id="activeFilterBadge" class="filter-count" style="display:none;"></div>
   </div>
@@ -763,6 +764,8 @@ const FIELDS = [
   { key:'stokKodu',    label:'Stok Kodu',          type:'text',   aliases:['stok kodu','stok kod','ürün kodu','urun kodu','malzeme kodu','parça kodu','parca kodu','part code','part no'] },
   { key:'stokAdi',     label:'Stok Adı',           type:'select', aliases:['stok adı','stok adi','ürün adı','urun adi','malzeme','parça adı','parca adi','part name','part'] },
   { key:'subeAdi',     label:'Şube Adı',           type:'select', aliases:['şube adı','sube adi','şube','departman','bölüm','bolum'] },
+  { key:'kapatmaTarihi', label:'Kapatma Tarihi',   type:'date',   aliases:['kapatma tarihi','kapanış tarihi','fiili kapatma','bitiş tarihi','kapatma','closing date','close date'] },
+  { key:'durum',       label:'Durum',              type:'select', aliases:['durum','açık/kapalı','acik/kapali','status','state'] },
 ];
 
 // ─────────────────────────────────────────────
@@ -1058,7 +1061,7 @@ async function loadDofFromLeanSys(){
 }
 
 // Quick filter keys — always visible above the table
-const QUICK_KEYS = ['tipi','cinsi','sikayetTar','cariAdi','subeAdi'];
+const QUICK_KEYS = ['durum','tipi','cinsi','sikayetTar','cariAdi','subeAdi'];
 
 // ─────────────────────────────────────────────
 //  UI INIT
@@ -1312,6 +1315,10 @@ function renderTable(){
         return `<td>${badge}</td>`;
       }
       let v = esc(row[f.key]||'');
+      if(f.key==='durum'){
+        const closed=_dofClosed(row); const txt=row.durum||(closed?'Kapalı':'Açık');
+        return `<td><span style="display:inline-block;padding:2px 9px;border-radius:20px;font-size:.72rem;font-weight:700;${closed?'background:#e8f5e9;color:#2e7d32;':'background:#fdecea;color:#c62828;'}">${esc(txt)}</span></td>`;
+      }
       if(f.key==='dofSeri'){
         const sira = (row.dofS||'').toString().trim();
         v = esc(row.dofSeri||'') + (sira ? '-' + esc(sira) : '');
@@ -1336,16 +1343,25 @@ function renderTable(){
 // ─────────────────────────────────────────────
 //  STATS
 // ─────────────────────────────────────────────
+// Kapalı mı? Öncelik: 'durum' alanı (Kapalı/Açık) veya kapatma tarihi dolu; yoksa eski dofS metni.
+function _dofClosed(r){
+  if(r.durum && String(r.durum).trim()) return /kapal|kapan|tamam|closed|done/i.test(r.durum);
+  if(r.kapatmaTarihi && String(r.kapatmaTarihi).trim()) return true;
+  return !!(r.dofS && /kapan|kapat|tamam|closed/i.test(r.dofS));
+}
 function updateStats(today){
   document.getElementById('statTotal').textContent   = _rawRows.length;
   document.getElementById('statVisible').textContent = _filtered.length;
 
-  const open  = _rawRows.filter(r=>r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS)).length;
-  const late  = _rawRows.filter(r=>{
+  const closed = _rawRows.filter(_dofClosed).length;
+  const open   = _rawRows.length - closed;
+  const late   = _rawRows.filter(r=>{
+    if(_dofClosed(r)) return false;
     const kap = parseDate(r.tahminiKap);
-    return kap && kap < today && r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS);
+    return kap && kap < today;
   }).length;
   document.getElementById('statOpen').textContent = open || '—';
+  const sd=document.getElementById('statDone'); if(sd) sd.textContent = closed || '—';
   document.getElementById('statLate').textContent = late || '—';
 }
 
@@ -2497,10 +2513,11 @@ function renderDashboard(){
 
   // ── KPIs ──
   const today = new Date(); today.setHours(0,0,0,0);
-  const open  = rows.filter(r=>r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS)).length;
+  const open  = rows.filter(r=>!_dofClosed(r)).length;
   const late  = rows.filter(r=>{
+    if(_dofClosed(r)) return false;
     const kap=parseDate(r.tahminiKap);
-    return kap && kap<today && r.dofS && !/kapan|kapat|tamam|closed/i.test(r.dofS);
+    return kap && kap<today;
   }).length;
   const catPct = rows.length ? Math.round(rows.filter(r=>r._aiKategori&&r._aiKategori!=='İşlenemedi').length/rows.length*100) : 0;
   const uniqueCari = new Set(rows.map(r=>r.cariAdi).filter(Boolean)).size;
