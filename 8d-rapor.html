@@ -2572,7 +2572,8 @@ function _8dToReport(r){
     d5:{ actions: r.planlanan?[{description:r.planlanan, responsible:r.planSorumlu||'', date:_ls8dIso(r.planHedef)}]:[] },
     d6:{}, d7:{ actions: r.onleyici?[{description:r.onleyici, responsible:r.onlSorumlu||'', date:_ls8dIso(r.onlHedef)}]:[] },
     d8:{ closeDate:_ls8dIso(r.kapatma), bildirimTrh:_ls8dIso(r.bildirimTrh), result:r.sonuc||'' },
-    _kapatildi: !!r.kapatildi
+    _kapatildi: !!r.kapatildi,
+    _raw: r   // FR13 Excel'i tam sadakatle yeniden üretmek için ham LeanSys satırı
   };
 }
 async function save8dToSupabase(i, btn){
@@ -2657,6 +2658,8 @@ function _paintSb8d(){
             <div style="font-size:.8em;color:#888;margin-top:2px;">${_ls8dEsc((s.baslik||'').slice(0,40))}</div></div>
           <div class="report-card-actions" onclick="event.stopPropagation()">
             <button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" onclick="open8dSb(${s.id})">✏️</button>
+            <button class="card-btn" style="background:#475569;color:#fff;" title="PDF indir (modül formatı)" onclick="_export8dSbPdf(${s.id})">📄</button>
+            <button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir (8D şablonu)" onclick="_export8dSbFr13(${s.id})">📊</button>
             <button class="card-btn" style="background:#f44336;color:#fff;" title="Sil (yalnız Supabase)" onclick="del8dSb(${s.id})">🗑️</button>
           </div></div>
         <div class="report-card-meta"><span class="status-badge ${cls}">${ico} ${st}</span>${(s.loc&&s.loc.trim())?` <span style="font-size:.78em;color:#475569;">📍 ${_ls8dEsc(s.loc)}</span>`:''}</div>
@@ -2673,6 +2676,8 @@ function _paintSb8d(){
         <td style="padding:8px 10px;white-space:nowrap;"><span class="status-badge ${cls}">${ico} ${st}</span></td>
         <td style="padding:8px 10px;white-space:nowrap;" onclick="event.stopPropagation()">
           <button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" onclick="open8dSb(${s.id})">✏️</button>
+          <button class="card-btn" style="background:#475569;color:#fff;" title="PDF indir (modül formatı)" onclick="_export8dSbPdf(${s.id})">📄</button>
+          <button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir (8D şablonu)" onclick="_export8dSbFr13(${s.id})">📊</button>
           <button class="card-btn" style="background:#f44336;color:#fff;" title="Sil (yalnız Supabase)" onclick="del8dSb(${s.id})">🗑️</button>
         </td></tr>`;
     }).join('');
@@ -2690,58 +2695,100 @@ async function open8dSb(id){
   try{ const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?id=eq."+id+"&select=payload",{headers:_8dSbH()}); const arr=r.ok?await r.json():[]; const doc=arr[0]&&arr[0].payload; if(!doc){ showAlert('❌ Kayıt bulunamadı.','error'); return; } doc._sbId=id; _open8dDoc(doc); }
   catch(e){ showAlert('❌ Açılamadı: '+e.message,'error'); }
 }
+// Paylaşımlı kaydı → FR13 Excel (8D şablonu) olarak indir
+async function _export8dSbFr13(id){
+  try{
+    const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?id=eq."+id+"&select=payload",{headers:_8dSbH()});
+    const arr=r.ok?await r.json():[]; const doc=arr[0]&&arr[0].payload;
+    if(!doc){ showAlert('❌ Kayıt bulunamadı.','error'); return; }
+    await _downloadFr13(_docToFr13(doc));
+  }catch(e){ showAlert('❌ FR13 hatası: '+e.message,'error'); }
+}
+// Paylaşımlı kaydı → modülün kendi PDF formatı (forma yükle + yazdır penceresi)
+async function _export8dSbPdf(id){
+  try{
+    await open8dSb(id);              // payload'ı forma yükler + form görünümüne geçer
+    setTimeout(()=>{ try{ export8DReportPDF(); }catch(e){ showAlert('❌ PDF hatası: '+e.message,'error'); } }, 250);
+  }catch(e){ showAlert('❌ PDF hatası: '+e.message,'error'); }
+}
 async function del8dSb(id){
   if(!confirm('Bu 8D kaydı SİLİNECEK.\n\n• Yalnız Supabase (paylaşımlı arşiv) ve bu listeden kalkar.\n• LeanSys\'e KESİNLİKLE dokunulmaz.\n\nDevam?')) return;
   try{ await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?id=eq."+id,{method:'DELETE',headers:_8dSbH({Prefer:'return=minimal'})}); showAlert('🗑 Kayıt silindi (Supabase).','success'); refreshList(); }
   catch(e){ showAlert('❌ Silme hatası: '+e.message,'error'); }
 }
+// FR13 şablonunu düz alan nesnesi (r) ile doldurur → rapNo döndürür. Hem ham LeanSys satırı hem payload için ortak.
+function _fillFr13(ws, r){
+  const yy = (r.seri||'').replace(/\D/g,'').slice(-2) || String(r.acma||'').slice(-2);
+  const sira3 = String(r.sira||'').padStart(3,'0');
+  const rapNo = r.rapNo || ('8D-'+yy+'-'+sira3);
+  const set=(ref,val)=>{ try{ ws.getCell(ref).value = (val==null?'':String(val)); }catch(e){} };
+  // ── Başlık / D1 (Team Formation) ──
+  set('A5', 'Report No: '+rapNo+'     ·     NCR: NCR-'+yy+'-'+sira3);
+  set('B7', r.lider);            set('F7', r.tahminiKap);
+  set('B8', r.sikayet);          set('F8', r.uyeler);
+  set('B9', r.acma);             set('F9', r.cins);
+  set('B10', r.tip);
+  // ── D2 (Problem Description) ──
+  set('B12', r.stokKodu);        set('F12', r.acma);
+  set('B13', r.stokAdi);         set('F13', rapNo);
+  set('B14', r.cari);            set('F14', r.waybill);
+  set('A15', r.tarif || 'Problem Description');
+  set('A16', 'Hatalı Miktar: '+(r.hatali||''));
+  // ── D3 (Acil Önlem / Containment) ──
+  set('B18', r.acilOnlem);
+  set('B19', [r.acilSorumlu, r.acilHedef, r.acilSonuc].filter(Boolean).join(' · '));
+  // ── D4 (Ana Sebep / Root Cause) ──
+  set('A22', r.rYonetim);  set('C22', r.rMethod);  set('E22', r.rMakine);
+  set('A26', r.rInsan);    set('C26', r.rMalzeme);
+  set('G21', r.baslik);    // sağdaki "Hatalı/PROBLEM" kutusu
+  // ── D5 (Düzeltici) ──
+  set('A30', r.planlanan); set('G30', r.planHedef); set('H30', r.planSorumlu);
+  // ── D6 (Geçerli kılma) ──
+  set('A33', r.planSonuc);
+  // ── D7 (Önleyici) ──
+  set('A36', r.onleyici);  set('G36', r.onlHedef);  set('H36', r.onlSorumlu);
+  // ── D8 (Kapanış) ──
+  set('B38', r.kapatma);   set('F38', r.kapatildi? 'Kapalı':'Açık');
+  set('B39', r.bildirimTrh); set('B40', r.bildirimYontemi);
+  set('B41', r.fiiliKapatma); set('B42', r.ilgili);
+  set('B43', r.sonuc);     set('B45', r.kapatan);
+  set('A46', '8 D Raporu KAPALI / AÇIK  →  '+(r.kapatildi?'KAPALI':'AÇIK'));
+  return rapNo;
+}
+async function _downloadFr13(r){
+  const tplBuf = await (await fetch('8d-fr13-template.xlsx')).arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(tplBuf);
+  const rapNo = _fillFr13(wb.worksheets[0], r);
+  const out = await wb.xlsx.writeBuffer();
+  const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=rapNo+' ('+(r.stokKodu||r.seri||'8D')+').xlsx'; a.click(); URL.revokeObjectURL(a.href);
+}
 async function generate8DExcel(i){
   const r=_ls8dRows[i]; if(!r) return;
-  try{
-    const tplBuf = await (await fetch('8d-fr13-template.xlsx')).arrayBuffer();
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(tplBuf);
-    const ws = wb.worksheets[0];
-    const yy = (r.seri||'').replace(/\D/g,'').slice(-2) || (r.acma||'').slice(-2);
-    const sira3 = String(r.sira||'').padStart(3,'0');
-    const rapNo = '8D-'+yy+'-'+sira3;
-    const set=(ref,val)=>{ try{ ws.getCell(ref).value = (val==null?'':String(val)); }catch(e){} };
-    // ── Başlık / D1 (Team Formation) ──
-    set('A5', 'Report No: '+rapNo+'     ·     NCR: NCR-'+yy+'-'+sira3);
-    set('B7', r.lider);            set('F7', r.tahminiKap);
-    set('B8', r.sikayet);          set('F8', r.uyeler);
-    set('B9', r.acma);             set('F9', r.cins);
-    set('B10', r.tip);
-    // ── D2 (Problem Description) ──
-    set('B12', r.stokKodu);        set('F12', r.acma);
-    set('B13', r.stokAdi);         set('F13', rapNo);
-    set('B14', r.cari);            set('F14', r.waybill);
-    set('A15', r.tarif || 'Problem Description');
-    set('A16', 'Hatalı Miktar: '+(r.hatali||''));
-    // ── D3 (Acil Önlem / Containment) ──
-    set('B18', r.acilOnlem);
-    set('B19', [r.acilSorumlu, r.acilHedef, r.acilSonuc].filter(Boolean).join(' · '));
-    // ── D4 (Ana Sebep / Root Cause) ──
-    set('A22', r.rYonetim);  set('C22', r.rMethod);  set('E22', r.rMakine);
-    set('A26', r.rInsan);    set('C26', r.rMalzeme);
-    set('G21', r.baslik);    // sağdaki "Hatalı/PROBLEM" kutusu
-    // ── D5 (Düzeltici) ──
-    set('A30', r.planlanan); set('G30', r.planHedef); set('H30', r.planSorumlu);
-    // ── D6 (Geçerli kılma) ──
-    set('A33', r.planSonuc);
-    // ── D7 (Önleyici) ──
-    set('A36', r.onleyici);  set('G36', r.onlHedef);  set('H36', r.onlSorumlu);
-    // ── D8 (Kapanış) ──
-    set('B38', r.kapatma);   set('F38', r.kapatildi? 'Kapalı':'Açık');
-    set('B39', r.bildirimTrh); set('B40', r.bildirimYontemi);
-    set('B41', r.fiiliKapatma); set('B42', r.ilgili);
-    set('B43', r.sonuc);     set('B45', r.kapatan);
-    set('A46', '8 D Raporu KAPALI / AÇIK  →  '+(r.kapatildi?'KAPALI':'AÇIK'));
-    // indir
-    const out = await wb.xlsx.writeBuffer();
-    const blob = new Blob([out], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=rapNo+' ('+(r.stokKodu||r.seri)+').xlsx'; a.click(); URL.revokeObjectURL(a.href);
-  }catch(e){ alert('FR13 üretme hatası: '+e.message); }
+  try{ await _downloadFr13(r); }catch(e){ alert('FR13 üretme hatası: '+e.message); }
+}
+// Paylaşımlı (Supabase) 8D kaydının payload'undan FR13 alanlarını üret (ham _raw varsa onu kullan = tam sadakat)
+function _isoToTr(s){ const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}.${m[2]}.${m[1]}`:(s||''); }
+function _docToFr13(doc){
+  if(doc && doc._raw) return doc._raw;   // tam sadakat
+  const h=doc.head||{}, d1=doc.d1||{}, d3=doc.d3||{}, d4=doc.d4||{}, d5=doc.d5||{}, d7=doc.d7||{}, d8=doc.d8||{};
+  const rc={}; (d4.rootCauses||[]).forEach(c=>{ if(c&&c.type) rc[c.type]=c.description; });
+  const a3=(d3.actions||[])[0]||{}, a5=(d5.actions||[])[0]||{}, a7=(d7.actions||[])[0]||{};
+  return {
+    rapNo:h.reportNumber||'', seri:'', sira:'',
+    lider:'', tahminiKap:'', sikayet:_isoToTr(h.startDate), uyeler:(d1.teamMembers||[]).map(m=>m.name).filter(Boolean).join(', '),
+    acma:_isoToTr(h.startDate), cins:'', tip:'',
+    stokKodu:h.partNumber, stokAdi:h.partName, cari:h.customer, waybill:'',
+    tarif:h.defectDescription, hatali:h.defectQuantity,
+    acilOnlem:a3.description, acilSorumlu:a3.responsible, acilHedef:_isoToTr(a3.date), acilSonuc:'',
+    rYonetim:rc['Yönetim'], rMethod:rc['Metot'], rMakine:rc['Makine'], rInsan:rc['İnsan'], rMalzeme:rc['Malzeme'],
+    planlanan:a5.description, planHedef:_isoToTr(a5.date), planSorumlu:a5.responsible, planSonuc:'',
+    onleyici:a7.description, onlHedef:_isoToTr(a7.date), onlSorumlu:a7.responsible,
+    baslik:h.title, kapatma:_isoToTr(d8.closeDate), kapatildi:doc._kapatildi?1:0,
+    bildirimTrh:_isoToTr(d8.bildirimTrh), bildirimYontemi:'', fiiliKapatma:'', ilgili:'',
+    sonuc:d8.result, kapatan:''
+  };
 }
 </script>
 
