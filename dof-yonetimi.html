@@ -459,6 +459,7 @@ td.nowrap{white-space:nowrap;}
   <button class="tbb ok" id="snapSaveBtn" style="display:none" onclick="saveSnapshot()">💾 Kaydet</button>
   <button class="tbb" id="snapLoadBtn" onclick="openSnapModal()">🗂 Kayıtlar</button>
   <button class="tbb danger" onclick="clearData()">🗑 Temizle</button>
+  <button class="tbb danger" id="bulkDelBtn" style="display:none" onclick="deleteSelected()">🗑 Seçilenleri Sil (<span id="bulkDelCount">0</span>)</button>
   <button class="tbb" id="allFilesBtn" onclick="openAllFilesModal()" style="background:rgba(5,150,105,.55);border-color:rgba(5,150,105,.7);">📎 Dosyalar<span id="allFilesBadge" style="display:none;"></span></button>
   <button class="tbb" id="dashBtn" style="display:none;background:linear-gradient(135deg,rgba(16,185,129,.7),rgba(37,99,235,.7));" onclick="openDashboard()">📊 Dashboard</button>
   <button class="tbb" id="aiCatBtn" style="display:none;background:linear-gradient(135deg,rgba(124,58,237,.85),rgba(37,99,235,.85));border-color:rgba(167,139,250,.5);" onclick="openAiCatModal()">🤖 AI Kategorize</button>
@@ -1022,6 +1023,7 @@ function applyMappingDirect(){
 
   if(!_rawRows.length){ alert('Veri yüklenemedi. Kolon eşleştirmeyi kontrol edin.'); openMapModal(); return; }
   _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
+  _restoreAiCats();   // mevcut AI kategorileri geri yükle (Excel yüklemede de korunur)
   _filterVals = {};
   initUI();
 }
@@ -1046,6 +1048,7 @@ async function loadDofFromLeanSys(){
     // Modül tüm değerleri STRING bekler (Excel öyle verir); sayısal alanları (dof_inckey) string'e çevir
     _rawRows = ag.map(r=>{ const o={}; for(const k in r){ o[k] = (r[k]===null||r[k]===undefined) ? '' : String(r[k]); } return o; });
     _rawRows.forEach(r=>{ if(!r._rowId) r._rowId = crypto.randomUUID(); });
+    _restoreAiCats();   // mevcut AI kategorileri geri yükle (her çekişte silinmesin)
     _filterVals = {};
     initUI();
   } catch(err){ alert('LeanSys yükleme hatası: '+err.message); }
@@ -1059,6 +1062,7 @@ const QUICK_KEYS = ['tipi','cinsi','sikayetTar','cariAdi','subeAdi'];
 //  UI INIT
 // ─────────────────────────────────────────────
 function initUI(){
+  _selRows.clear(); _updBulkDelBtn();   // yeni veri → seçim sıfırla
   document.getElementById('uploadZone').style.display='none';
   document.getElementById('mainArea').style.display='';
   document.getElementById('aiCatBtn').style.display='';
@@ -1241,7 +1245,7 @@ function applyAiCat(ridx){
   const inp = document.querySelector('.aicat-pop #aicatPopInp');
   const val = (inp?.value||'').trim();
   if(!val) return;
-  row._aiKategori = val;
+  _setRowCat(row, val);   // kalıcı kaydet (DÖF id bazlı)
   // Add to category list if new
   if(!_aiCategories.includes(val)){ _aiCategories.push(val); }
   _aiCatDone = true;
@@ -1257,14 +1261,16 @@ function renderTable(){
   const visibleFields = FIELDS.filter(f=>f.key!=='dofS' && _rawRows.some(r=>r[f.key]));
   // Build a map from dofSeri (or index) to _aiKategori for safe lookup
   const allFields = [
-    ..._aiCatDone
+    {key:'_sel', label:'', type:'sel'},
+    ...(_aiCatDone
       ? [...visibleFields, {key:'_aiKategori', label:'Kategori', type:'select'}]
-      : visibleFields,
+      : visibleFields),
     {key:'_attach', label:'📎', type:'attach'},
     {key:'_del', label:'', type:'del'}
   ];
 
   thead.innerHTML = '<tr>'+allFields.map(f=>{
+    if(f.key==='_sel') return `<th style="width:30px;text-align:center;cursor:default;"><input type="checkbox" title="Görünenleri seç/bırak" onclick="toggleSelAll(this.checked)"></th>`;
     if(f.key==='_attach') return `<th style="width:48px;text-align:center;cursor:default;">📎</th>`;
     if(f.key==='_del') return `<th style="width:34px;cursor:default;"></th>`;
     const sc = _sortCol===f.key ? (_sortDir===1?'sort-asc':'sort-desc') : '';
@@ -1281,6 +1287,10 @@ function renderTable(){
     }
     const cells = allFields.map(f=>{
       let cls='';
+      if(f.key==='_sel'){
+        const ck=_selRows.has(row._rowId)?'checked':'';
+        return `<td style="text-align:center;"><input type="checkbox" class="rowSel" data-rid="${row._rowId||''}" ${ck} onchange="toggleSel('${row._rowId||''}', this.checked)"></td>`;
+      }
       if(f.key==='_attach'){
         const cnt = _attCounts[row._rowId]||0;
         const label = row.dofSeri || row.baslik || 'Satır';
@@ -1486,6 +1496,44 @@ let _aiCategories = [...DEFAULT_CATEGORIES];
 let _aiRunning = false;
 let _aiCatDone = false; // true after at least one batch categorized
 
+// ── AI KATEGORI KALICILIK (DÖF id bazli) — her yuklemede silinmesin; yeni gelenlere AI yap ──
+let _aiCatStore = {};
+try { _aiCatStore = JSON.parse(localStorage.getItem('dof_ai_cat_store')||'{}') || {}; } catch(e){ _aiCatStore = {}; }
+function _dofKey(r){ return (r && r.dof_inckey!=null && r.dof_inckey!=='') ? ('k'+r.dof_inckey) : ('s'+((r&&r.dofSeri)||'')+'-'+((r&&r.dofS)||'')); }
+function _saveAiCatStore(){ try{ localStorage.setItem('dof_ai_cat_store', JSON.stringify(_aiCatStore)); }catch(e){} }
+function _setRowCat(r, cat){ r._aiKategori = cat; const k=_dofKey(r); if(cat){ _aiCatStore[k]=cat; } else { delete _aiCatStore[k]; } _saveAiCatStore(); }
+function _restoreAiCats(){ let any=false; (_rawRows||[]).forEach(r=>{ if(!r._aiKategori){ const c=_aiCatStore[_dofKey(r)]; if(c){ r._aiKategori=c; any=true; } } }); if(any) _aiCatDone=true; return any; }
+
+// ── COKLU SECIM + SIL (yalniz Supabase + uygulama; LeanSys'e ASLA dokunmaz) ──
+let _selRows = new Set();
+function toggleSel(rowId, on){ if(on) _selRows.add(rowId); else _selRows.delete(rowId); _updBulkDelBtn(); }
+function toggleSelAll(on){ document.querySelectorAll('#tableBody input.rowSel').forEach(cb=>{ cb.checked=on; const id=cb.getAttribute('data-rid'); if(on)_selRows.add(id); else _selRows.delete(id); }); _updBulkDelBtn(); }
+function _updBulkDelBtn(){ const b=document.getElementById('bulkDelBtn'); if(!b)return; const n=_selRows.size; b.style.display=n?'':'none'; const c=document.getElementById('bulkDelCount'); if(c)c.textContent=n; }
+async function deleteSelected(){
+  const ids=[..._selRows]; if(!ids.length) return;
+  const sel=_rawRows.filter(r=>ids.includes(r._rowId));
+  if(!confirm(sel.length+' kayit SILINECEK.\n\n• Bu uygulamadan (ekran) ve Supabase arsivinden (dof_records) silinir.\n• LeanSys\'e KESINLIKLE dokunulmaz.\n\nDevam?')) return;
+  // 1) Supabase dof_records'tan sil (dof_inckey olanlar) — anon
+  const inckeys=sel.map(r=>r.dof_inckey).filter(v=>v!==undefined&&v!==null&&String(v).trim()!=='');
+  if(inckeys.length){
+    try{
+      const SUPA="https://nnubrxbpthmkitueixbh.supabase.co";
+      const ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE";
+      for(let i=0;i<inckeys.length;i+=100){ const chunk=inckeys.slice(i,i+100);
+        await fetch(SUPA+"/rest/v1/dof_records?dof_inckey=in.("+chunk.join(',')+")",{method:'DELETE',headers:{apikey:ANON,Authorization:"Bearer "+ANON}});
+      }
+    }catch(e){ /* Supabase erisilemese de ekrandan sil */ }
+  }
+  // 2) uygulamadan (ekran) sil + kalici kategori kaydini da temizle
+  const idset=new Set(ids);
+  sel.forEach(r=>{ delete _aiCatStore[_dofKey(r)]; });
+  _saveAiCatStore();
+  _rawRows = _rawRows.filter(r=>!idset.has(r._rowId));
+  _selRows.clear(); _updBulkDelBtn();
+  refreshAiCatFilter(); applyFilters();
+  alert(sel.length+' kayit silindi.');
+}
+
 function openAiCatModal(){
   if(!_rawRows.length){ alert('Önce Excel yükleyin.'); return; }
   // Restore saved keys from localStorage
@@ -1550,9 +1598,10 @@ function addCatTag(){
 function removeCatTag(i){ _aiCategories.splice(i,1); renderCatTags(); }
 
 function clearAiCategories(){
-  if(!confirm('AI kategori eşleştirmeleri silinsin mi?')) return;
+  if(!confirm('AI kategori eşleştirmeleri silinsin mi?\n(Kalıcı kayıt da temizlenir — sonraki yüklemede geri gelmez.)')) return;
   _rawRows.forEach(r=>delete r._aiKategori);
   _filtered.forEach(r=>delete r._aiKategori);
+  _aiCatStore = {}; _saveAiCatStore();   // kalıcı depoyu da temizle (kullanıcının açık isteği)
   _aiCatDone = false;
   refreshAiCatFilter();
   renderTable();
@@ -1744,14 +1793,20 @@ async function startCategorization(){
   const BATCH = 15;           // smaller batches → fewer tokens per request
   const INTER_DELAY = 1200;   // ms between batches
   const MAX_RETRIES = 3;
-  const total = _rawRows.length;
+  // YALNIZ KATEGORISI OLMAYANLAR (ya da 'İşlenemedi') — mevcut kategoriler korunur, tekrar uğraşılmaz
+  const todo = _rawRows.filter(r=>!r._aiKategori || r._aiKategori==='İşlenemedi');
+  if(!todo.length){
+    setAiCatStatus('✅ Tüm kayıtlar zaten kategorize — yeni/eksik kayıt yok.', 'ok');
+    _aiRunning=false; document.getElementById('aiRunBtn').disabled=false; document.getElementById('suggestBtn').disabled=false; return;
+  }
+  const total = todo.length;
   let done = 0;
   let failedBatches = 0;
   setAiCatProgress(0, total);
 
   try{
-    for(let i=0; i<_rawRows.length; i+=BATCH){
-      const batch  = _rawRows.slice(i, i+BATCH);
+    for(let i=0; i<todo.length; i+=BATCH){
+      const batch  = todo.slice(i, i+BATCH);
       const titles = batch.map(r=>r.baslik||r.dofSeri||'(başlık yok)');
       const batchLabel = `${i+1}–${Math.min(i+BATCH,total)}`;
 
@@ -1780,10 +1835,11 @@ async function startCategorization(){
 
       batch.forEach((r,idx)=>{
         if(!results){
-          if(!r._aiKategori) r._aiKategori = 'İşlenemedi'; // keep existing if already set
+          r._aiKategori = 'İşlenemedi'; // KALICI DEGIL (store'a yazma) → sonraki çalıştırmada tekrar denenir
         } else {
           const cat = results[idx] ? String(results[idx]).trim() : 'Diğer';
-          r._aiKategori = (cat !== 'Diğer' && !_aiCategories.includes(cat)) ? 'Diğer' : cat;
+          const fin = (cat !== 'Diğer' && !_aiCategories.includes(cat)) ? 'Diğer' : cat;
+          _setRowCat(r, fin);   // kalıcı kaydet (DÖF id bazlı)
         }
       });
 
@@ -1793,7 +1849,7 @@ async function startCategorization(){
       applyFilters();
 
       // Inter-batch delay
-      if(i+BATCH < _rawRows.length) await new Promise(r=>setTimeout(r, INTER_DELAY));
+      if(i+BATCH < todo.length) await new Promise(r=>setTimeout(r, INTER_DELAY));
     }
 
     const summary = failedBatches > 0
