@@ -15038,6 +15038,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     if (typeof displayResults === 'function') displayResults();
                 } catch(e) { console.warn('Dönem geçişinde durum/bilgi uygulama:', e); }
 
+                // 8D sayılarını GERÇEK raporlardan kesin reconcile et — snapshot'ta kalmış ORPHAN 8D sayıları
+                // (rapor listesinde karşılığı olmayan "1" gibi) temizlenir; rapor yoksa 0. Diğer yükleme
+                // yollarıyla (LeanSys/Excel/import 8095/25466/...) tutarlı. Fonksiyon tabloyu kendisi yeniden çizer.
+                try { if (typeof load8DCountsFromDB === 'function') load8DCountsFromDB(); } catch(e) { console.warn('8D reconcile (dönem geçişi):', e); }
+
             } catch (e) {
                 console.error('Saved edits load error:', e);
                 showAlert('❌ Veri yükleme hatası!', 'error');
