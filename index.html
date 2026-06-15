@@ -15038,6 +15038,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     if (typeof displayResults === 'function') displayResults();
                 } catch(e) { console.warn('Dönem geçişinde durum/bilgi uygulama:', e); }
 
+                // LOKASYON da KALICI depodan (snapshot'tan DEĞİL) — durum/bilgi/belge gibi.
+                // Böylece dönem değiştirince / her yüklemede tedarikçinin lokasyonu DEĞİŞMEZ, sabit kalır.
+                try {
+                    if (typeof getSavedLocation === 'function' && allResults && allResults.length) {
+                        Promise.all(allResults.map(function(sp){
+                            return getSavedLocation(sp.name).then(function(locs){
+                                if (Array.isArray(locs) && locs.length) sp.lokasyon = locs;
+                            }).catch(function(){});
+                        })).then(function(){ if (typeof displayResults === 'function') displayResults(); }).catch(function(){});
+                    }
+                } catch(e) { console.warn('Dönem geçişinde lokasyon uygulama:', e); }
+
                 // 8D sayılarını GERÇEK raporlardan kesin reconcile et — snapshot'ta kalmış ORPHAN 8D sayıları
                 // (rapor listesinde karşılığı olmayan "1" gibi) temizlenir; rapor yoksa 0. Diğer yükleme
                 // yollarıyla (LeanSys/Excel/import 8095/25466/...) tutarlı. Fonksiyon tabloyu kendisi yeniden çizer.
