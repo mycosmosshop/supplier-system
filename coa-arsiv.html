@@ -2294,6 +2294,24 @@
                     return;
                 }
 
+                // materials dizisini de güncelle (hammadde dropdown için)
+                const matMap = new Map(materials.map(m => [m.code || m.stockCode || '', m]));
+                for (const rec of toAdd) {
+                    const code = rec.materialCode;
+                    if (!code) continue;
+                    if (matMap.has(code)) {
+                        const m = matMap.get(code);
+                        if (m.suppliers && rec.supplier && !m.suppliers.includes(rec.supplier))
+                            m.suppliers.push(rec.supplier);
+                    } else {
+                        const nm = { code, name: rec.materialName || '', suppliers: rec.supplier ? [rec.supplier] : [], deliveries: [] };
+                        matMap.set(code, nm);
+                        materials.push(nm);
+                    }
+                }
+                saveMaterials();
+                if (typeof updateMaterialDropdown === 'function') updateMaterialDropdown();
+
                 saveToLocalStorage();
                 renderTable();
                 if (typeof updateUI === 'function') updateUI();
