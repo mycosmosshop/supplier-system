@@ -2596,12 +2596,16 @@ async function saveAll8dToSupabase(btn){
   alert(ok+' kayıt 8D listesine kaydedildi (paylaşımlı)'+(err?(', '+err+' hata'):'')+'.');
   if(typeof refreshList==='function') refreshList();
 }
-// 8D listesine paylaşımlı (Supabase) grubu ekle — kart + satır görünümü + lokasyon filtresi
+// 8D listesine paylaşımlı (Supabase) grubu ekle — kart + satır görünümü + lokasyon + tarih aralığı filtresi
 let _sb8dRows=[];
 let _sb8dView=(localStorage.getItem('sb8d_view')||'card');
 let _sb8dLoc=(localStorage.getItem('sb8d_loc')||'');
+let _sb8dDateFrom='';
+let _sb8dDateTo='';
 let _localStat={total:0,closed:0,inProgress:0,open:0,supSet:new Set()};
 function _8dLoc(s){ return (s && (s.loc||'').trim()) || 'Belirtilmemiş'; }
+function _8dStartDate(s){ return (s && s.startDate) ? s.startDate.slice(0,10) : ''; }
+function _isoToTrShort(iso){ if(!iso) return '—'; const d=iso.slice(0,10); const p=d.split('-'); return p.length===3?p[2]+'.'+p[1]+'.'+p[0]:d; }
 // Üst dashboard kartları = yerel (IndexedDB) + paylaşımlı LeanSys 8D (Supabase) birleşik
 function _applyCombinedStats(){
   const sb=_sb8dRows||[];
@@ -2618,8 +2622,8 @@ function _applyCombinedStats(){
 }
 async function _renderSb8dGroup(){
   let rows=[];
-  // lokasyon (şube) payload->head->detectionPoint içinden okunur — ayrı sütun/DDL gerekmez
-  try{ const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?select=id,seri,sira,baslik,status,inckey,loc:payload->head->>detectionPoint&order=id.desc",{headers:_8dSbH()}); rows = r.ok? await r.json():[]; }catch(e){ return; }
+  // lokasyon (şube) ve startDate payload->head içinden okunur — ayrı sütun/DDL gerekmez
+  try{ const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?select=id,seri,sira,baslik,status,inckey,loc:payload->head->>detectionPoint,startDate:payload->head->>startDate&order=id.desc",{headers:_8dSbH()}); rows = r.ok? await r.json():[]; }catch(e){ return; }
   _sb8dRows=rows;
   _applyCombinedStats();   // üst kartlar paylaşımlı 8D'leri de saysın
   if(!rows.length) return;
@@ -2627,6 +2631,9 @@ async function _renderSb8dGroup(){
 }
 function _set8dView(v){ _sb8dView=v; localStorage.setItem('sb8d_view',v); _paintSb8d(); }
 function _set8dLoc(v){ _sb8dLoc=v; localStorage.setItem('sb8d_loc',v); _paintSb8d(); }
+function _set8dDateFrom(v){ _sb8dDateFrom=v; _paintSb8d(); }
+function _set8dDateTo(v){ _sb8dDateTo=v; _paintSb8d(); }
+function _clear8dDateFilter(){ _sb8dDateFrom=''; _sb8dDateTo=''; const f=document.getElementById('sb8dFrom'); const t=document.getElementById('sb8dTo'); if(f)f.value=''; if(t)t.value=''; _paintSb8d(); }
 function _paintSb8d(){
   const cont=document.getElementById('reportListContainer'); if(!cont) return;
   const emp=cont.querySelector('.empty-state'); if(emp) emp.remove();
@@ -2636,12 +2643,27 @@ function _paintSb8d(){
   // lokasyon listesi
   const locs=[...new Set(rows.map(_8dLoc))].sort((a,b)=>a.localeCompare(b,'tr'));
   if(_sb8dLoc && !locs.includes(_sb8dLoc)) _sb8dLoc='';
-  const shown = _sb8dLoc ? rows.filter(r=>_8dLoc(r)===_sb8dLoc) : rows;
+  // filtrele: lokasyon + tarih aralığı
+  const shown = rows.filter(r=>{
+    if(_sb8dLoc && _8dLoc(r)!==_sb8dLoc) return false;
+    const sd=_8dStartDate(r);
+    if(_sb8dDateFrom && sd && sd < _sb8dDateFrom) return false;
+    if(_sb8dDateTo   && sd && sd > _sb8dDateTo)   return false;
+    return true;
+  });
   const locOpts = `<option value="">📍 Tüm Lokasyonlar (${rows.length})</option>`+
     locs.map(l=>`<option value="${_ls8dEsc(l)}"${l===_sb8dLoc?' selected':''}>${_ls8dEsc(l)} (${rows.filter(r=>_8dLoc(r)===l).length})</option>`).join('');
   const cardActive=_sb8dView==='card';
-  const toolbar=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px 4px;">
-    <select onchange="_set8dLoc(this.value)" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9em;max-width:320px;">${locOpts}</select>
+  const hasDateFilter=_sb8dDateFrom||_sb8dDateTo;
+  const toolbar=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px 4px;">
+    <select onchange="_set8dLoc(this.value)" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9em;max-width:240px;">${locOpts}</select>
+    <label style="display:flex;align-items:center;gap:4px;font-size:.85em;color:#475569;white-space:nowrap;">
+      <span>📅</span>
+      <input id="sb8dFrom" type="date" value="${_sb8dDateFrom}" onchange="_set8dDateFrom(this.value)" title="Başlangıç tarihi (dan)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.85em;color:#334155;">
+      <span style="color:#94a3b8;">—</span>
+      <input id="sb8dTo" type="date" value="${_sb8dDateTo}" onchange="_set8dDateTo(this.value)" title="Başlangıç tarihi (a kadar)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.85em;color:#334155;">
+    </label>
+    ${hasDateFilter?`<button onclick="_clear8dDateFilter()" title="Tarih filtresini temizle" style="border:1px solid #f87171;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:5px 10px;font-size:.8em;cursor:pointer;white-space:nowrap;">✕ Tarihi Sıfırla</button>`:''}
     <span style="flex:1;"></span>
     <div style="display:inline-flex;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;">
       <button onclick="_set8dView('card')" title="Kart görünümü" style="border:none;cursor:pointer;padding:7px 12px;font-size:.9em;background:${cardActive?'#1d4ed8':'#fff'};color:${cardActive?'#fff':'#334155'};">▦ Kart</button>
@@ -2652,6 +2674,7 @@ function _paintSb8d(){
   if(cardActive){
     const cards=shown.map(s=>{
       const st=s.status||'Open'; const cls=st==='Closed'?'status-closed':'status-open'; const ico=st==='Closed'?'✓':'○';
+      const sdTr=_isoToTrShort(s.startDate);
       return `<div class="report-card" onclick="open8dSb(${s.id})">
         <div class="report-card-head">
           <div><div class="report-card-title">${_ls8dEsc(s.seri)}-${_ls8dEsc(s.sira)}</div>
@@ -2662,17 +2685,19 @@ function _paintSb8d(){
             <button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir (8D şablonu)" onclick="_export8dSbFr13(${s.id})">📊</button>
             <button class="card-btn" style="background:#f44336;color:#fff;" title="Sil (yalnız Supabase)" onclick="del8dSb(${s.id})">🗑️</button>
           </div></div>
-        <div class="report-card-meta"><span class="status-badge ${cls}">${ico} ${st}</span>${(s.loc&&s.loc.trim())?` <span style="font-size:.78em;color:#475569;">📍 ${_ls8dEsc(s.loc)}</span>`:''}</div>
+        <div class="report-card-meta"><span class="status-badge ${cls}">${ico} ${st}</span>${(s.loc&&s.loc.trim())?` <span style="font-size:.78em;color:#475569;">📍 ${_ls8dEsc(s.loc)}</span>`:''}<span style="font-size:.78em;color:#64748b;margin-left:6px;">📅 ${sdTr}</span></div>
       </div>`;
     }).join('');
     body=`<div class="supplier-cards">${cards}</div>`;
   } else {
     const rrows=shown.map(s=>{
       const st=s.status||'Open'; const cls=st==='Closed'?'status-closed':'status-open'; const ico=st==='Closed'?'✓':'○';
+      const sdTr=_isoToTrShort(s.startDate);
       return `<tr style="border-bottom:1px solid #eef2f7;cursor:pointer;" onclick="open8dSb(${s.id})" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
         <td style="padding:8px 10px;font-weight:700;white-space:nowrap;">${_ls8dEsc(s.seri)}-${_ls8dEsc(s.sira)}</td>
         <td style="padding:8px 10px;">${_ls8dEsc(s.baslik||'')}</td>
         <td style="padding:8px 10px;white-space:nowrap;">${(s.loc&&s.loc.trim())?'📍 '+_ls8dEsc(s.loc):'<span style=color:#94a3b8>—</span>'}</td>
+        <td style="padding:8px 10px;white-space:nowrap;color:#475569;">📅 ${sdTr}</td>
         <td style="padding:8px 10px;white-space:nowrap;"><span class="status-badge ${cls}">${ico} ${st}</span></td>
         <td style="padding:8px 10px;white-space:nowrap;" onclick="event.stopPropagation()">
           <button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" onclick="open8dSb(${s.id})">✏️</button>
@@ -2685,11 +2710,11 @@ function _paintSb8d(){
       <table style="width:100%;border-collapse:collapse;font-size:.9em;">
         <thead><tr style="background:#f1f5f9;text-align:left;">
           <th style="padding:8px 10px;">No</th><th style="padding:8px 10px;">Başlık</th>
-          <th style="padding:8px 10px;">Lokasyon</th><th style="padding:8px 10px;">Durum</th><th style="padding:8px 10px;">İşlem</th>
+          <th style="padding:8px 10px;">Lokasyon</th><th style="padding:8px 10px;">Tarih</th><th style="padding:8px 10px;">Durum</th><th style="padding:8px 10px;">İşlem</th>
         </tr></thead><tbody>${rrows}</tbody>
       </table></div>`;
   }
-  grp.innerHTML=`<div class="supplier-header">🌐 LeanSys 8D (paylaşımlı) &nbsp;<span style="font-size:0.8em;opacity:0.8;">${shown.length}${_sb8dLoc?'/'+rows.length:''} rapor</span></div>${toolbar}${body}`;
+  grp.innerHTML=`<div class="supplier-header">🌐 LeanSys 8D (paylaşımlı) &nbsp;<span style="font-size:0.8em;opacity:0.8;">${shown.length}${(shown.length<rows.length)?'/'+rows.length:''} rapor</span></div>${toolbar}${body}`;
 }
 async function open8dSb(id){
   try{ const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?id=eq."+id+"&select=payload",{headers:_8dSbH()}); const arr=r.ok?await r.json():[]; const doc=arr[0]&&arr[0].payload; if(!doc){ showAlert('❌ Kayıt bulunamadı.','error'); return; } doc._sbId=id; _open8dDoc(doc); }
