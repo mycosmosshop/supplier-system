@@ -2238,28 +2238,27 @@
             sel.value = cur;
         }
 
+        // ISO tarihi (2026-06-16) → gg.aa.yyyy (16.06.2026) — Excel Yükle ile aynı format
+        function _isoToTr(iso) {
+            const s = String(iso || '').slice(0, 10);
+            const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            return m ? `${m[3]}.${m[2]}.${m[1]}` : s;
+        }
+
+        // LeanSys mal kabulünü çekip "Excel Yükle" gibi tedarikçi + hammadde + irsaliye
+        // referans listelerini doldurur. COA sertifika listesine (coaData) DOKUNMAZ.
         async function loadLeanSys() {
             const year = document.getElementById('lsYearSelect').value;
             const btn = document.getElementById('btnLeanSys');
             btn.disabled = true;
             btn.textContent = '⏳ LeanSys\'ten çekiliyor...';
             try {
-                // Tanısal: önce en son kaydı çek (hangi tarihe kadar veri var?)
-                const diagRes = await fetch(
-                    `${_LS_URL}/rest/v1/mal_kabul?select=tarih,rec_id&order=tarih.desc&limit=3`,
-                    { headers: { apikey: _LS_KEY, Authorization: 'Bearer ' + _LS_KEY } }
-                );
-                if (diagRes.ok) {
-                    const diagData = await diagRes.json();
-                    if (Array.isArray(diagData) && diagData.length > 0) {
-                        console.log('LeanSys mal_kabul en son tarihler:', diagData.map(r => r.tarih));
-                        const enSon = diagData[0].tarih;
-                        const enSonYil = enSon ? String(enSon).slice(0,4) : '?';
-                        if (enSonYil !== String(year)) {
-                            showToast(`ℹ️ LeanSys'te en son kayıt: ${enSon} (${enSonYil}). ${year} için veri henüz yok — ${enSonYil} seçin.`, 'warning', 6000);
-                            return;
-                        }
-                    }
+                // Önceki hatalı sürümün COA listesine eklediği ls_ kayıtlarını temizle
+                const beforeLen = coaData.length;
+                coaData = coaData.filter(c => !String(c.id || '').startsWith('ls_'));
+                if (coaData.length !== beforeLen) {
+                    saveToLocalStorage();
+                    console.log('🧹 Temizlenen eski ls_ COA kaydı:', beforeLen - coaData.length);
                 }
 
                 // LeanSys mal_kabul — SADECE SELECT (yalnızca okuma)
@@ -2282,73 +2281,58 @@
                     if (batch.length < PAGE) break;
                 }
 
-                // Mevcut kayıtlarda irsaliye no + stok kodu kombinasyonu var mı?
-                const existKeys = new Set(
-                    coaData.map(c => (c.materialCode || '') + '|' + (c.deliveryDate || '') + '|' + (c.deliveryNo || ''))
-                );
-
-                let added = 0, skipped = 0;
-                const now = new Date().toISOString();
-                for (const rec of rows) {
-                    const irsNo = (rec.seri || '') + (rec.sira ? ' | ' + rec.sira : '');
-                    const key = (rec.stok_kodu || '') + '|' + (rec.tarih || '') + '|' + irsNo;
-                    if (existKeys.has(key)) { skipped++; continue; }
-
-                    coaData.push({
-                        id: 'ls_' + rec.rec_id,
-                        supplier:      rec.cari_adi    || '',
-                        materialCode:  rec.stok_kodu   || '',
-                        materialName:  rec.stok_adi    || '',
-                        deliveryDate:  rec.tarih        || '',
-                        deliveryNo:    irsNo,
-                        lotNumber:     '',
-                        location:      '',
-                        notes:         'LeanSys #' + rec.rec_id + (rec.miktar ? ' | ' + rec.miktar + ' ' + (rec.birim || '') : ''),
-                        fileName: '', fileType: '', fileUrl: '', driveFileId: '',
-                        fileData: '', fileSize: 0, ocrProperties: null,
-                        createdAt: now, updatedAt: now,
-                        pending: true   // syncPendingRecords() ile Google Sheets'e gönderilecek
-                    });
-                    existKeys.add(key);
-                    added++;
-                }
-
-                if (added === 0) {
-                    showToast(`ℹ️ ${year} için yeni LeanSys kaydı yok (${skipped} zaten mevcut).`, 'info');
+                if (rows.length === 0) {
+                    showToast(`ℹ️ ${year} için LeanSys mal kabul kaydı bulunamadı.`, 'warning');
                     return;
                 }
 
-                // materials ve suppliers dizilerini güncelle (hammadde dropdown için)
-                const matMap = new Map(materials.map(m => [m.code || m.stockCode || '', m]));
-                for (const rec of toAdd) {
-                    const code = rec.materialCode;
+                // Excel Yükle ile AYNI yapı: supplierSet + materialMap{code → {code,name,suppliers[],deliveries[]}}
+                const supplierSet = new Set();
+                const materialMap = new Map();
+                for (const rec of rows) {
+                    const supplier = (rec.cari_adi || '').trim();
+                    if (supplier) supplierSet.add(supplier);
+
+                    const code = (rec.stok_kodu || '').trim();
+                    const name = (rec.stok_adi || '').trim();
                     if (!code) continue;
-                    // suppliers global listesine ekle
-                    if (rec.supplier && !suppliers.includes(rec.supplier))
-                        suppliers.push(rec.supplier);
-                    if (matMap.has(code)) {
-                        const m = matMap.get(code);
-                        if (m.suppliers && rec.supplier && !m.suppliers.includes(rec.supplier))
-                            m.suppliers.push(rec.supplier);
-                    } else {
-                        const nm = { code, name: rec.materialName || '', suppliers: rec.supplier ? [rec.supplier] : [], deliveries: [] };
-                        matMap.set(code, nm);
-                        materials.push(nm);
+
+                    if (!materialMap.has(code)) {
+                        materialMap.set(code, { code, name, suppliers: [], deliveries: [] });
+                    }
+                    const mat = materialMap.get(code);
+                    if (!mat.name && name) mat.name = name;
+                    if (supplier && !mat.suppliers.includes(supplier)) mat.suppliers.push(supplier);
+
+                    // İrsaliye (delivery) — Excel Yükle ile aynı alanlar
+                    const delivery = {
+                        date: _isoToTr(rec.tarih),
+                        serie: (rec.seri || '').toString().trim(),
+                        no: (rec.sira != null ? String(rec.sira) : '').trim(),
+                        girisDepo: (rec.depo || '').toString().trim(),
+                        supplier: supplier
+                    };
+                    if (delivery.date || delivery.serie || delivery.no) {
+                        mat.deliveries.push(delivery);
                     }
                 }
-                // Hem legacy key'e hem de yıl key'ine kaydet (coaExcelData_YYYY)
-                saveYearData(year, suppliers, materials, 'LeanSys ' + year);
-                if (typeof updateMaterialDropdown === 'function') updateMaterialDropdown();
-                if (typeof updateSupplierDropdowns === 'function') updateSupplierDropdowns();
 
-                saveToLocalStorage();
-                renderTable();
-                if (typeof updateUI === 'function') updateUI();
-                if (typeof updateStats === 'function') updateStats();
-                showToast(`✅ ${added} kayıt eklendi${skipped ? ', ' + skipped + ' zaten vardı' : ''}. Google Sheets\'e senkronize ediliyor...`, 'success');
+                const supplierArray = Array.from(supplierSet).sort();
+                const materialArray = Array.from(materialMap.values());
+                const totalDeliveries = materialArray.reduce((s, m) => s + m.deliveries.length, 0);
 
-                // Arka planda Google Sheets'e gönder
-                await syncPendingRecords();
+                // Yıl bazlı kaydet (Excel Yükle ile birebir aynı akış)
+                saveYearData(year, supplierArray, materialArray, 'LeanSys ' + year);
+                setActiveYear(year);
+                if (typeof renderYearPanel === 'function') renderYearPanel();
+
+                suppliers = supplierArray;
+                materials = materialArray;
+                updateSupplierDropdowns();
+                updateMaterialDropdown();
+
+                showToast(`✅ LeanSys ${year}: ${supplierArray.length} tedarikçi, ${materialArray.length} hammadde, ${totalDeliveries} irsaliye yüklendi.`, 'success', 5000);
+                console.log(`✅ LeanSys ${year} yüklendi — tedarikçi:${supplierArray.length}, hammadde:${materialArray.length}, irsaliye:${totalDeliveries}`);
             } catch (err) {
                 console.error(err);
                 showToast('❌ LeanSys hatası: ' + err.message, 'error');
