@@ -2602,6 +2602,8 @@ let _sb8dView=(localStorage.getItem('sb8d_view')||'row');
 let _sb8dLoc=(localStorage.getItem('sb8d_loc')||'');
 let _sb8dDateFrom='';
 let _sb8dDateTo='';
+let _sb8dStatus='';          // '' | 'Open' | 'Closed'
+let _sb8dSortDir='desc';     // 'asc' | 'desc' — Tarih sütununa göre
 let _sb8dSelected=new Set();  // seçili Supabase id'leri
 let _localStat={total:0,closed:0,inProgress:0,open:0,supSet:new Set()};
 function _8dLoc(s){ return (s && (s.loc||'').trim()) || 'Belirtilmemiş'; }
@@ -2635,6 +2637,8 @@ async function _renderSb8dGroup(){
 }
 function _set8dView(v){ _sb8dView=v; localStorage.setItem('sb8d_view',v); _sb8dSelected.clear(); _paintSb8d(); }
 function _set8dLoc(v){ _sb8dLoc=v; localStorage.setItem('sb8d_loc',v); _sb8dSelected.clear(); _paintSb8d(); }
+function _set8dStatus(v){ _sb8dStatus=v; _sb8dSelected.clear(); _paintSb8dBody(); }
+function _toggleSb8dSort(){ _sb8dSortDir=_sb8dSortDir==='desc'?'asc':'desc'; _paintSb8dBody(); }
 // Tarih değişince SADECE body yenile, toolbar (date input'ları) değiştirme → focus kaybı yok
 function _set8dDateFrom(v){ _sb8dDateFrom=v; _sb8dSelected.clear(); _paintSb8dBody(); }
 function _set8dDateTo(v)  { _sb8dDateTo=v;   _sb8dSelected.clear(); _paintSb8dBody(); }
@@ -2689,6 +2693,11 @@ function _buildSb8dToolbar(grp, rows, locs){
   const tb=document.createElement('div'); tb.id='sb8dToolbar';
   tb.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px 6px;border-bottom:1px solid #f1f5f9;">
     <select id="sb8dLocSel" onchange="_set8dLoc(this.value)" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9em;max-width:240px;">${locOpts}</select>
+    <select id="sb8dStatusSel" onchange="_set8dStatus(this.value)" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9em;">
+      <option value=""${_sb8dStatus===''?' selected':''}>● Tüm Durumlar</option>
+      <option value="Open"${_sb8dStatus==='Open'?' selected':''} style="color:#dc2626;">○ Açık</option>
+      <option value="Closed"${_sb8dStatus==='Closed'?' selected':''} style="color:#059669;">✓ Kapalı</option>
+    </select>
     <span style="display:flex;align-items:center;gap:4px;font-size:.85em;color:#475569;white-space:nowrap;">
       <span>📅</span>
       <input id="sb8dFrom" type="date" value="${_sb8dDateFrom}" onchange="_set8dDateFrom(this.value)" title="Başlangıç tarihi (dan)" style="padding:6px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.85em;color:#334155;">
@@ -2709,6 +2718,7 @@ function _updateSb8dToolbar(rows, locs){
   // Lokasyon select'i güncelle (date input'lara dokunma)
   const sel=document.getElementById('sb8dLocSel');
   if(sel){ sel.innerHTML=`<option value="">📍 Tüm Lokasyonlar (${rows.length})</option>`+locs.map(l=>`<option value="${_ls8dEsc(l)}"${l===_sb8dLoc?' selected':''}>${_ls8dEsc(l)} (${rows.filter(r=>_8dLoc(r)===l).length})</option>`).join(''); }
+  const stSel=document.getElementById('sb8dStatusSel'); if(stSel) stSel.value=_sb8dStatus;
   // Görünüm butonları
   const vt=document.getElementById('sb8dViewToggle');
   if(vt){ const ca=_sb8dView==='card'; const btns=vt.querySelectorAll('button'); if(btns[0]){ btns[0].style.background=ca?'#1d4ed8':'#fff'; btns[0].style.color=ca?'#fff':'#334155'; } if(btns[1]){ btns[1].style.background=!ca?'#1d4ed8':'#fff'; btns[1].style.color=!ca?'#fff':'#334155'; } }
@@ -2742,8 +2752,10 @@ function _paintSb8dBody(){
     const sd=_8dStartDate(r);
     if(_sb8dDateFrom && sd && sd < _sb8dDateFrom) return false;
     if(_sb8dDateTo   && sd && sd > _sb8dDateTo)   return false;
+    if(_sb8dStatus && (r.status||'Open')!==_sb8dStatus) return false;
     return true;
   });
+  shown.sort((a,b)=>{ const da=_8dStartDate(a)||''; const db=_8dStartDate(b)||''; return _sb8dSortDir==='asc'?(da<db?-1:da>db?1:0):(da>db?-1:da<db?1:0); });
   window._sb8dShownRef=shown;
   // Header sayacı
   const hdr=document.getElementById('sb8dHeader');
@@ -2810,7 +2822,7 @@ function _paintSb8dBody(){
         <thead><tr style="background:#f1f5f9;text-align:left;">
           <th style="padding:8px 10px;width:32px;"></th>
           <th style="padding:8px 10px;">No</th><th style="padding:8px 10px;">Başlık</th>
-          <th style="padding:8px 10px;">Lokasyon</th><th style="padding:8px 10px;">Tarih</th>
+          <th style="padding:8px 10px;">Lokasyon</th><th onclick="_toggleSb8dSort()" style="padding:8px 10px;cursor:pointer;user-select:none;white-space:nowrap;" title="Tarihe göre sırala">Tarih ${_sb8dSortDir==='asc'?'↑':'↓'}</th>
           <th style="padding:8px 10px;">Durum</th><th style="padding:8px 10px;">İşlem</th>
         </tr></thead><tbody>${rrows}</tbody>
       </table></div>`;
