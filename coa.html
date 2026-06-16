@@ -1248,6 +1248,7 @@
                             <option value="">T?m Tedarik?iler</option>
                         </select>
                         <button class="btn btn-secondary" onclick="exportCOAList()">?? Excel ?ndir</button>
+                        <button class="btn btn-secondary" id="btnLeanSys2026" onclick="loadLeanSys2026()" style="background:#2d5a3d;color:#fff;border-color:#2d5a3d;">?? LeanSys 2026 Y?kle</button>
                     </div>
                 </div>
 
@@ -1481,6 +1482,77 @@ function jsonResponse(data) {
         let useGoogleSheets = false;
         let googleScriptUrl = '';
         let currentEditId = null;
+
+        // ==================== LeanSys (mal_kabul) — READ ONLY ====================
+        const LS_URL  = 'https://nnubrxbpthmkitueixbh.supabase.co';
+        const LS_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
+
+        async function loadLeanSys2026() {
+            const btn = document.getElementById('btnLeanSys2026');
+            btn.disabled = true;
+            btn.textContent = '?? Y?kleniyor...';
+            try {
+                // Fetch all 2026 mal kabul records (iade harici), sayfalama ile
+                const rows = [];
+                const PAGE = 1000;
+                for (let from = 0; ; from += PAGE) {
+                    const res = await fetch(
+                        `${LS_URL}/rest/v1/mal_kabul?select=*&tarih=gte.2026-01-01&tarih=lte.2026-12-31&or=(iade.eq.0,iade.is.null)&order=tarih.asc&offset=${from}&limit=${PAGE}`,
+                        { headers: { apikey: LS_KEY, Authorization: 'Bearer ' + LS_KEY } }
+                    );
+                    if (!res.ok) throw new Error('LeanSys HTTP ' + res.status);
+                    const batch = await res.json();
+                    rows.push(...batch);
+                    if (batch.length < PAGE) break;
+                }
+
+                // Mevcut LeanSys kayıtlarının ID setini oluştur (tekrar önleme)
+                const existingIds = new Set(coaData.map(c => c.id));
+
+                let added = 0, skipped = 0;
+                const now = new Date().toISOString();
+
+                for (const rec of rows) {
+                    const entryId = 'ls_' + rec.rec_id;
+                    if (existingIds.has(entryId)) { skipped++; continue; }
+
+                    const irsNo = (rec.seri || '') + (rec.sira ? ' / ' + rec.sira : '');
+                    coaData.push({
+                        id: entryId,
+                        supplierName:  rec.cari_adi   || '',
+                        productName:   rec.stok_adi   || '',
+                        materialCode:  rec.stok_kodu  || '',
+                        lotNumber:     irsNo,
+                        certNumber:    '',
+                        analysisDate:  rec.tarih || '',
+                        expiryDate:    '',
+                        productionDate:'',
+                        deliveryDate:  rec.tarih || '',
+                        deliveryNo:    irsNo,
+                        status:        'pending',
+                        notes:         'LeanSys mal kabul #' + rec.rec_id + (rec.miktar ? ' | ' + rec.miktar + ' ' + (rec.birim||'') : ''),
+                        extractedText: '',
+                        imageData:     null,
+                        parameters:    [],
+                        createdAt:     now,
+                        updatedAt:     now
+                    });
+                    added++;
+                }
+
+                localStorage.setItem('coa_data', JSON.stringify(coaData));
+                updateStats();
+                renderCOAList();
+                updateSupplierFilter();
+                showToast(`? LeanSys 2026: ${added} yeni kay?t eklendi${skipped ? ', ' + skipped + ' zaten vard?' : ''}.`, 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('? LeanSys hatası: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '?? LeanSys 2026 Y?kle';
+            }
+        }
         let supplierChart = null;
         let statusChart = null;
         let timelineChart = null;
