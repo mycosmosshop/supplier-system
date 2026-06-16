@@ -2872,10 +2872,12 @@ function _fillFr13(ws, r){
   set('A15', r.tarif || 'Problem Description');
   set('A16', 'Hatalı Miktar: '+(r.hatali||''));
   // ── D3 (Acil Önlem / Containment) ──
+  // Satır 18: B18=ICA eylemi, G18/H18=şablon kolon başlıkları (dokunma)
+  // Satır 19: B19=sonuç, G19=hedef tarih değeri, H19=sorumlu değeri
   set('B18', r.acilOnlem);
-  set('G18', r.acilHedef);    // Target Date
-  set('H18', r.acilSorumlu);  // Responsible
   set('B19', r.acilSonuc);
+  set('G19', r.acilHedef);    // Target Date değeri
+  set('H19', r.acilSorumlu);  // Responsible değeri
   // ── D4 (Ana Sebep / Root Cause) ──
   set('A22', r.rYonetim);  set('C22', r.rMethod);  set('E22', r.rMakine);
   set('A26', r.rInsan);    set('C26', r.rMalzeme);
@@ -2885,13 +2887,17 @@ function _fillFr13(ws, r){
   // ── D6 (Geçerli kılma) ──
   set('A33', r.planSonuc);
   // ── D7 (Önleyici) ──
-  set('A36', r.onleyici);  set('G36', r.onlHedef);  set('H36', r.onlSorumlu);
-  set('A37', r.onlSonuc);  // D7 sonuç/assessment
+  // Satır 36: A36=yapılacak eylemi, G36/H36=şablon kolon başlıkları (dokunma)
+  // Satır 37: A37=yapılan sonuç, G37=hedef tarih değeri, H37=sorumlu değeri
+  set('A36', r.onleyici);
+  set('A37', r.onlSonuc);
+  set('G37', r.onlHedef);    // Target Date değeri
+  set('H37', r.onlSorumlu);  // Responsible değeri
   // ── D8 (Kapanış) ──
   set('B38', r.kapatma);   set('F38', r.kapatildi? 'Kapalı':'Açık');
   set('B39', r.bildirimTrh); set('B40', r.bildirimYontemi);
   set('B41', r.fiiliKapatma); set('B42', r.ilgili);
-  set('B43', r.sonuc);     set('B44', r.etkinlikTrh);  set('B45', r.kapatan);
+  set('B43', r.sonuc);     set('B44', r.etkinlikTrh||r.fiiliKapatma||'');  set('B45', r.kapatan);
   set('A46', '8 D Raporu KAPALI / AÇIK  →  '+(r.kapatildi?'KAPALI':'AÇIK'));
   return rapNo;
 }
