@@ -2873,7 +2873,9 @@ function _fillFr13(ws, r){
   set('A16', 'Hatalı Miktar: '+(r.hatali||''));
   // ── D3 (Acil Önlem / Containment) ──
   set('B18', r.acilOnlem);
-  set('B19', [r.acilSorumlu, r.acilHedef, r.acilSonuc].filter(Boolean).join(' · '));
+  set('G18', r.acilHedef);    // Target Date
+  set('H18', r.acilSorumlu);  // Responsible
+  set('B19', r.acilSonuc);
   // ── D4 (Ana Sebep / Root Cause) ──
   set('A22', r.rYonetim);  set('C22', r.rMethod);  set('E22', r.rMakine);
   set('A26', r.rInsan);    set('C26', r.rMalzeme);
@@ -2884,11 +2886,12 @@ function _fillFr13(ws, r){
   set('A33', r.planSonuc);
   // ── D7 (Önleyici) ──
   set('A36', r.onleyici);  set('G36', r.onlHedef);  set('H36', r.onlSorumlu);
+  set('A37', r.onlSonuc);  // D7 sonuç/assessment
   // ── D8 (Kapanış) ──
   set('B38', r.kapatma);   set('F38', r.kapatildi? 'Kapalı':'Açık');
   set('B39', r.bildirimTrh); set('B40', r.bildirimYontemi);
   set('B41', r.fiiliKapatma); set('B42', r.ilgili);
-  set('B43', r.sonuc);     set('B45', r.kapatan);
+  set('B43', r.sonuc);     set('B44', r.etkinlikTrh);  set('B45', r.kapatan);
   set('A46', '8 D Raporu KAPALI / AÇIK  →  '+(r.kapatildi?'KAPALI':'AÇIK'));
   return rapNo;
 }
@@ -2911,7 +2914,7 @@ function _docToFr13(doc){
   if(doc && doc._raw) return doc._raw;   // tam sadakat
   const h=doc.head||{}, d1=doc.d1||{}, d3=doc.d3||{}, d4=doc.d4||{}, d5=doc.d5||{}, d7=doc.d7||{}, d8=doc.d8||{};
   const rc={}; (d4.rootCauses||[]).forEach(c=>{ if(c&&c.type) rc[c.type]=c.description; });
-  const a3=(d3.actions||[])[0]||{}, a5=(d5.actions||[])[0]||{}, a7=(d7.actions||[])[0]||{};
+  const a3=(d3.actions||[])[0]||{}, a5=(d5.actions||[])[0]||{}, a7=(d7.preventions||[])[0]||{};
   return {
     rapNo:h.reportNumber||'', seri:'', sira:'',
     lider:'', tahminiKap:'', sikayet:_isoToTr(h.startDate), uyeler:(d1.teamMembers||[]).map(m=>m.name).filter(Boolean).join(', '),
@@ -2921,10 +2924,10 @@ function _docToFr13(doc){
     acilOnlem:a3.description, acilSorumlu:a3.responsible, acilHedef:_isoToTr(a3.date), acilSonuc:'',
     rYonetim:rc['Yönetim'], rMethod:rc['Metot'], rMakine:rc['Makine'], rInsan:rc['İnsan'], rMalzeme:rc['Malzeme'],
     planlanan:a5.description, planHedef:_isoToTr(a5.date), planSorumlu:a5.responsible, planSonuc:'',
-    onleyici:a7.description, onlHedef:_isoToTr(a7.date), onlSorumlu:a7.responsible,
-    baslik:h.title, kapatma:_isoToTr(d8.closeDate), kapatildi:doc._kapatildi?1:0,
-    bildirimTrh:_isoToTr(d8.bildirimTrh), bildirimYontemi:'', fiiliKapatma:'', ilgili:'',
-    sonuc:d8.result, kapatan:''
+    onleyici:a7.description, onlHedef:_isoToTr(a7.planned||a7.date), onlSorumlu:a7.responsible, onlSonuc:a7.assessment||'',
+    baslik:h.title, kapatma:_isoToTr(d8.closeDate||d8.finalMeetingDate), kapatildi:doc._kapatildi?1:0,
+    bildirimTrh:_isoToTr(d8.bildirimTrh), bildirimYontemi:'', fiiliKapatma:'', ilgili:d8.assessmentBy||'',
+    sonuc:d8.result||'', etkinlikTrh:_isoToTr(d8.performedOn), kapatan:''
   };
 }
 </script>
