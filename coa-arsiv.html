@@ -1641,13 +1641,15 @@
                     <input type="month" id="filterMonth">
                 </div>
                 
-                <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center; flex-wrap: wrap;">
                     <button class="btn btn-danger btn-sm" onclick="deleteSelected()" id="deleteSelectedBtn" style="display: none;">
                         🗑 Seçilenleri Sil (<span id="selectedCount">0</span>)
                     </button>
-                    <button class="btn btn-primary btn-sm" onclick="exportToExcel()" style="margin-left: auto;">
-                        📊 Excel İndir
-                    </button>
+                    <div style="display:flex; gap:6px; align-items:center; margin-left: auto;">
+                        <select id="lsYearSelect" style="padding:6px 10px; border:1px solid #2d5a3d; border-radius:5px; font-size:0.9em; background:#fff; cursor:pointer;"></select>
+                        <button class="btn btn-sm" id="btnLeanSys" onclick="loadLeanSys()" style="background:#2d5a3d;color:#fff;border:none;padding:7px 14px;border-radius:5px;cursor:pointer;font-size:0.9em;white-space:nowrap;">📥 LeanSys'ten Yükle</button>
+                        <button class="btn btn-primary btn-sm" onclick="exportToExcel()">📊 Excel İndir</button>
+                    </div>
                 </div>
                 
                 <div class="table-container">
@@ -2218,6 +2220,96 @@
         let coaData = [];
         let suppliers = [];
         let materials = []; // Hammadde listesi
+
+        // ==================== LeanSys mal_kabul — SALT OKUNUR ====================
+        const _LS_URL = 'https://nnubrxbpthmkitueixbh.supabase.co';
+        const _LS_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
+
+        function _initLsYearSelect() {
+            const sel = document.getElementById('lsYearSelect');
+            if (!sel) return;
+            const cur = new Date().getFullYear();
+            for (let y = cur; y >= 2023; y--) {
+                const opt = document.createElement('option');
+                opt.value = y;
+                opt.textContent = y;
+                sel.appendChild(opt);
+            }
+            sel.value = cur;
+        }
+
+        async function loadLeanSys() {
+            const year = document.getElementById('lsYearSelect').value;
+            const btn = document.getElementById('btnLeanSys');
+            btn.disabled = true;
+            btn.textContent = '⏳ LeanSys\'ten çekiliyor...';
+            try {
+                // LeanSys mal_kabul — SADECE SELECT (yalnızca okuma)
+                const rows = [];
+                const PAGE = 1000;
+                for (let from = 0; ; from += PAGE) {
+                    const res = await fetch(
+                        `${_LS_URL}/rest/v1/mal_kabul?select=*&tarih=gte.${year}-01-01&tarih=lte.${year}-12-31&or=(iade.eq.0,iade.is.null)&order=tarih.asc&offset=${from}&limit=${PAGE}`,
+                        { headers: { apikey: _LS_KEY, Authorization: 'Bearer ' + _LS_KEY } }
+                    );
+                    if (!res.ok) throw new Error('LeanSys HTTP ' + res.status);
+                    const batch = await res.json();
+                    rows.push(...batch);
+                    if (batch.length < PAGE) break;
+                }
+
+                // Mevcut kayıtlarda irsaliye no + stok kodu kombinasyonu var mı?
+                const existKeys = new Set(
+                    coaData.map(c => (c.materialCode || '') + '|' + (c.deliveryDate || '') + '|' + (c.deliveryNo || ''))
+                );
+
+                let added = 0, skipped = 0;
+                const now = new Date().toISOString();
+                for (const rec of rows) {
+                    const irsNo = (rec.seri || '') + (rec.sira ? ' | ' + rec.sira : '');
+                    const key = (rec.stok_kodu || '') + '|' + (rec.tarih || '') + '|' + irsNo;
+                    if (existKeys.has(key)) { skipped++; continue; }
+
+                    coaData.push({
+                        id: 'ls_' + rec.rec_id,
+                        supplier:      rec.cari_adi    || '',
+                        materialCode:  rec.stok_kodu   || '',
+                        materialName:  rec.stok_adi    || '',
+                        deliveryDate:  rec.tarih        || '',
+                        deliveryNo:    irsNo,
+                        lotNumber:     '',
+                        location:      '',
+                        notes:         'LeanSys #' + rec.rec_id + (rec.miktar ? ' | ' + rec.miktar + ' ' + (rec.birim || '') : ''),
+                        fileName: '', fileType: '', fileUrl: '', driveFileId: '',
+                        fileData: '', fileSize: 0, ocrProperties: null,
+                        createdAt: now, updatedAt: now,
+                        pending: true   // syncPendingRecords() ile Google Sheets'e gönderilecek
+                    });
+                    existKeys.add(key);
+                    added++;
+                }
+
+                if (added === 0) {
+                    showToast(`ℹ️ ${year} için yeni LeanSys kaydı yok (${skipped} zaten mevcut).`, 'info');
+                    return;
+                }
+
+                saveToLocalStorage();
+                renderTable();
+                if (typeof updateUI === 'function') updateUI();
+                if (typeof updateStats === 'function') updateStats();
+                showToast(`✅ ${added} kayıt eklendi${skipped ? ', ' + skipped + ' zaten vardı' : ''}. Google Sheets\'e senkronize ediliyor...`, 'success');
+
+                // Arka planda Google Sheets'e gönder
+                await syncPendingRecords();
+            } catch (err) {
+                console.error(err);
+                showToast('❌ LeanSys hatası: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '📥 LeanSys\'ten Yükle';
+            }
+        }
         let tdsData = {}; // TDS verileri: { materialCode: { properties: [] } }
         let selectedSuppliers = new Set(); // Seçili tedarikçiler
         let googleScriptUrl = 'https://script.google.com/macros/s/AKfycbz3KZblRoWV0uU7_LU24Wih4npAl2x8_vFWDjmc-F0bDeRHgmrSEi0XB-YsaaD0_i4u/exec';
@@ -3086,7 +3178,9 @@
         // ==================== Initialization ====================
         document.addEventListener('DOMContentLoaded', async function() {
             console.time('⚡ Sayfa Yükleme');
-            
+
+            _initLsYearSelect();
+
             // Sayfa yüklendiğinde kilidi temizle
             unlockFileProcessing('Sayfa yüklendi');
             
