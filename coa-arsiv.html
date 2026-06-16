@@ -2244,6 +2244,24 @@
             btn.disabled = true;
             btn.textContent = '⏳ LeanSys\'ten çekiliyor...';
             try {
+                // Tanısal: önce en son kaydı çek (hangi tarihe kadar veri var?)
+                const diagRes = await fetch(
+                    `${_LS_URL}/rest/v1/mal_kabul?select=tarih,rec_id&order=tarih.desc&limit=3`,
+                    { headers: { apikey: _LS_KEY, Authorization: 'Bearer ' + _LS_KEY } }
+                );
+                if (diagRes.ok) {
+                    const diagData = await diagRes.json();
+                    if (Array.isArray(diagData) && diagData.length > 0) {
+                        console.log('LeanSys mal_kabul en son tarihler:', diagData.map(r => r.tarih));
+                        const enSon = diagData[0].tarih;
+                        const enSonYil = enSon ? String(enSon).slice(0,4) : '?';
+                        if (enSonYil !== String(year)) {
+                            showToast(`ℹ️ LeanSys'te en son kayıt: ${enSon} (${enSonYil}). ${year} için veri henüz yok — ${enSonYil} seçin.`, 'warning', 6000);
+                            return;
+                        }
+                    }
+                }
+
                 // LeanSys mal_kabul — SADECE SELECT (yalnızca okuma)
                 // Not: iade filtresi URL'de değil JS'de yapılıyor (PostgREST or= çakışması önlenir)
                 const rows = [];
