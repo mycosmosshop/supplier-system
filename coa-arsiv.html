@@ -2245,16 +2245,22 @@
             btn.textContent = '⏳ LeanSys\'ten çekiliyor...';
             try {
                 // LeanSys mal_kabul — SADECE SELECT (yalnızca okuma)
+                // Not: iade filtresi URL'de değil JS'de yapılıyor (PostgREST or= çakışması önlenir)
                 const rows = [];
                 const PAGE = 1000;
                 for (let from = 0; ; from += PAGE) {
                     const res = await fetch(
-                        `${_LS_URL}/rest/v1/mal_kabul?select=*&tarih=gte.${year}-01-01&tarih=lte.${year}-12-31&or=(iade.eq.0,iade.is.null)&order=tarih.asc&offset=${from}&limit=${PAGE}`,
+                        `${_LS_URL}/rest/v1/mal_kabul?select=*&tarih=gte.${year}-01-01&tarih=lte.${year}-12-31&order=tarih.asc&offset=${from}&limit=${PAGE}`,
                         { headers: { apikey: _LS_KEY, Authorization: 'Bearer ' + _LS_KEY } }
                     );
-                    if (!res.ok) throw new Error('LeanSys HTTP ' + res.status);
+                    if (!res.ok) {
+                        const txt = await res.text().catch(() => '');
+                        throw new Error(`LeanSys HTTP ${res.status}: ${txt.slice(0,200)}`);
+                    }
                     const batch = await res.json();
-                    rows.push(...batch);
+                    if (!Array.isArray(batch)) throw new Error('Beklenmedik yanıt: ' + JSON.stringify(batch).slice(0,200));
+                    // iade=0 veya null olanları al (giriş), iade=1 olanları atla
+                    rows.push(...batch.filter(r => !r.iade || r.iade == 0));
                     if (batch.length < PAGE) break;
                 }
 
