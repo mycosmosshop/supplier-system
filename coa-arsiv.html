@@ -5454,7 +5454,7 @@
                 
                 // Tedarikçi seçiliyse, sadece o tedarikçinin hammaddelerini göster
                 if (selectedSupplier && m.suppliers && m.suppliers.length > 0) {
-                    const matchesSupplier = m.suppliers.includes(selectedSupplier);
+                    const matchesSupplier = m.suppliers.some(s => _suppMatch(s, selectedSupplier));
                     return matchesSearch && matchesSupplier;
                 }
                 
@@ -5936,20 +5936,32 @@
         }
         
         // Tedarikçi seçilince hammaddeleri filtrele
+        // Tedarikçi adını normalize et: küçük harf, nokta/boşluk kaldır, Türkçe→Latin
+        function _normSupp(s) {
+            return (s||'').toLowerCase()
+                .replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u')
+                .replace(/ç/g,'c').replace(/ö/g,'o').replace(/ı/g,'i')
+                .replace(/[.\s,]/g,'');
+        }
+        function _suppMatch(a, b) {
+            const na = _normSupp(a), nb = _normSupp(b);
+            return na === nb || na.includes(nb) || nb.includes(na);
+        }
+
         function filterMaterialsBySupplier() {
             const selectedSupplier = document.getElementById('supplierInput')?.value?.trim();
             const materialInput = document.getElementById('materialCode');
-            
+
             if (selectedSupplier) {
                 // Hammadde dropdown'ını güncelle
                 updateMaterialDropdown(materialInput.value);
-                
+
                 // Placeholder'ı güncelle
                 materialInput.placeholder = `🔍 ${selectedSupplier} hammaddelerini ara...`;
-                
+
                 // Bilgi göster
-                const filteredCount = materials.filter(m => 
-                    m.suppliers && m.suppliers.includes(selectedSupplier)
+                const filteredCount = materials.filter(m =>
+                    m.suppliers && m.suppliers.some(s => _suppMatch(s, selectedSupplier))
                 ).length;
                 
                 if (filteredCount > 0) {
