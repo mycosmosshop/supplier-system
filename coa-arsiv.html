@@ -2300,11 +2300,14 @@
                     return;
                 }
 
-                // materials dizisini de güncelle (hammadde dropdown için)
+                // materials ve suppliers dizilerini güncelle (hammadde dropdown için)
                 const matMap = new Map(materials.map(m => [m.code || m.stockCode || '', m]));
                 for (const rec of toAdd) {
                     const code = rec.materialCode;
                     if (!code) continue;
+                    // suppliers global listesine ekle
+                    if (rec.supplier && !suppliers.includes(rec.supplier))
+                        suppliers.push(rec.supplier);
                     if (matMap.has(code)) {
                         const m = matMap.get(code);
                         if (m.suppliers && rec.supplier && !m.suppliers.includes(rec.supplier))
@@ -2315,8 +2318,10 @@
                         materials.push(nm);
                     }
                 }
-                saveMaterials();
+                // Hem legacy key'e hem de yıl key'ine kaydet (coaExcelData_YYYY)
+                saveYearData(year, suppliers, materials, 'LeanSys ' + year);
                 if (typeof updateMaterialDropdown === 'function') updateMaterialDropdown();
+                if (typeof updateSupplierDropdowns === 'function') updateSupplierDropdowns();
 
                 saveToLocalStorage();
                 renderTable();
