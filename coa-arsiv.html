@@ -2265,7 +2265,27 @@
                     console.log('🧹 Temizlenen eski ls_ COA kaydı:', beforeLen - coaData.length);
                 }
 
-                // LeanSys mal_kabul — SADECE SELECT (yalnızca okuma)
+                // ADIM 1: Yerel agent ile LeanSys'ten mal kabulü Supabase'e tazele (senkron).
+                // Agent çalışmıyorsa (VPN/servis kapalı) sessizce atlanır, mevcut veriden devam eder.
+                try {
+                    btn.textContent = '⏳ Mal kabul güncelleniyor...';
+                    const ctrl = new AbortController();
+                    const tmo = setTimeout(() => ctrl.abort(), 180000); // 3 dk
+                    const agentRes = await fetch(`http://127.0.0.1:17777/refreshmalkabul?from=${year}-01-01`, { signal: ctrl.signal });
+                    clearTimeout(tmo);
+                    const agentJson = await agentRes.json();
+                    if (agentJson && agentJson.ok) {
+                        console.log('✅ Mal kabul Supabase güncellendi:', agentJson.count, 'satır');
+                    } else {
+                        showToast('⚠️ Otomatik güncelleme atlandı (' + ((agentJson && agentJson.error) || 'bilinmeyen') + '). Mevcut veriden çekiliyor.', 'warning', 5000);
+                    }
+                } catch (agentErr) {
+                    console.warn('Agent erişilemedi:', agentErr);
+                    showToast('ℹ️ Yerel güncelleme servisi yanıt vermedi (VPN/agent kapalı olabilir). Mevcut Supabase verisinden çekiliyor.', 'info', 5000);
+                }
+
+                btn.textContent = '⏳ LeanSys\'ten çekiliyor...';
+                // ADIM 2: Supabase mal_kabul — SADECE SELECT (yalnızca okuma)
                 // Not: iade filtresi URL'de değil JS'de yapılıyor (PostgREST or= çakışması önlenir)
                 const rows = [];
                 const PAGE = 1000;
