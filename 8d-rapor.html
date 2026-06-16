@@ -2596,12 +2596,13 @@ async function saveAll8dToSupabase(btn){
   alert(ok+' kayıt 8D listesine kaydedildi (paylaşımlı)'+(err?(', '+err+' hata'):'')+'.');
   if(typeof refreshList==='function') refreshList();
 }
-// 8D listesine paylaşımlı (Supabase) grubu ekle — kart + satır görünümü + lokasyon + tarih aralığı filtresi
+// 8D listesine paylaşımlı (Supabase) grubu ekle — kart + satır görünümü + lokasyon + tarih filtresi + çoklu seçim
 let _sb8dRows=[];
-let _sb8dView=(localStorage.getItem('sb8d_view')||'card');
+let _sb8dView=(localStorage.getItem('sb8d_view')||'row');
 let _sb8dLoc=(localStorage.getItem('sb8d_loc')||'');
 let _sb8dDateFrom='';
 let _sb8dDateTo='';
+let _sb8dSelected=new Set();  // seçili Supabase id'leri
 let _localStat={total:0,closed:0,inProgress:0,open:0,supSet:new Set()};
 function _8dLoc(s){ return (s && (s.loc||'').trim()) || 'Belirtilmemiş'; }
 function _8dStartDate(s){ return (s && s.startDate) ? s.startDate.slice(0,10) : ''; }
@@ -2610,9 +2611,9 @@ function _isoToTrShort(iso){ if(!iso) return '—'; const d=iso.slice(0,10); con
 function _applyCombinedStats(){
   const sb=_sb8dRows||[];
   const sbClosed = sb.filter(r=>(r.status||'Open')==='Closed').length;
-  const sbOpen   = sb.length - sbClosed;            // /8d yalnız Closed/Open döndürür
+  const sbOpen   = sb.length - sbClosed;
   const supSet   = new Set(_localStat.supSet);
-  sb.forEach(r=>supSet.add('📍'+_8dLoc(r)));         // paylaşımlı 8D'de lokasyon = konu/birim
+  sb.forEach(r=>supSet.add('📍'+_8dLoc(r)));
   const set=(id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
   set('statTotal',      _localStat.total      + sb.length);
   set('statClosed',     _localStat.closed     + sbClosed);
@@ -2622,18 +2623,41 @@ function _applyCombinedStats(){
 }
 async function _renderSb8dGroup(){
   let rows=[];
-  // lokasyon (şube) ve startDate payload->head içinden okunur — ayrı sütun/DDL gerekmez
-  try{ const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?select=id,seri,sira,baslik,status,inckey,loc:payload->head->>detectionPoint,startDate:payload->head->>startDate&order=id.desc",{headers:_8dSbH()}); rows = r.ok? await r.json():[]; }catch(e){ return; }
+  try{
+    const r=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?select=id,seri,sira,baslik,status,inckey,loc:payload->head->>detectionPoint,startDate:payload->head->>startDate&order=id.desc",{headers:_8dSbH()});
+    rows = r.ok? await r.json():[];
+  }catch(e){ return; }
   _sb8dRows=rows;
-  _applyCombinedStats();   // üst kartlar paylaşımlı 8D'leri de saysın
+  _sb8dSelected.clear();
+  _applyCombinedStats();
   if(!rows.length) return;
   _paintSb8d();
 }
-function _set8dView(v){ _sb8dView=v; localStorage.setItem('sb8d_view',v); _paintSb8d(); }
-function _set8dLoc(v){ _sb8dLoc=v; localStorage.setItem('sb8d_loc',v); _paintSb8d(); }
-function _set8dDateFrom(v){ _sb8dDateFrom=v; _paintSb8d(); }
-function _set8dDateTo(v){ _sb8dDateTo=v; _paintSb8d(); }
-function _clear8dDateFilter(){ _sb8dDateFrom=''; _sb8dDateTo=''; const f=document.getElementById('sb8dFrom'); const t=document.getElementById('sb8dTo'); if(f)f.value=''; if(t)t.value=''; _paintSb8d(); }
+function _set8dView(v){ _sb8dView=v; localStorage.setItem('sb8d_view',v); _sb8dSelected.clear(); _paintSb8d(); }
+function _set8dLoc(v){ _sb8dLoc=v; localStorage.setItem('sb8d_loc',v); _sb8dSelected.clear(); _paintSb8d(); }
+function _set8dDateFrom(v){ _sb8dDateFrom=v; _sb8dSelected.clear(); _paintSb8d(); }
+function _set8dDateTo(v){ _sb8dDateTo=v; _sb8dSelected.clear(); _paintSb8d(); }
+function _clear8dDateFilter(){ _sb8dDateFrom=''; _sb8dDateTo=''; const f=document.getElementById('sb8dFrom'); const t=document.getElementById('sb8dTo'); if(f)f.value=''; if(t)t.value=''; _sb8dSelected.clear(); _paintSb8d(); }
+function _toggle8dSelect(id,ev){ ev.stopPropagation(); if(_sb8dSelected.has(id)) _sb8dSelected.delete(id); else _sb8dSelected.add(id); _paintSb8d(); }
+function _selectAllSb8d(shown){ shown.forEach(s=>_sb8dSelected.add(s.id)); _paintSb8d(); }
+function _clearSelSb8d(){ _sb8dSelected.clear(); _paintSb8d(); }
+async function _deleteSelectedSb8d(){
+  const ids=[..._sb8dSelected];
+  if(!ids.length) return;
+  if(!confirm('Seçili '+ids.length+' kayıt SİLİNECEK.\n\n• Yalnız Supabase (paylaşımlı arşiv) ve bu listeden kalkar.\n• LeanSys\'e KESİNLİKLE dokunulmaz.\n\nDevam?')) return;
+  let ok=0, err=0;
+  for(const id of ids){
+    try{
+      const res=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?id=eq."+id,{method:'DELETE',headers:_8dSbH({Prefer:'return=minimal'})});
+      if(res.ok) ok++; else err++;
+    }catch(e){ err++; }
+  }
+  showAlert(ok+' kayıt silindi (Supabase).'+(err?(' '+err+' hata.'):''),'success');
+  _sb8dSelected.clear();
+  _sb8dRows=_sb8dRows.filter(r=>!ids.includes(r.id));
+  _applyCombinedStats();
+  _paintSb8d();
+}
 function _paintSb8d(){
   const cont=document.getElementById('reportListContainer'); if(!cont) return;
   const emp=cont.querySelector('.empty-state'); if(emp) emp.remove();
@@ -2651,11 +2675,22 @@ function _paintSb8d(){
     if(_sb8dDateTo   && sd && sd > _sb8dDateTo)   return false;
     return true;
   });
+  const selCount=_sb8dSelected.size;
   const locOpts = `<option value="">📍 Tüm Lokasyonlar (${rows.length})</option>`+
     locs.map(l=>`<option value="${_ls8dEsc(l)}"${l===_sb8dLoc?' selected':''}>${_ls8dEsc(l)} (${rows.filter(r=>_8dLoc(r)===l).length})</option>`).join('');
   const cardActive=_sb8dView==='card';
   const hasDateFilter=_sb8dDateFrom||_sb8dDateTo;
-  const toolbar=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px 4px;">
+  const bulkBar = selCount>0 ? `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 12px 4px;background:#fef3c7;border-top:1px solid #fde68a;">
+      <span style="font-size:.85em;font-weight:700;color:#92400e;">☑ ${selCount} kayıt seçili</span>
+      <button onclick="_selectAllSb8d(window._sb8dShownRef||[])" style="border:1px solid #d97706;background:#fffbeb;color:#92400e;border-radius:6px;padding:4px 10px;font-size:.8em;cursor:pointer;">Tümünü Seç (${shown.length})</button>
+      <button onclick="_clearSelSb8d()" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;padding:4px 10px;font-size:.8em;cursor:pointer;">Seçimi Kaldır</button>
+      <button onclick="_deleteSelectedSb8d()" style="border:1px solid #ef4444;background:#fee2e2;color:#b91c1c;border-radius:6px;padding:4px 12px;font-size:.8em;font-weight:700;cursor:pointer;">🗑 Seçilenleri Sil (Supabase)</button>
+    </div>` : `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 12px 2px;">
+      <button onclick="_selectAllSb8d(window._sb8dShownRef||[])" style="border:1px solid #cbd5e1;background:#f8fafc;color:#475569;border-radius:6px;padding:4px 10px;font-size:.8em;cursor:pointer;">☐ Tümünü Seç</button>
+    </div>`;
+  const toolbar=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px 4px;border-bottom:1px solid #f1f5f9;">
     <select onchange="_set8dLoc(this.value)" style="padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9em;max-width:240px;">${locOpts}</select>
     <label style="display:flex;align-items:center;gap:4px;font-size:.85em;color:#475569;white-space:nowrap;">
       <span>📅</span>
@@ -2669,20 +2704,25 @@ function _paintSb8d(){
       <button onclick="_set8dView('card')" title="Kart görünümü" style="border:none;cursor:pointer;padding:7px 12px;font-size:.9em;background:${cardActive?'#1d4ed8':'#fff'};color:${cardActive?'#fff':'#334155'};">▦ Kart</button>
       <button onclick="_set8dView('row')" title="Satır görünümü" style="border:none;cursor:pointer;padding:7px 12px;font-size:.9em;background:${!cardActive?'#1d4ed8':'#fff'};color:${!cardActive?'#fff':'#334155'};">☰ Satır</button>
     </div>
-  </div>`;
+  </div>${bulkBar}`;
+  window._sb8dShownRef=shown;
   let body;
   if(cardActive){
     const cards=shown.map(s=>{
       const st=s.status||'Open'; const cls=st==='Closed'?'status-closed':'status-open'; const ico=st==='Closed'?'✓':'○';
       const sdTr=_isoToTrShort(s.startDate);
-      return `<div class="report-card" onclick="open8dSb(${s.id})">
+      const isSel=_sb8dSelected.has(s.id);
+      return `<div class="report-card" onclick="open8dSb(${s.id})" style="${isSel?'outline:2px solid #3b82f6;background:#eff6ff;':''}">
         <div class="report-card-head">
-          <div><div class="report-card-title">${_ls8dEsc(s.seri)}-${_ls8dEsc(s.sira)}</div>
-            <div style="font-size:.8em;color:#888;margin-top:2px;">${_ls8dEsc((s.baslik||'').slice(0,40))}</div></div>
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <input type="checkbox" ${isSel?'checked':''} onclick="_toggle8dSelect(${s.id},event)" style="margin-top:3px;cursor:pointer;width:15px;height:15px;flex-shrink:0;" title="Seç">
+            <div><div class="report-card-title">${_ls8dEsc(s.seri)}-${_ls8dEsc(s.sira)}</div>
+              <div style="font-size:.8em;color:#888;margin-top:2px;">${_ls8dEsc((s.baslik||'').slice(0,40))}</div></div>
+          </div>
           <div class="report-card-actions" onclick="event.stopPropagation()">
             <button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" onclick="open8dSb(${s.id})">✏️</button>
-            <button class="card-btn" style="background:#475569;color:#fff;" title="PDF indir (modül formatı)" onclick="_export8dSbPdf(${s.id})">📄</button>
-            <button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir (8D şablonu)" onclick="_export8dSbFr13(${s.id})">📊</button>
+            <button class="card-btn" style="background:#475569;color:#fff;" title="PDF indir" onclick="_export8dSbPdf(${s.id})">📄</button>
+            <button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir" onclick="_export8dSbFr13(${s.id})">📊</button>
             <button class="card-btn" style="background:#f44336;color:#fff;" title="Sil (yalnız Supabase)" onclick="del8dSb(${s.id})">🗑️</button>
           </div></div>
         <div class="report-card-meta"><span class="status-badge ${cls}">${ico} ${st}</span>${(s.loc&&s.loc.trim())?` <span style="font-size:.78em;color:#475569;">📍 ${_ls8dEsc(s.loc)}</span>`:''}<span style="font-size:.78em;color:#64748b;margin-left:6px;">📅 ${sdTr}</span></div>
@@ -2693,7 +2733,9 @@ function _paintSb8d(){
     const rrows=shown.map(s=>{
       const st=s.status||'Open'; const cls=st==='Closed'?'status-closed':'status-open'; const ico=st==='Closed'?'✓':'○';
       const sdTr=_isoToTrShort(s.startDate);
-      return `<tr style="border-bottom:1px solid #eef2f7;cursor:pointer;" onclick="open8dSb(${s.id})" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+      const isSel=_sb8dSelected.has(s.id);
+      return `<tr style="border-bottom:1px solid #eef2f7;cursor:pointer;${isSel?'background:#eff6ff;outline:1px solid #93c5fd;':''}" onclick="open8dSb(${s.id})" onmouseover="if(!${isSel})this.style.background='#f8fafc'" onmouseout="if(!${isSel})this.style.background=''">
+        <td style="padding:6px 8px;" onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onclick="_toggle8dSelect(${s.id},event)" style="cursor:pointer;width:14px;height:14px;" title="Seç"></td>
         <td style="padding:8px 10px;font-weight:700;white-space:nowrap;">${_ls8dEsc(s.seri)}-${_ls8dEsc(s.sira)}</td>
         <td style="padding:8px 10px;">${_ls8dEsc(s.baslik||'')}</td>
         <td style="padding:8px 10px;white-space:nowrap;">${(s.loc&&s.loc.trim())?'📍 '+_ls8dEsc(s.loc):'<span style=color:#94a3b8>—</span>'}</td>
@@ -2701,16 +2743,18 @@ function _paintSb8d(){
         <td style="padding:8px 10px;white-space:nowrap;"><span class="status-badge ${cls}">${ico} ${st}</span></td>
         <td style="padding:8px 10px;white-space:nowrap;" onclick="event.stopPropagation()">
           <button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" onclick="open8dSb(${s.id})">✏️</button>
-          <button class="card-btn" style="background:#475569;color:#fff;" title="PDF indir (modül formatı)" onclick="_export8dSbPdf(${s.id})">📄</button>
-          <button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir (8D şablonu)" onclick="_export8dSbFr13(${s.id})">📊</button>
+          <button class="card-btn" style="background:#475569;color:#fff;" title="PDF indir" onclick="_export8dSbPdf(${s.id})">📄</button>
+          <button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir" onclick="_export8dSbFr13(${s.id})">📊</button>
           <button class="card-btn" style="background:#f44336;color:#fff;" title="Sil (yalnız Supabase)" onclick="del8dSb(${s.id})">🗑️</button>
         </td></tr>`;
     }).join('');
     body=`<div style="padding:6px 12px 12px;overflow-x:auto;">
       <table style="width:100%;border-collapse:collapse;font-size:.9em;">
         <thead><tr style="background:#f1f5f9;text-align:left;">
+          <th style="padding:8px 10px;width:32px;"></th>
           <th style="padding:8px 10px;">No</th><th style="padding:8px 10px;">Başlık</th>
-          <th style="padding:8px 10px;">Lokasyon</th><th style="padding:8px 10px;">Tarih</th><th style="padding:8px 10px;">Durum</th><th style="padding:8px 10px;">İşlem</th>
+          <th style="padding:8px 10px;">Lokasyon</th><th style="padding:8px 10px;">Tarih</th>
+          <th style="padding:8px 10px;">Durum</th><th style="padding:8px 10px;">İşlem</th>
         </tr></thead><tbody>${rrows}</tbody>
       </table></div>`;
   }
