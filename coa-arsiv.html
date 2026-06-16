@@ -1299,11 +1299,17 @@
                             onmouseout="this.style.background='#fff';this.style.color='#999';this.style.borderColor='#ddd';">✕</button>
                     </div>
                     <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap;">
-                        <small style="color:#666; font-size:0.85em; flex: 1; min-width: 200px;">Excel dosyası yükleyerek tedarikçi ve hammadde listelerini otomatik doldurun</small>
+                        <small style="color:#666; font-size:0.85em; flex: 1; min-width: 200px;">Tedarikçi ve hammadde listelerini Excel'den ya da doğrudan LeanSys'ten otomatik doldurun</small>
                         <label onclick="openYearSelectModal()" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); color: white; padding: 10px 20px; border-radius: 8px; font-size: 0.9em; cursor: pointer; white-space: nowrap; font-weight: 600; display: flex; align-items: center; gap: 8px; transition: all 0.3s; box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(46, 204, 113, 0.4)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(46, 204, 113, 0.3)'">
                             📊 Excel Yükle
                         </label>
                         <input type="file" id="excelFileInput" accept=".xlsx,.xls" onchange="loadExcelFile(event)" style="display: none;">
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap;">
+                        <select id="lsYearSelect" style="padding:9px 10px; border:1px solid #2d5a3d; border-radius:8px; font-size:0.9em; background:#fff; cursor:pointer; font-weight:600; color:#2d5a3d;"></select>
+                        <button type="button" id="btnLeanSys" onclick="loadLeanSys()" style="background: linear-gradient(135deg, #2d5a3d 0%, #1e7e4a 100%); color:white; padding:10px 20px; border:none; border-radius:8px; font-size:0.9em; cursor:pointer; white-space:nowrap; font-weight:600; display:flex; align-items:center; gap:8px; transition:all 0.3s; box-shadow:0 2px 8px rgba(45,90,61,0.3);" onmouseover="this.style.transform='scale(1.05)'; this.style.boxShadow='0 4px 12px rgba(45,90,61,0.4)'" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(45,90,61,0.3)'">
+                            📥 LeanSys'ten Yükle
+                        </button>
                     </div>
 
                     <!-- Yıl Yönetim Paneli -->
@@ -1646,8 +1652,6 @@
                         🗑 Seçilenleri Sil (<span id="selectedCount">0</span>)
                     </button>
                     <div style="display:flex; gap:6px; align-items:center; margin-left: auto;">
-                        <select id="lsYearSelect" style="padding:6px 10px; border:1px solid #2d5a3d; border-radius:5px; font-size:0.9em; background:#fff; cursor:pointer;"></select>
-                        <button class="btn btn-sm" id="btnLeanSys" onclick="loadLeanSys()" style="background:#2d5a3d;color:#fff;border:none;padding:7px 14px;border-radius:5px;cursor:pointer;font-size:0.9em;white-space:nowrap;">📥 LeanSys'ten Yükle</button>
                         <button class="btn btn-primary btn-sm" onclick="exportToExcel()">📊 Excel İndir</button>
                     </div>
                 </div>
