@@ -10277,6 +10277,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     return 0;
                 }
                 function n01(v, fb) { var x = (v != null ? Number(v) : Number(fb)) || 0; if (x <= 1) x *= 100; return x / 100; }
+                // Elle SEVK düzeltmeleri (override) — totalSevk yükleme sırasına göre flip-flop edebildiği
+                // için DÜZELTİLMİŞ sevk'i doğrudan supplierPerfOverrides'tan okuyup aylığa oranlıyoruz.
+                var _expOverrides = {}; try { _expOverrides = JSON.parse(localStorage.getItem('supplierPerfOverrides') || '{}') || {}; } catch (e) { }
+                var _expPeriod = (localStorage.getItem('_currentPeriodName') || '').trim();
                 var list = allResults.map(function (r) {
                     var ms = r.monthlySevk || [], mi = r.monthlyIade || [];
                     var mtp = r.monthlyTerminPuan || [], mtm = r.monthlyTamamlanmaPuan || [];
@@ -10291,7 +10295,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     // Aylık değerleri, toplamı sistemin GÖSTERDİĞİ totalSevk/totalIade'ye eşitleyecek şekilde ölçekle.
                     var rawSevkSum = 0, rawIadeSum = 0;
                     for (var k = 0; k < 12; k++) { rawSevkSum += Number(ms[k]) || 0; rawIadeSum += Number(mi[k]) || 0; }
-                    var sevkRatio = (rawSevkSum > 0 && Number(r.totalSevk) > 0) ? (Number(r.totalSevk) / rawSevkSum) : 1;
+                    // Düzeltilmiş toplam sevk = override varsa o (kalıcı/doğru), yoksa totalSevk
+                    var corrTotalSevk = Number(r.totalSevk) || 0;
+                    try {
+                        var _ovKey = _expPeriod + '||' + (typeof normalizeName === 'function' ? normalizeName(r.name) : (r.normalizedName || ''));
+                        var _ov = _expOverrides[_ovKey];
+                        if (_ov && _ov.sevk != null && Number(_ov.sevk) > 0) corrTotalSevk = Number(_ov.sevk);
+                    } catch (e) { }
+                    var sevkRatio = (rawSevkSum > 0 && corrTotalSevk > 0) ? (corrTotalSevk / rawSevkSum) : 1;
                     var iadeRatio = (rawIadeSum > 0 && Number(r.totalIade) > 0) ? (Number(r.totalIade) / rawIadeSum) : 1;
                     for (var m = 0; m < 12; m++) {
                         var sevk = (Number(ms[m]) || 0) * sevkRatio, iade = (Number(mi[m]) || 0) * iadeRatio;
