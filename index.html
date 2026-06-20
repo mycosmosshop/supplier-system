@@ -1690,6 +1690,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 <!-- Diğer İşlemler -->
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                     <button class="btn" onclick="showSupplierAnalysis()" style="background: #673ab7; color: white; border-color: #673ab7;">🔍 Tedarikçi Analizi</button>
+                    <button class="btn" onclick="openLocationPpmModal()" style="background: #00695c; color: white; border-color: #00695c;">📍 Lokasyon PPM Analizi</button>
                     <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4ff;border:2px solid #1e3c72;border-radius:8px;">
                         <span style="font-weight:700;color:#1e3c72;font-size:0.82em;white-space:nowrap;">🏢 Firma:</span>
                         <select id="companyBrandSelect" onchange="setCompanyBrand(this.value)" style="padding:4px 8px;border:1px solid #1e3c72;border-radius:5px;font-weight:700;background:#1e3c72;color:white;cursor:pointer;font-size:0.88em;">
@@ -2466,6 +2467,27 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     </div>
 
     <!-- Document Matrix Modal -->
+    <div id="locPpmModal" class="modal-overlay" style="display: none;">
+        <div class="modal-dialog" style="max-width: 1100px; width: 95%; max-height: 90vh; overflow: auto;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #00695c 0%, #004d40 100%); color: white;">
+                <h3>📍 Lokasyon Bazlı PPM Analizi</h3>
+                <button class="modal-close" onclick="closeLocationPpmModal()" style="color: white;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 12px;">
+                    <div><label style="font-size: .78em; color: #666;">Lokasyon</label><br><select id="locPpmLoc" onchange="renderLocationPpm()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 5px; min-width: 160px;"></select></div>
+                    <div><label style="font-size: .78em; color: #666;">Durum</label><br><select id="locPpmDurum" onchange="renderLocationPpm()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 5px;"><option value="ONAYLI">Onaylı (Tedarikçi)</option><option value="MÜŞTERİ">Müşteri</option></select></div>
+                    <div><label style="font-size: .78em; color: #666;">Ay</label><br><select id="locPpmAy" onchange="renderLocationPpm()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 5px;"><option value="all">Tüm yıl</option><option value="1">Ocak</option><option value="2">Şubat</option><option value="3">Mart</option><option value="4">Nisan</option><option value="5">Mayıs</option><option value="6">Haziran</option><option value="7">Temmuz</option><option value="8">Ağustos</option><option value="9">Eylül</option><option value="10">Ekim</option><option value="11">Kasım</option><option value="12">Aralık</option></select></div>
+                </div>
+                <div id="locPpmSummary" style="padding: 8px 12px; background: #e0f2f1; border-radius: 6px; margin-bottom: 12px; font-size: .92em;"></div>
+                <div style="height: 320px;"><canvas id="locPpmChart"></canvas></div>
+                <h4 style="margin: 16px 0 6px;">Firma Bazlı (PPM'e göre, ilk 15)</h4>
+                <div style="max-height: 260px; overflow: auto; border: 1px solid #eee; border-radius: 6px;"><table style="width: 100%; border-collapse: collapse; font-size: .85em;" id="locPpmTable"></table></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeLocationPpmModal()">Kapat</button></div>
+        </div>
+    </div>
+
     <div id="documentMatrixModal" class="modal-overlay" style="display: none;">
         <div class="modal-dialog" style="width: 95%; max-width: 1600px; max-height: 90vh;">
             <div class="modal-header" style="background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color: white;">
@@ -12330,6 +12352,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const curYear = _ym ? _ym[1] : String(new Date().getFullYear());
                 const retQty = {};   // normName -> iade miktarı toplam
                 const retSet = {};   // normName -> distinct irsaliye seti ("kaç kez")
+                const retMon = {};   // normName -> [12] aylık iade miktarı
                 let off = 0;
                 while (true) {
                     const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade,miktar,tarih,seri,sira&offset=' + off + '&limit=1000';
@@ -12343,20 +12366,89 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         const depoR = (row.depo || '').toUpperCase();
                         if (row.iade === 1 || /IADE|İADE/.test(depoR)) {
                             const nn = normalizeName(row.cari_adi);
-                            retQty[nn] = (retQty[nn] || 0) + (Number(row.miktar) || 0);
+                            const mk = Number(row.miktar) || 0;
+                            retQty[nn] = (retQty[nn] || 0) + mk;
                             if (!retSet[nn]) retSet[nn] = new Set();
                             retSet[nn].add((row.seri || '') + '/' + (row.sira || ''));
+                            const mo = parseInt(String(row.tarih).slice(5, 7), 10);
+                            if (mo >= 1 && mo <= 12) { if (!retMon[nn]) retMon[nn] = Array(12).fill(0); retMon[nn][mo - 1] += mk; }
                         }
                     });
                     if (rows.length < 1000) break;
                     off += 1000;
                 }
                 const retCnt = {}; Object.keys(retSet).forEach(nn => { retCnt[nn] = retSet[nn].size; });
-                window.__custReturns = { period: _pName, map: retQty, cnt: retCnt };
+                window.__custReturns = { period: _pName, map: retQty, cnt: retCnt, mon: retMon };
                 try { localStorage.setItem('supplierCustomerReturns', JSON.stringify(window.__custReturns)); } catch (e) {}
                 if (typeof displayResults === 'function') displayResults();
                 if (!silent) alert(Object.keys(retQty).length + ' müşteri için fiziksel iade (' + curYear + ') İade sütununa getirildi.');
             } catch (e) { if (!silent) alert('Müşteri iadesi çekme hatası: ' + (e && e.message ? e.message : e)); }
+        }
+
+        // ── Lokasyon Bazlı PPM Analizi ──
+        let _locPpmChart = null;
+        function openLocationPpmModal() {
+            const m = document.getElementById('locPpmModal'); if (!m) return;
+            const canon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Ultech1', 'Ultech2'];
+            const set = {}; canon.forEach(l => set[l] = 1);
+            (allResults || []).forEach(r => (r.lokasyon || []).forEach(l => { if (l) set[l] = 1; }));
+            const sel = document.getElementById('locPpmLoc');
+            sel.innerHTML = '<option value="__ALL__">Tüm Lokasyonlar</option>' + Object.keys(set).sort().map(l => '<option value="' + l + '">' + l + '</option>').join('');
+            m.style.display = 'flex';
+            renderLocationPpm();
+        }
+        function closeLocationPpmModal() { const m = document.getElementById('locPpmModal'); if (m) m.style.display = 'none'; }
+        function renderLocationPpm() {
+            try {
+                if (typeof allResults === 'undefined' || !allResults) return;
+                const AYK = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+                const AYU = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+                const loc = document.getElementById('locPpmLoc').value;
+                const durum = document.getElementById('locPpmDurum').value;       // 'ONAYLI' | 'MÜŞTERİ'
+                const ay = document.getElementById('locPpmAy').value;             // 'all' | '1'..'12'
+                const period = (localStorage.getItem('_currentPeriodName') || '').trim();
+                const yr = (period.match(/(\d{4})/) || ['', ''])[1] || '';
+                const cr = window.__custReturns;
+                const custMonOk = !!(cr && cr.period === period && cr.mon);
+                const isMust = durum === 'MÜŞTERİ';
+                const rows = allResults.filter(r => {
+                    if (!r) return false;
+                    const st = (r.status || 'ONAYLI').toUpperCase();
+                    if (isMust ? st !== 'MÜŞTERİ' : st !== 'ONAYLI') return false;
+                    if (loc !== '__ALL__' && (r.lokasyon || []).indexOf(loc) < 0) return false;
+                    return true;
+                });
+                const iadeArrOf = (r) => isMust ? ((custMonOk && cr.mon[normalizeName(r.name)]) ? cr.mon[normalizeName(r.name)] : []) : (r.monthlyIade || []);
+                const sevkM = Array(12).fill(0), iadeM = Array(12).fill(0);
+                rows.forEach(r => { const sv = r.monthlySevk || [], iv = iadeArrOf(r); for (let m = 0; m < 12; m++) { sevkM[m] += (+sv[m] || 0); iadeM[m] += (+iv[m] || 0); } });
+                const ppmM = sevkM.map((s, m) => s > 0 ? Math.round(iadeM[m] / s * 1e6) : 0);
+                const months = ay === 'all' ? [0,1,2,3,4,5,6,7,8,9,10,11] : [parseInt(ay, 10) - 1];
+                let tSevk = 0, tIade = 0; months.forEach(m => { tSevk += sevkM[m]; tIade += iadeM[m]; });
+                const tPpm = tSevk > 0 ? Math.round(tIade / tSevk * 1e6) : 0;
+                const locLbl = loc === '__ALL__' ? 'Tüm Lokasyonlar' : loc;
+                document.getElementById('locPpmSummary').innerHTML =
+                    '<b>' + locLbl + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + '</b> · ' +
+                    (ay === 'all' ? 'Tüm yıl' : (AYU[parseInt(ay, 10) - 1] || ay)) +
+                    ' · Firma: ' + rows.length + ' · Sevk: ' + tSevk.toLocaleString('tr-TR') +
+                    ' · İade: ' + tIade.toLocaleString('tr-TR') +
+                    ' · <span style="color:#c62828;font-weight:700;">PPM: ' + tPpm.toLocaleString('tr-TR') + '</span>';
+                const ctx = document.getElementById('locPpmChart').getContext('2d');
+                if (_locPpmChart) _locPpmChart.destroy();
+                const selM = ay === 'all' ? -1 : parseInt(ay, 10) - 1;
+                const bg = ppmM.map((_, m) => (selM === -1 || m === selM) ? (isMust ? '#c62828' : '#1e88e5') : '#cfd8dc');
+                _locPpmChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: AYK, datasets: [{ label: 'Aylık PPM', data: ppmM, backgroundColor: bg }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: locLbl + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + ' Aylık PPM' } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'PPM' } } } }
+                });
+                const firmRows = rows.map(r => {
+                    const sv = r.monthlySevk || [], iv = iadeArrOf(r); let s = 0, i = 0;
+                    months.forEach(m => { s += (+sv[m] || 0); i += (+iv[m] || 0); });
+                    return { name: r.name, sevk: s, iade: i, ppm: s > 0 ? Math.round(i / s * 1e6) : 0 };
+                }).filter(x => x.sevk > 0 || x.iade > 0).sort((a, b) => b.ppm - a.ppm);
+                const tb = firmRows.slice(0, 15).map(x => '<tr><td style="padding:3px 6px;">' + x.name + '</td><td style="text-align:right;padding:3px 6px;">' + x.sevk.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;color:#c62828;">' + x.iade.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;font-weight:600;">' + x.ppm.toLocaleString('tr-TR') + '</td></tr>').join('');
+                document.getElementById('locPpmTable').innerHTML = '<tr style="background:#37474f;color:white;"><th style="text-align:left;padding:4px 6px;">Firma</th><th style="padding:4px 6px;">Sevk</th><th style="padding:4px 6px;">İade</th><th style="padding:4px 6px;">PPM</th></tr>' + (tb || '<tr><td colspan="4" style="padding:8px;text-align:center;color:#888;">Veri yok</td></tr>');
+            } catch (e) { console.warn('renderLocationPpm', e); }
         }
 
         async function fillLocationsFromMalKabul(opts) {
@@ -12390,6 +12482,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const stat = {};   // normName -> {tot, buy}  (buy = gerçek satın alma satırı)
                 const retQty = {}; // normName -> fiziksel müşteri iadesi (miktar, mevcut dönem yılı)
                 const retSet = {}; // normName -> distinct iade irsaliye seti ("kaç kez")
+                const retMon = {}; // normName -> [12] aylık iade miktarı
                 const _pName = (localStorage.getItem('_currentPeriodName') || '').trim();
                 const _ymatch = _pName.match(/(\d{4})/);
                 const curYear = _ymatch ? _ymatch[1] : String(new Date().getFullYear());
@@ -12407,9 +12500,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         if (row.tarih && String(row.tarih).slice(0, 4) === curYear) {
                             const depoR = (row.depo || '').toUpperCase();
                             if (row.iade === 1 || /IADE|İADE/.test(depoR)) {
-                                retQty[nn] = (retQty[nn] || 0) + (Number(row.miktar) || 0);
+                                const mk = Number(row.miktar) || 0;
+                                retQty[nn] = (retQty[nn] || 0) + mk;
                                 if (!retSet[nn]) retSet[nn] = new Set();
                                 retSet[nn].add((row.seri || '') + '/' + (row.sira || ''));
+                                const mo = parseInt(String(row.tarih).slice(5, 7), 10);
+                                if (mo >= 1 && mo <= 12) { if (!retMon[nn]) retMon[nn] = Array(12).fill(0); retMon[nn][mo - 1] += mk; }
                             }
                         }
                         if (!stat[nn]) stat[nn] = { tot: 0, buy: 0 };
@@ -12431,7 +12527,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
                 // Müşteri fiziksel iadeleri (mevcut dönem) — İade (miktar) + Hata (kaç kez/irsaliye)
                 const retCnt = {}; Object.keys(retSet).forEach(nn => { retCnt[nn] = retSet[nn].size; });
-                window.__custReturns = { period: _pName, map: retQty, cnt: retCnt };
+                window.__custReturns = { period: _pName, map: retQty, cnt: retCnt, mon: retMon };
                 try { localStorage.setItem('supplierCustomerReturns', JSON.stringify(window.__custReturns)); } catch (e) {}
 
                 // Müşteri sevk lokasyonu: mal_sevk tablosu (CIKIS_DEPO = sevk eden tesis). Tablo yoksa/boşsa atlanır.
