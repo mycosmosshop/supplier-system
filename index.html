@@ -11626,22 +11626,25 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // LeanSys'ten veri yenilemesinden SONRA otomatik yeniden uygulanır (LeanSys değeri ezmez).
         // ADMIN: elle performans düzeltmelerini YALNIZ admin yapabilir (window.ERP_IS_ADMIN, supplier-sync erp_users.is_admin'den set eder).
         // Çözülene kadar (undefined) güvenli taraf = düzenleme KAPALI; admin'de erp-admin-ready ile tablo tazelenir.
-        // Şifreli admin kilidi: e-posta admini DEĞİLSE de "sanifoam2026" ile açılabilir (oturum boyu)
+        // Şifreli admin kilidi: e-posta admini olsa BİLE kilitlenebilir; açmak için "sanifoam2026" (oturum boyu)
         try { if (sessionStorage.getItem('_pwAdmin') === '1') window.__PW_ADMIN = true; } catch(e){}
-        function isErpAdmin(){ return window.ERP_IS_ADMIN === true || window.__PW_ADMIN === true; }
+        try { if (sessionStorage.getItem('_adminLocked') === '1') window.__ADMIN_LOCKED = true; } catch(e){}
+        function isErpAdmin(){ return window.__ADMIN_LOCKED !== true && (window.ERP_IS_ADMIN === true || window.__PW_ADMIN === true); }
         function _refreshAdminLockBtn(){ try{ var b=document.getElementById('adminLockBtn'); if(!b) return; var on=isErpAdmin(); b.textContent = on ? '🔓 Yönetici (açık)' : '🔒 Yönetici'; b.style.background = on ? '#2e7d32' : '#9e9e9e'; b.style.borderColor = on ? '#2e7d32' : '#9e9e9e'; }catch(e){} }
         function toggleAdminLock(){
             if (isErpAdmin()){
-                if (window.ERP_IS_ADMIN === true && window.__PW_ADMIN !== true){ try{ showAlert('Zaten yönetici hesabıyla girişlisiniz.', 'info'); }catch(e){} return; }
-                window.__PW_ADMIN = false; try{ sessionStorage.removeItem('_pwAdmin'); }catch(e){}
+                // Açıkken tıklama = KİLİTLE (yönetici hesabıyla girilmiş olsa bile)
+                window.__ADMIN_LOCKED = true; window.__PW_ADMIN = false;
+                try{ sessionStorage.setItem('_adminLocked','1'); sessionStorage.removeItem('_pwAdmin'); }catch(e){}
                 _updateAdminUI(); try{ if(typeof displayResults==='function' && allResults && allResults.length) displayResults(); }catch(e){}
-                try{ showAlert('🔒 Yönetici modu kapatıldı.', 'info'); }catch(e){}
+                try{ showAlert('🔒 Yönetici modu kilitlendi. Açmak için şifre gerekir.', 'info'); }catch(e){}
                 return;
             }
             var p; try{ p = prompt('Yönetici şifresi:'); }catch(e){ return; }
             if (p === null) return;
             if (p === 'sanifoam2026'){
-                window.__PW_ADMIN = true; try{ sessionStorage.setItem('_pwAdmin','1'); }catch(e){}
+                window.__ADMIN_LOCKED = false; window.__PW_ADMIN = true;
+                try{ sessionStorage.removeItem('_adminLocked'); sessionStorage.setItem('_pwAdmin','1'); }catch(e){}
                 _updateAdminUI(); try{ if(typeof displayResults==='function' && allResults && allResults.length) displayResults(); }catch(e){}
                 try{ showAlert('🔓 Yönetici modu açıldı. Düzeltmeler ve düzenleme alanları aktif.', 'success'); }catch(e){}
             } else {
