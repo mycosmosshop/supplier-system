@@ -12412,8 +12412,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function openLocationPpmModal() {
             const m = document.getElementById('locPpmModal'); if (!m) return;
             const canon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Ultech1', 'Ultech2'];
+            const base = (typeof lastFilteredResults !== 'undefined' && lastFilteredResults && lastFilteredResults.length) ? lastFilteredResults : (allResults || []);
             const set = {}; canon.forEach(l => set[l] = 1);
-            (allResults || []).forEach(r => (r.lokasyon || []).forEach(l => { if (l) set[l] = 1; }));
+            base.forEach(r => (r.lokasyon || []).forEach(l => { if (l) set[l] = 1; }));
             const sel = document.getElementById('locPpmLoc');
             sel.innerHTML = '<option value="__ALL__">Tüm Lokasyonlar</option>' + Object.keys(set).sort().map(l => '<option value="' + l + '">' + l + '</option>').join('');
             m.style.display = 'flex';
@@ -12434,7 +12435,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const cr = window.__custReturns;
                 const custMonOk = !!(cr && cr.period === period && cr.mon);
                 const isMust = durum === 'MÜŞTERİ';
-                const rows = allResults.filter(r => {
+                // Aktif filtre (kayıtlı filtre vb.) varsa yalnız o görünümü analiz et
+                const base = (typeof lastFilteredResults !== 'undefined' && lastFilteredResults && lastFilteredResults.length) ? lastFilteredResults : allResults;
+                const filtreAktif = base !== allResults && base.length < (allResults ? allResults.length : base.length);
+                const rows = base.filter(r => {
                     if (!r) return false;
                     const st = (r.status || 'ONAYLI').toUpperCase();
                     if (isMust ? st !== 'MÜŞTERİ' : st !== 'ONAYLI') return false;
@@ -12451,6 +12455,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const tPpm = tSevk > 0 ? Math.round(tIade / tSevk * 1e6) : 0;
                 const locLbl = loc === '__ALL__' ? 'Tüm Lokasyonlar' : loc;
                 document.getElementById('locPpmSummary').innerHTML =
+                    (filtreAktif ? '<span style="color:#1565c0;font-weight:700;">🔍 Aktif filtre: ' + base.length + ' firma</span> · ' : '') +
                     '<b>' + locLbl + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + (kat !== '__ALL__' ? ' · ' + kat : '') + '</b> · ' +
                     (ay === 'all' ? 'Tüm yıl' : (AYU[parseInt(ay, 10) - 1] || ay)) +
                     ' · Firma: ' + rows.length + ' · Sevk: ' + tSevk.toLocaleString('tr-TR') +
