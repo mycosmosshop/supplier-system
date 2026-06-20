@@ -2666,7 +2666,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         <div style="background: white; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                             <div style="flex: 1;">
                                 <div style="font-weight: 600; color: #333; margin-bottom: 3px;">📍 Lokasyon + Durum'u Mal Kabulden Doldur</div>
-                                <div style="font-size: 0.85em; color: #666;">Mal kabul verisinden lokasyon(lar)ı doldurur (çoklu olabilir). Ardından isteğe bağlı: mal kabulde olan → ONAYLI, olmayan → MÜŞTERİ (ONAYSIZ korunur)</div>
+                                <div style="font-size: 0.85em; color: #666;">Gerçek alımlardan lokasyon(lar)ı doldurur. İsteğe bağlı durum: gerçekten malzeme aldığımız → ONAYLI; sadece ürün İADESİ gelen (ör. Mercedes) → MÜŞTERİ (ONAYSIZ korunur)</div>
                             </div>
                             <button class="btn btn-secondary" onclick="fillLocationsFromMalKabul()" style="background: #2e7d32; color: white; border-color: #2e7d32; white-space: nowrap;">
                                 ⤵️ Doldur
@@ -12257,11 +12257,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const ORDER = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Ultech1', 'Ultech2'];
 
             try {
-                const map = {};                 // normName -> Set(loc)
-                const inMalKabul = new Set();    // normName -> mal kabulde herhangi bir kayıt var (tedarikçi)
+                const map = {};    // normName -> Set(loc)  [yalnızca gerçek alım satırlarından]
+                const stat = {};   // normName -> {tot, buy}  (buy = gerçek satın alma satırı)
                 let off = 0;
                 while (true) {
-                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo&offset=' + off + '&limit=1000';
+                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade&offset=' + off + '&limit=1000';
                     const r = await fetch(url, { headers: { apikey: PT_ANON, Authorization: 'Bearer ' + PT_ANON } });
                     if (!r.ok) throw new Error('mal_kabul okunamadı: HTTP ' + r.status);
                     const rows = await r.json();
@@ -12269,7 +12269,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     rows.forEach(row => {
                         if (!row.cari_adi) return;
                         const nn = normalizeName(row.cari_adi);
-                        inMalKabul.add(nn);
+                        if (!stat[nn]) stat[nn] = { tot: 0, buy: 0 };
+                        stat[nn].tot++;
+                        // iade=1 veya ÜRÜN/İADE deposu = bizim ürünümüzün dönüşü (müşteri sinyali), satın alma değil
+                        const depoU = (row.depo || '').toUpperCase();
+                        const isReturn = (row.iade === 1) || /URUN|ÜRÜN|IADE|İADE/.test(depoU);
+                        if (isReturn) return;
+                        stat[nn].buy++;
                         const loc = depoToLoc(row.depo);
                         if (!loc) return;
                         if (!map[nn]) map[nn] = new Set();
@@ -12278,10 +12284,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     if (rows.length < 1000) break;
                     off += 1000;
                 }
+                // Gerçek tedarikçi = gerçek alım oranı ≥ %5 (yalnızca-iade gelen müşterileri (ör. Mercedes) eler)
+                const isSupplier = (nn) => { const st = stat[nn]; return !!(st && st.tot > 0 && (st.buy / st.tot) >= 0.05); };
 
                 let matched = 0;
                 allResults.forEach(s => {
-                    const set = map[normalizeName(s.name)];
+                    const nn = normalizeName(s.name);
+                    if (!isSupplier(nn)) return;          // müşterilere lokasyon yazma
+                    const set = map[nn];
                     if (!set || !set.size) return;
                     const locs = ORDER.filter(l => set.has(l));
                     s.lokasyon = locs;
@@ -12290,25 +12300,31 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 });
                 if (typeof displayResults === 'function') displayResults();
 
-                // Durum otomatik atama (opsiyonel): mal kabulde olan → ONAYLI, olmayan → MÜŞTERİ
+                // Durum otomatik atama (opsiyonel)
                 let statusMsg = '';
                 if (typeof updateDurum === 'function' &&
-                    confirm('Durum da otomatik ayarlansın mı?\n\n• Mal kabulde olan → ONAYLI (tedarikçi)\n• Olmayan → MÜŞTERİ\n• Elle "ONAYSIZ" işaretlenenler korunur\n\nTamam = evet, İptal = sadece lokasyon')) {
+                    confirm('Durum da otomatik ayarlansın mı?\n\n• Gerçekten hammadde/malzeme ALDIĞIMIZ firma → ONAYLI (tedarikçi)\n• Sadece bizim ürünümüzün İADESİ gelen (ör. Mercedes, Carrefour) veya mal kabulde hiç olmayan → MÜŞTERİ\n• Elle "ONAYSIZ" işaretlenenler korunur\n\nTamam = evet, İptal = sadece lokasyon')) {
                     let onayli = 0, musteri = 0;
                     allResults.forEach(s => {
                         const cur = (s.status || 'ONAYLI').toUpperCase();
                         if (cur === 'ONAYSIZ') return; // bilinçli işaret korunur
-                        const target = inMalKabul.has(normalizeName(s.name)) ? 'ONAYLI' : 'MÜŞTERİ';
+                        const sup = isSupplier(normalizeName(s.name));
+                        const target = sup ? 'ONAYLI' : 'MÜŞTERİ';
                         if (cur !== target) {
                             updateDurum(s.name, target);
                             if (target === 'ONAYLI') onayli++; else musteri++;
                         }
+                        // Müşteri ise lokasyonu temizle (lokasyon = tedarikçi teslim yeri)
+                        if (!sup && s.lokasyon && s.lokasyon.length) {
+                            s.lokasyon = [];
+                            saveLokasyonToStorage(s.name, [], true);
+                        }
                     });
                     if (typeof displayResults === 'function') displayResults();
-                    statusMsg = '\nDurum: ' + onayli + ' → ONAYLI, ' + musteri + ' → MÜŞTERİ (ONAYSIZ korundu).';
+                    statusMsg = '\nDurum: ' + onayli + ' → ONAYLI, ' + musteri + ' → MÜŞTERİ (sadece-iade firmalar müşteri sayıldı; müşteri lokasyonları temizlendi; ONAYSIZ korundu).';
                 }
 
-                alert(matched + ' tedarikçinin lokasyonu mal kabulden dolduruldu. (Eşleşmeyen tedarikçiler değişmedi.)' + statusMsg + '\n\nDeğişiklik Drive yedeğine sonraki otomatik kayıtta yansır.');
+                alert(matched + ' tedarikçinin lokasyonu (gerçek alımlardan) dolduruldu.' + statusMsg + '\n\nDeğişiklik Drive yedeğine sonraki otomatik kayıtta yansır.');
             } catch (e) {
                 alert('Lokasyon doldurma hatası: ' + (e && e.message ? e.message : e));
             }
