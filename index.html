@@ -10317,6 +10317,23 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             } catch (e) { console.warn('exportComputedScoresForKPI', e); }
         }
 
+        // GÜVENLİK AĞI: sayfa hangi yolla yüklenirse yüklensin, veri gelince KPI export'unu
+        // (sevk/iade dahil) bir kez üret + senkronla (displayResults çağrılmasa bile).
+        (function () {
+            var tries = 0;
+            var iv = setInterval(function () {
+                tries++;
+                try {
+                    if (typeof allResults !== 'undefined' && allResults && allResults.length) {
+                        exportComputedScoresForKPI();
+                        clearInterval(iv);
+                        console.log('✅ KPI export güvenlik ağı: supplierComputedScores yazıldı.');
+                    }
+                } catch (e) { }
+                if (tries > 60) clearInterval(iv); // ~30 sn sonra vazgeç
+            }, 500);
+        })();
+
         function displayResults() {
             document.getElementById('controls').classList.add('active');
             _applyCustReturnsToResults(); // müşteri totalIade=fiziksel → PPM/sıralama tutarlı
