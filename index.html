@@ -2678,7 +2678,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         <div style="background: white; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                             <div style="flex: 1;">
                                 <div style="font-weight: 600; color: #333; margin-bottom: 3px;">↩️ Müşteri İadelerini Çek</div>
-                                <div style="font-size: 0.85em; color: #666;">Müşteri (MÜŞTERİ) satırlarında "Toplam İade" sütununu mal kabuldeki gerçek fiziksel iadelerle doldurur. LeanSys'ten Yükle sonrası otomatik de gelir.</div>
+                                <div style="font-size: 0.85em; color: #666;">Müşteri (MÜŞTERİ) satırlarında "Toplam İade" = fiziksel iade miktarı, "Toplam Hata" = kaç kez iade geldiği (irsaliye) ile doldurulur; PPM ve Hata Puanı'na yansır. LeanSys'ten Yükle sonrası otomatik de gelir.</div>
                             </div>
                             <button class="btn btn-secondary" onclick="refreshCustomerReturns(false)" style="background: #c62828; color: white; border-color: #c62828; white-space: nowrap;">
                                 ↩️ Çek
@@ -11691,7 +11691,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 if (typeof allResults === 'undefined' || !allResults) return;
                 allResults.forEach(function(r){
                     if (!r || !r.status || String(r.status).toUpperCase() !== 'MÜŞTERİ') return;
-                    var v = cr.map[normalizeName(r.name)];
+                    var nn = normalizeName(r.name);
+                    var v = cr.map[nn];
                     if (v == null) return;
                     r.totalIade = v;
                     r.ppm = r.totalSevk > 0 ? (v / r.totalSevk) * 1000000 : 0;
@@ -11703,6 +11704,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     else if (r.ppm <= 0.8 * tgt) r.ppmPuan = 0.8;
                     else if (r.ppm < 1.2 * tgt) r.ppmPuan = 0.6;
                     else r.ppmPuan = 0;
+                    // Toplam Hata = kaç kez iade geldi (irsaliye sayısı); Hata Puanı = hedef/hata
+                    var c = cr.cnt ? cr.cnt[nn] : null;
+                    if (c != null) {
+                        r.totalHata = c;
+                        var hh = r.hataHedefi || 2;
+                        if (hh === 0) r.hataPuan = (r.totalHata === 0 ? 1 : 0);
+                        else if (r.totalHata === 0) r.hataPuan = 1;
+                        else if ((hh / r.totalHata) > 1) r.hataPuan = 1;
+                        else r.hataPuan = hh / r.totalHata;
+                    }
                 });
             } catch(e){}
         }
@@ -12317,10 +12328,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const _pName = (localStorage.getItem('_currentPeriodName') || '').trim();
                 const _ym = _pName.match(/(\d{4})/);
                 const curYear = _ym ? _ym[1] : String(new Date().getFullYear());
-                const retQty = {};
+                const retQty = {};   // normName -> iade miktarı toplam
+                const retSet = {};   // normName -> distinct irsaliye seti ("kaç kez")
                 let off = 0;
                 while (true) {
-                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade,miktar,tarih&offset=' + off + '&limit=1000';
+                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade,miktar,tarih,seri,sira&offset=' + off + '&limit=1000';
                     const r = await fetch(url, { headers: { apikey: PT_ANON, Authorization: 'Bearer ' + PT_ANON } });
                     if (!r.ok) { if (!silent) alert('mal_kabul okunamadı: HTTP ' + r.status); return; }
                     const rows = await r.json();
@@ -12332,12 +12344,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         if (row.iade === 1 || /IADE|İADE/.test(depoR)) {
                             const nn = normalizeName(row.cari_adi);
                             retQty[nn] = (retQty[nn] || 0) + (Number(row.miktar) || 0);
+                            if (!retSet[nn]) retSet[nn] = new Set();
+                            retSet[nn].add((row.seri || '') + '/' + (row.sira || ''));
                         }
                     });
                     if (rows.length < 1000) break;
                     off += 1000;
                 }
-                window.__custReturns = { period: _pName, map: retQty };
+                const retCnt = {}; Object.keys(retSet).forEach(nn => { retCnt[nn] = retSet[nn].size; });
+                window.__custReturns = { period: _pName, map: retQty, cnt: retCnt };
                 try { localStorage.setItem('supplierCustomerReturns', JSON.stringify(window.__custReturns)); } catch (e) {}
                 if (typeof displayResults === 'function') displayResults();
                 if (!silent) alert(Object.keys(retQty).length + ' müşteri için fiziksel iade (' + curYear + ') İade sütununa getirildi.');
@@ -12374,12 +12389,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const allMap = {}; // normName -> Set(loc)  [tüm satırlardan — müşteri için sevk/iade lokasyonu]
                 const stat = {};   // normName -> {tot, buy}  (buy = gerçek satın alma satırı)
                 const retQty = {}; // normName -> fiziksel müşteri iadesi (miktar, mevcut dönem yılı)
+                const retSet = {}; // normName -> distinct iade irsaliye seti ("kaç kez")
                 const _pName = (localStorage.getItem('_currentPeriodName') || '').trim();
                 const _ymatch = _pName.match(/(\d{4})/);
                 const curYear = _ymatch ? _ymatch[1] : String(new Date().getFullYear());
                 let off = 0;
                 while (true) {
-                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade,miktar,tarih&offset=' + off + '&limit=1000';
+                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade,miktar,tarih,seri,sira&offset=' + off + '&limit=1000';
                     const r = await fetch(url, { headers: { apikey: PT_ANON, Authorization: 'Bearer ' + PT_ANON } });
                     if (!r.ok) throw new Error('mal_kabul okunamadı: HTTP ' + r.status);
                     const rows = await r.json();
@@ -12387,10 +12403,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     rows.forEach(row => {
                         if (!row.cari_adi) return;
                         const nn = normalizeName(row.cari_adi);
-                        // Fiziksel müşteri iadesi (mevcut yıl): iade=1 veya ÜRÜN İADE deposu
+                        // Fiziksel müşteri iadesi (mevcut yıl): iade=1 veya ÜRÜN İADE deposu — miktar + kaç kez (irsaliye)
                         if (row.tarih && String(row.tarih).slice(0, 4) === curYear) {
                             const depoR = (row.depo || '').toUpperCase();
-                            if (row.iade === 1 || /IADE|İADE/.test(depoR)) retQty[nn] = (retQty[nn] || 0) + (Number(row.miktar) || 0);
+                            if (row.iade === 1 || /IADE|İADE/.test(depoR)) {
+                                retQty[nn] = (retQty[nn] || 0) + (Number(row.miktar) || 0);
+                                if (!retSet[nn]) retSet[nn] = new Set();
+                                retSet[nn].add((row.seri || '') + '/' + (row.sira || ''));
+                            }
                         }
                         if (!stat[nn]) stat[nn] = { tot: 0, buy: 0 };
                         stat[nn].tot++;
@@ -12409,8 +12429,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // Gerçek tedarikçi = gerçek alım oranı ≥ %5 (yalnızca-iade gelen müşterileri (ör. Mercedes) eler)
                 const isSupplier = (nn) => { const st = stat[nn]; return !!(st && st.tot > 0 && (st.buy / st.tot) >= 0.05); };
 
-                // Müşteri fiziksel iadeleri (mevcut dönem) — İade hücresinde müşteriler için gösterilir (PPM/İade pipeline'ı değişmez)
-                window.__custReturns = { period: _pName, map: retQty };
+                // Müşteri fiziksel iadeleri (mevcut dönem) — İade (miktar) + Hata (kaç kez/irsaliye)
+                const retCnt = {}; Object.keys(retSet).forEach(nn => { retCnt[nn] = retSet[nn].size; });
+                window.__custReturns = { period: _pName, map: retQty, cnt: retCnt };
                 try { localStorage.setItem('supplierCustomerReturns', JSON.stringify(window.__custReturns)); } catch (e) {}
 
                 // Müşteri sevk lokasyonu: mal_sevk tablosu (CIKIS_DEPO = sevk eden tesis). Tablo yoksa/boşsa atlanır.
