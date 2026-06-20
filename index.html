@@ -10290,22 +10290,24 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     var hata = (r.hataPuan != null ? Number(r.hataPuan) : 1);
                     var hasVda = (Number(r.vdaPuan) || 0) > 0;
                     var comp = [], termin = [], ppmp = [];
-                    var sevkA = [], iadeA = [], tamamA = [];  // aylık sevk/iade (toplam = totalSevk/totalIade'ye ölçekli) + tamamlanma
-                    // ÖNEMLİ: monthlySevk bazen ham, bazen override-ölçekli olabiliyor (yükleme sırası race).
-                    // Aylık değerleri, toplamı sistemin GÖSTERDİĞİ totalSevk/totalIade'ye eşitleyecek şekilde ölçekle.
-                    var rawSevkSum = 0, rawIadeSum = 0;
-                    for (var k = 0; k < 12; k++) { rawSevkSum += Number(ms[k]) || 0; rawIadeSum += Number(mi[k]) || 0; }
-                    // Düzeltilmiş toplam sevk = override varsa o (kalıcı/doğru), yoksa totalSevk
-                    var corrTotalSevk = Number(r.totalSevk) || 0;
+                    var sevkA = [], iadeA = [], tamamA = [];
+                    // Sistemin AY-FİLTRESİ mantığını BİREBİR taklit et (recomputeAllWithSelectedMonths):
+                    //  - SEVK: elle override varsa o ay için TAM override sevk (ay filtresi override'ı azaltmaz);
+                    //          override yoksa monthlySevk[m] + (aylara atanmamışsa unknownSevk).
+                    //  - İADE: monthlyIade[m] + (aylara atanmamışsa unknownIade).
+                    // (KPI her ayı bağımsız gösterir; bu yüzden override'lı ay sevk'i = sistem tek-ay görünümü.)
+                    var _ovSevk = null;
                     try {
                         var _ovKey = _expPeriod + '||' + (typeof normalizeName === 'function' ? normalizeName(r.name) : (r.normalizedName || ''));
                         var _ov = _expOverrides[_ovKey];
-                        if (_ov && _ov.sevk != null && Number(_ov.sevk) > 0) corrTotalSevk = Number(_ov.sevk);
+                        if (_ov && _ov.sevk != null && Number(_ov.sevk) > 0) _ovSevk = Number(_ov.sevk);
+                        else if (r.manualTotalSevk && Number(r.totalSevk) > 0) _ovSevk = Number(r.totalSevk);
                     } catch (e) { }
-                    var sevkRatio = (rawSevkSum > 0 && corrTotalSevk > 0) ? (corrTotalSevk / rawSevkSum) : 1;
-                    var iadeRatio = (rawIadeSum > 0 && Number(r.totalIade) > 0) ? (Number(r.totalIade) / rawIadeSum) : 1;
+                    var unkSevk = r.hasKnownSevkMonths ? 0 : (Number(r.unknownSevk) || 0);
+                    var unkIade = r.hasKnownIadeMonths ? 0 : (Number(r.unknownIade) || 0);
                     for (var m = 0; m < 12; m++) {
-                        var sevk = (Number(ms[m]) || 0) * sevkRatio, iade = (Number(mi[m]) || 0) * iadeRatio;
+                        var sevk = (_ovSevk != null) ? _ovSevk : ((Number(ms[m]) || 0) + unkSevk);
+                        var iade = (Number(mi[m]) || 0) + unkIade;
                         sevkA[m] = Math.round(sevk * 1000) / 1000; iadeA[m] = Math.round(iade * 1000) / 1000;
                         var hasTermin = mtp[m] != null;
                         tamamA[m] = (mtm[m] != null) ? Math.round(n01(mtm[m], 0) * 10000) / 10000 : null;
