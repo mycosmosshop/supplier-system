@@ -10332,6 +10332,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     var sup = (s[y] && s[y].suppliers) || [];
                     var ws = sup.filter(function (x) { return (x.sevk || []).some(function (v) { return v > 0; }); }).length;
                     info = y + ' · ' + sup.length + ' tedarikçi (sevk>0: ' + ws + ')';
+                    // DOĞRULAMA: aktif filtredeki tedarikçilerin OCAK İade PPM'i (export verisinden)
+                    var flt = (lastFilteredResults && lastFilteredResults.length ? lastFilteredResults : allResults);
+                    var fkeys = {}, fnorms = {};
+                    flt.forEach(function (r) { fkeys[r.mapKey || r.name] = 1; if (r.normalizedName) fnorms[r.normalizedName] = 1; });
+                    var sv = 0, ia = 0;
+                    sup.forEach(function (x) {
+                        if (fkeys[x.key] || (x.norm && fnorms[x.norm])) { sv += Number((x.sevk || [])[0]) || 0; ia += Number((x.iade || [])[0]) || 0; }
+                    });
+                    if (sv > 0) info += ' | Ocak Σsevk=' + Math.round(sv).toLocaleString('tr-TR') + ' Σiade=' + Math.round(ia).toLocaleString('tr-TR') + ' → İade PPM=' + Math.round(ia / sv * 1e6);
                 } catch (e) { }
                 if (typeof window.__erpForcePush !== 'function') { showAlert('Bulut senkronu henüz hazır değil, birkaç saniye sonra tekrar deneyin.', 'error'); return; }
                 showAlert('📤 KPI\'ya gönderiliyor… ' + info, 'info');
