@@ -10260,7 +10260,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function exportComputedScoresForKPI() {
             try {
                 if (!allResults || !allResults.length) return;
-                var year = parseInt((localStorage.getItem('_currentPeriodName') || '').trim(), 10);
+                // Dönem adı "2026" ya da "Sanifoam 2026" olabilir → 4 haneli yılı çıkar
+                var _pn = (localStorage.getItem('_currentPeriodName') || '').trim();
+                var _ym = _pn.match(/(20\d{2})/);
+                var year = _ym ? parseInt(_ym[1], 10) : 0;
                 if (!year) return;
                 function ppmBand(ppm, target) {
                     target = target || 1000;
