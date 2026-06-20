@@ -10317,22 +10317,38 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             } catch (e) { console.warn('exportComputedScoresForKPI', e); }
         }
 
-        // GÜVENLİK AĞI: sayfa hangi yolla yüklenirse yüklensin, veri gelince KPI export'unu
-        // (sevk/iade dahil) bir kez üret + senkronla (displayResults çağrılmasa bile).
+        // GÜVENLİK AĞI: sayfa hangi yolla yüklenirse / DÖNEM değişirse, veri gelince KPI export'unu
+        // (sevk/iade dahil) yeniden üret + senkronla (displayResults çağrılmasa bile).
+        // Dönem (2025→2026) veya tedarikçi sayısı değişince tekrar export eder.
         (function () {
-            var tries = 0;
-            var iv = setInterval(function () {
-                tries++;
+            var lastKey = '';
+            setInterval(function () {
                 try {
                     if (typeof allResults !== 'undefined' && allResults && allResults.length) {
-                        exportComputedScoresForKPI();
-                        clearInterval(iv);
-                        console.log('✅ KPI export güvenlik ağı: supplierComputedScores yazıldı.');
+                        var pn = (localStorage.getItem('_currentPeriodName') || '');
+                        var key = pn + '|' + allResults.length;
+                        if (key !== lastKey) {
+                            exportComputedScoresForKPI();
+                            lastKey = key;
+                            console.log('✅ KPI export güvenlik ağı: supplierComputedScores yazıldı (' + pn + ', ' + allResults.length + ' tedarikçi).');
+                        }
                     }
                 } catch (e) { }
-                if (tries > 60) clearInterval(iv); // ~30 sn sonra vazgeç
-            }, 500);
+            }, 2000);
         })();
+
+        // Konsoldan doğrulama: window.__kpiExportInfo() → yıllar + sevk var mı
+        window.__kpiExportInfo = function () {
+            try {
+                var s = JSON.parse(localStorage.getItem('supplierComputedScores') || '{}');
+                Object.keys(s).forEach(function (y) {
+                    var sup = (s[y].suppliers || []);
+                    var withSevk = sup.filter(function (x) { return (x.sevk || []).some(function (v) { return v > 0; }); }).length;
+                    console.log('  KPI export ' + y + ': ' + sup.length + ' tedarikçi, sevk>0 olan: ' + withSevk + ', ts=' + s[y].ts);
+                });
+                return s;
+            } catch (e) { console.warn(e); }
+        };
 
         function displayResults() {
             document.getElementById('controls').classList.add('active');

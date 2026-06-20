@@ -32,9 +32,17 @@
   function applyRemote(data){ if(!data) return []; _applying=true; var changed=[];
     try{ Object.keys(data).forEach(function(k){ if(isSynced(k) && localStorage.getItem(k)!==data[k]){ _origSet(k, data[k]); changed.push(k); } }); }
     finally{ _applying=false; } return changed; }
-  function pushNow(){ if(_applying||!_uid) return;
+  function pushNow(retry){ if(_applying||!_uid) return;
     sb.from('supplier_sync').upsert({ id:ROW_ID, data:snapshot(), updated_at:new Date().toISOString(), updated_by:_uid })
-      .then(function(r){ if(r.error) console.warn('[sync] push', r.error.message); }); }
+      .then(function(r){
+        if(r.error){ console.warn('[sync] push', r.error.message);
+          if((retry||0)<4){ setTimeout(function(){ pushNow((retry||0)+1); }, 3000); } }
+        else if(retry){ console.log('[sync] push tekrar denemede BAŞARILI'); }
+      })
+      .catch(function(e){ // "Failed to fetch" gibi ağ hataları yutulmasın → tekrar dene
+        console.warn('[sync] push fetch hatası:', e && e.message);
+        if((retry||0)<4){ setTimeout(function(){ pushNow((retry||0)+1); }, 3000); }
+      }); }
   function schedulePush(){ if(_applying) return; _lastEdit=Date.now(); clearTimeout(_pushTimer); _pushTimer=setTimeout(pushNow, 1200);
     // Edit olunca otomatik Drive yedeği de tetikle (kendi yazımı hariç — döngü koruması)
     try{ if(!window._driveBackupInProgress && typeof window.autoDriveBackup==='function') window.autoDriveBackup(); }catch(e){} }
