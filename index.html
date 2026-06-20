@@ -10285,9 +10285,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     var hata = (r.hataPuan != null ? Number(r.hataPuan) : 1);
                     var hasVda = (Number(r.vdaPuan) || 0) > 0;
                     var comp = [], termin = [], ppmp = [];
+                    var sevkA = [], iadeA = [], tamamA = [];  // ham aylık sevk/iade + tamamlanma (KPI birebir bunu kullanır)
                     for (var m = 0; m < 12; m++) {
                         var sevk = Number(ms[m]) || 0, iade = Number(mi[m]) || 0;
+                        sevkA[m] = sevk; iadeA[m] = iade;
                         var hasTermin = mtp[m] != null;
+                        tamamA[m] = (mtm[m] != null) ? Math.round(n01(mtm[m], 0) * 10000) / 10000 : null;
                         if (!(sevk > 0 || iade > 0 || hasTermin)) { comp[m] = null; termin[m] = null; ppmp[m] = null; continue; }
                         var ppmPuanM = sevk > 0 ? ppmBand(iade / sevk * 1e6, r.ppmTarget) : (r.ppmPuan != null ? Number(r.ppmPuan) : 1);
                         var terminN = n01(hasTermin ? mtp[m] : r.terminPuan, 0);
@@ -10302,7 +10305,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     return {
                         key: r.mapKey || r.name, norm: r.normalizedName || '',
                         ann: (r.tedarikcipuani != null ? Math.round(r.tedarikcipuani * 10000) / 10000 : null),
-                        comp: comp, termin: termin, ppmp: ppmp
+                        comp: comp, termin: termin, ppmp: ppmp,
+                        sevk: sevkA, iade: iadeA, tamam: tamamA
                     };
                 });
                 var store = {};
