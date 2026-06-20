@@ -10514,47 +10514,46 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                 onclick="event.stopPropagation(); openPerformanceCharts('${safeRowKey.replace(/"/g, '&quot;')}')" 
                                 title="Aylık grafikler">📊</button>
                     </td>
-                    <td class="text-center" style="${isMusteri ? 'opacity: 0.3; background: #f5f5f5;' : ''}">
+                    <td class="text-center">
                         <div style="position: relative; width: 180px;">
-                            <button type="button" 
+                            <button type="button"
                                     id="lokasyonBtn_${index}"
-                                    onclick="${isMusteri ? '' : `toggleLokasyonDropdown(${index})`}"
-                                    style="width: 100%; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: ${isMusteri ? 'not-allowed' : 'pointer'}; font-size: 0.8em; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: normal; min-height: 28px; line-height: 1.3;"
-                                    ${isMusteri ? 'disabled' : ''}>
+                                    onclick="toggleLokasyonDropdown(${index})"
+                                    style="width: 100%; padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; font-size: 0.8em; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: normal; min-height: 28px; line-height: 1.3;">
                                 ${Array.isArray(result.lokasyon) && result.lokasyon.length > 0 ? result.lokasyon.join(', ') : '📍 Lokasyon'}
                             </button>
-                            <div id="lokasyonDropdown_${index}" 
-                                 style="display: none; position: absolute; top: 100%; left: 0; z-index: 1000; background: white; border: 1px solid #ddd; border-radius: 4px; padding: 8px; width: 180px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); ${isMusteri ? 'pointer-events: none; opacity: 0.5;' : ''}">
+                            <div id="lokasyonDropdown_${index}"
+                                 style="display: none; position: absolute; top: 100%; left: 0; z-index: 1000; background: white; border: 1px solid #ddd; border-radius: 4px; padding: 8px; width: 180px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="__TUMU__" onchange="handleLokasyonCheckbox('${result.name}', ${index}, '__TUMU__', this.checked)" ${isMusteri ? 'disabled' : ''}> <strong>✓ Tümü</strong>
+                                    <input type="checkbox" value="__TUMU__" onchange="handleLokasyonCheckbox('${result.name}', ${index}, '__TUMU__', this.checked)"> <strong>✓ Tümü</strong>
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="__HICBIRI__" onchange="handleLokasyonCheckbox('${result.name}', ${index}, '__HICBIRI__', this.checked)" ${isMusteri ? 'disabled' : ''}> <strong>✗ Hiçbiri</strong>
+                                    <input type="checkbox" value="__HICBIRI__" onchange="handleLokasyonCheckbox('${result.name}', ${index}, '__HICBIRI__', this.checked)"> <strong>✗ Hiçbiri</strong>
                                 </label>
                                 <hr style="margin: 5px 0; border: none; border-top: 1px solid #ddd;">
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="Çerkezköy" ${(result.lokasyon || []).includes('Çerkezköy') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Çerkezköy', this.checked)" ${isMusteri ? 'disabled' : ''}> Çerkezköy
+                                    <input type="checkbox" value="Çerkezköy" ${(result.lokasyon || []).includes('Çerkezköy') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Çerkezköy', this.checked)"> Çerkezköy
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="Veliköy" ${(result.lokasyon || []).includes('Veliköy') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Veliköy', this.checked)" ${isMusteri ? 'disabled' : ''}> Veliköy
+                                    <input type="checkbox" value="Veliköy" ${(result.lokasyon || []).includes('Veliköy') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Veliköy', this.checked)"> Veliköy
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="Ankara" ${(result.lokasyon || []).includes('Ankara') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Ankara', this.checked)" ${isMusteri ? 'disabled' : ''}> Ankara
+                                    <input type="checkbox" value="Ankara" ${(result.lokasyon || []).includes('Ankara') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Ankara', this.checked)"> Ankara
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="Bursa" ${(result.lokasyon || []).includes('Bursa') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Bursa', this.checked)" ${isMusteri ? 'disabled' : ''}> Bursa
+                                    <input type="checkbox" value="Bursa" ${(result.lokasyon || []).includes('Bursa') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Bursa', this.checked)"> Bursa
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="Adana" ${(result.lokasyon || []).includes('Adana') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Adana', this.checked)" ${isMusteri ? 'disabled' : ''}> Adana
+                                    <input type="checkbox" value="Adana" ${(result.lokasyon || []).includes('Adana') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Adana', this.checked)"> Adana
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="Eskişehir" ${(result.lokasyon || []).includes('Eskişehir') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Eskişehir', this.checked)" ${isMusteri ? 'disabled' : ''}> Eskişehir
+                                    <input type="checkbox" value="Eskişehir" ${(result.lokasyon || []).includes('Eskişehir') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Eskişehir', this.checked)"> Eskişehir
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="Ultech1" ${(result.lokasyon || []).includes('Ultech1') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Ultech1', this.checked)" ${isMusteri ? 'disabled' : ''}> Ultech1
+                                    <input type="checkbox" value="Ultech1" ${(result.lokasyon || []).includes('Ultech1') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Ultech1', this.checked)"> Ultech1
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
-                                    <input type="checkbox" value="Ultech2" ${(result.lokasyon || []).includes('Ultech2') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Ultech2', this.checked)" ${isMusteri ? 'disabled' : ''}> Ultech2
+                                    <input type="checkbox" value="Ultech2" ${(result.lokasyon || []).includes('Ultech2') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Ultech2', this.checked)"> Ultech2
                                 </label>
                             </div>
                         </div>
@@ -12258,6 +12257,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
             try {
                 const map = {};    // normName -> Set(loc)  [yalnızca gerçek alım satırlarından]
+                const allMap = {}; // normName -> Set(loc)  [tüm satırlardan — müşteri için sevk/iade lokasyonu]
                 const stat = {};   // normName -> {tot, buy}  (buy = gerçek satın alma satırı)
                 let off = 0;
                 while (true) {
@@ -12271,15 +12271,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         const nn = normalizeName(row.cari_adi);
                         if (!stat[nn]) stat[nn] = { tot: 0, buy: 0 };
                         stat[nn].tot++;
+                        const anyLoc = depoToLoc(row.depo);
+                        if (anyLoc) { if (!allMap[nn]) allMap[nn] = new Set(); allMap[nn].add(anyLoc); }
                         // iade=1 veya ÜRÜN/İADE deposu = bizim ürünümüzün dönüşü (müşteri sinyali), satın alma değil
                         const depoU = (row.depo || '').toUpperCase();
                         const isReturn = (row.iade === 1) || /URUN|ÜRÜN|IADE|İADE/.test(depoU);
                         if (isReturn) return;
                         stat[nn].buy++;
-                        const loc = depoToLoc(row.depo);
-                        if (!loc) return;
-                        if (!map[nn]) map[nn] = new Set();
-                        map[nn].add(loc);
+                        if (anyLoc) { if (!map[nn]) map[nn] = new Set(); map[nn].add(anyLoc); }
                     });
                     if (rows.length < 1000) break;
                     off += 1000;
@@ -12290,8 +12289,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 let matched = 0;
                 allResults.forEach(s => {
                     const nn = normalizeName(s.name);
-                    if (!isSupplier(nn)) return;          // müşterilere lokasyon yazma
-                    const set = map[nn];
+                    // Tedarikçi → gerçek alım lokasyonları; Müşteri → tüm depo (sevk/iade) lokasyonları
+                    const set = isSupplier(nn) ? map[nn] : allMap[nn];
                     if (!set || !set.size) return;
                     const locs = ORDER.filter(l => set.has(l));
                     s.lokasyon = locs;
@@ -12314,17 +12313,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             updateDurum(s.name, target);
                             if (target === 'ONAYLI') onayli++; else musteri++;
                         }
-                        // Müşteri ise lokasyonu temizle (lokasyon = tedarikçi teslim yeri)
-                        if (!sup && s.lokasyon && s.lokasyon.length) {
-                            s.lokasyon = [];
-                            saveLokasyonToStorage(s.name, [], true);
-                        }
                     });
                     if (typeof displayResults === 'function') displayResults();
-                    statusMsg = '\nDurum: ' + onayli + ' → ONAYLI, ' + musteri + ' → MÜŞTERİ (sadece-iade firmalar müşteri sayıldı; müşteri lokasyonları temizlendi; ONAYSIZ korundu).';
+                    statusMsg = '\nDurum: ' + onayli + ' → ONAYLI, ' + musteri + ' → MÜŞTERİ (sadece-iade firmalar müşteri sayıldı; ONAYSIZ korundu).';
                 }
 
-                alert(matched + ' tedarikçinin lokasyonu (gerçek alımlardan) dolduruldu.' + statusMsg + '\n\nDeğişiklik Drive yedeğine sonraki otomatik kayıtta yansır.');
+                alert(matched + ' firmanın lokasyonu dolduruldu (tedarikçi = aldığımız yer, müşteri = sevk/iade yeri).' + statusMsg + '\n\nDeğişiklik Drive yedeğine sonraki otomatik kayıtta yansır.');
             } catch (e) {
                 alert('Lokasyon doldurma hatası: ' + (e && e.message ? e.message : e));
             }
