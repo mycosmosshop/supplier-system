@@ -9780,6 +9780,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             filterTable();
 
             console.log('recomputeAllWithSelectedMonths tamamlandı, yeni Sevk:', allResults[0]?.totalSevk);
+            try { exportComputedScoresForKPI(); } catch (e) {} // KPI köprüsü tazele
         }
 
         function populateSupplierFilter() {
@@ -10253,6 +10254,62 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             });
         }
 
+        // KPI Takip için: her tedarikçinin AYLIK bileşik puanını (aynı recalc formülü, 0-1)
+        // hesaplayıp supplier_sync'e (supplierComputedScores) yazar. KPI app birebir bu sayıyı okur.
+        // Aylık bileşik: o ayın PPM puanı (sevk/iade'den bantlı) + termin + tamamlanma + (yıllık) hata/VDA/kalite/8D.
+        function exportComputedScoresForKPI() {
+            try {
+                if (!allResults || !allResults.length) return;
+                var year = parseInt((localStorage.getItem('_currentPeriodName') || '').trim(), 10);
+                if (!year) return;
+                function ppmBand(ppm, target) {
+                    target = target || 1000;
+                    if (ppm === 0) return 1;
+                    if (ppm <= 0.2 * target) return 0.95;
+                    if (ppm <= 0.4 * target) return 0.9;
+                    if (ppm <= 0.6 * target) return 0.85;
+                    if (ppm <= 0.8 * target) return 0.8;
+                    if (ppm < 1.2 * target) return 0.6;
+                    return 0;
+                }
+                function n01(v, fb) { var x = (v != null ? Number(v) : Number(fb)) || 0; if (x <= 1) x *= 100; return x / 100; }
+                var list = allResults.map(function (r) {
+                    var ms = r.monthlySevk || [], mi = r.monthlyIade || [];
+                    var mtp = r.monthlyTerminPuan || [], mtm = r.monthlyTamamlanmaPuan || [];
+                    var kaliteN = (Number(r.kalitePuan) || 0) / 100;
+                    var vdaN = (Number(r.vdaPuan) || 0) / 100;
+                    var d8dN = (r.donusOrani8D != null ? Number(r.donusOrani8D) : 100) / 100;
+                    var hata = (r.hataPuan != null ? Number(r.hataPuan) : 1);
+                    var hasVda = (Number(r.vdaPuan) || 0) > 0;
+                    var comp = [], termin = [], ppmp = [];
+                    for (var m = 0; m < 12; m++) {
+                        var sevk = Number(ms[m]) || 0, iade = Number(mi[m]) || 0;
+                        var hasTermin = mtp[m] != null;
+                        if (!(sevk > 0 || iade > 0 || hasTermin)) { comp[m] = null; termin[m] = null; ppmp[m] = null; continue; }
+                        var ppmPuanM = sevk > 0 ? ppmBand(iade / sevk * 1e6, r.ppmTarget) : (r.ppmPuan != null ? Number(r.ppmPuan) : 1);
+                        var terminN = n01(hasTermin ? mtp[m] : r.terminPuan, 0);
+                        var tamamN = n01(mtm[m] != null ? mtm[m] : r.tamamlanmaPuan, 0);
+                        var c = hasVda
+                            ? (vdaN * 0.20 + kaliteN * 0.05 + ppmPuanM * 0.30 + d8dN * 0.05 + terminN * 0.20 + tamamN * 0.10 + hata * 0.10)
+                            : (kaliteN * 0.05 + ppmPuanM * 0.40 + d8dN * 0.10 + terminN * 0.20 + tamamN * 0.10 + hata * 0.15);
+                        comp[m] = Math.round(c * 10000) / 10000;
+                        termin[m] = Math.round(terminN * 10000) / 10000;
+                        ppmp[m] = Math.round(ppmPuanM * 10000) / 10000;
+                    }
+                    return {
+                        key: r.mapKey || r.name, norm: r.normalizedName || '',
+                        ann: (r.tedarikcipuani != null ? Math.round(r.tedarikcipuani * 10000) / 10000 : null),
+                        comp: comp, termin: termin, ppmp: ppmp
+                    };
+                });
+                var store = {};
+                try { store = JSON.parse(localStorage.getItem('supplierComputedScores') || '{}') || {}; } catch (e) { store = {}; }
+                if (typeof store !== 'object') store = {};
+                store[year] = { ts: new Date().toISOString(), suppliers: list };
+                localStorage.setItem('supplierComputedScores', JSON.stringify(store)); // sync → supplier_sync (KEYS)
+            } catch (e) { console.warn('exportComputedScoresForKPI', e); }
+        }
+
         function displayResults() {
             document.getElementById('controls').classList.add('active');
             _applyCustReturnsToResults(); // müşteri totalIade=fiziksel → PPM/sıralama tutarlı
@@ -10269,6 +10326,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             
             updateDashboard(lastFilteredResults);
             renderTable(allResults);
+            exportComputedScoresForKPI(); // KPI Takip aylık bileşik puan köprüsü
         }
 
         function updateDashboard(results) {
