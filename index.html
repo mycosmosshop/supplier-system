@@ -2674,6 +2674,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             </button>
                         </div>
 
+                        <!-- Müşteri İadelerini Çek -->
+                        <div style="background: white; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #333; margin-bottom: 3px;">↩️ Müşteri İadelerini Çek</div>
+                                <div style="font-size: 0.85em; color: #666;">Müşteri (MÜŞTERİ) satırlarında "Toplam İade" sütununu mal kabuldeki gerçek fiziksel iadelerle doldurur. LeanSys'ten Yükle sonrası otomatik de gelir.</div>
+                            </div>
+                            <button class="btn btn-secondary" onclick="refreshCustomerReturns(false)" style="background: #c62828; color: white; border-color: #c62828; white-space: nowrap;">
+                                ↩️ Çek
+                            </button>
+                        </div>
+
                         <!-- Malzemeleri Mal Kabulden Doldur -->
                         <div style="background: white; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                             <div style="flex: 1;">
@@ -8126,6 +8137,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { localStorage.setItem('_sharedCurrentPeriodName', donem); } catch (e) {} // tüm kullanıcılar "(güncel dönem)" etiketini görsün
                 try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch (e) {}
                 try { if (typeof displayResults === 'function') displayResults(); } catch (e) {}
+                try { if (typeof refreshCustomerReturns === 'function') refreshCustomerReturns(true); } catch (e) {} // LeanSys yüklemesinden sonra müşteri fiziksel iadelerini otomatik getir
                 try { if (typeof loadSavedFilters === 'function') loadSavedFilters(); } catch (e) {} // filtre kapsamı yeni firmaya göre tazelensin
                 try { if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') setTimeout(function () { try { uploadDatabaseToDrive(); } catch (e) {} }, 1500); } catch (e) {}
                 if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")" + (_ovr ? " · ✋" + _ovr + " elle düzeltme korundu" : "");
@@ -12272,6 +12284,40 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         
         // Mal kabul (giriş) verisinden tedarikçi → lokasyon(lar) çıkar ve doldur.
         // Kaynak: mal_kabul tablosu (nnubrxbpthmkitueixbh), depo adının şehir öneki → temiz lokasyon.
+        // Müşteri fiziksel iadelerini mal_kabul'den çek (İade hücresinde müşteriler için gösterilir).
+        // LeanSys yüklemesinden sonra otomatik (silent=true) ve Ayarlar'daki butondan elle çağrılır.
+        async function refreshCustomerReturns(silent) {
+            try {
+                const _pName = (localStorage.getItem('_currentPeriodName') || '').trim();
+                const _ym = _pName.match(/(\d{4})/);
+                const curYear = _ym ? _ym[1] : String(new Date().getFullYear());
+                const retQty = {};
+                let off = 0;
+                while (true) {
+                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade,miktar,tarih&offset=' + off + '&limit=1000';
+                    const r = await fetch(url, { headers: { apikey: PT_ANON, Authorization: 'Bearer ' + PT_ANON } });
+                    if (!r.ok) { if (!silent) alert('mal_kabul okunamadı: HTTP ' + r.status); return; }
+                    const rows = await r.json();
+                    if (!rows || !rows.length) break;
+                    rows.forEach(row => {
+                        if (!row.cari_adi || !row.tarih) return;
+                        if (String(row.tarih).slice(0, 4) !== curYear) return;
+                        const depoR = (row.depo || '').toUpperCase();
+                        if (row.iade === 1 || /IADE|İADE/.test(depoR)) {
+                            const nn = normalizeName(row.cari_adi);
+                            retQty[nn] = (retQty[nn] || 0) + (Number(row.miktar) || 0);
+                        }
+                    });
+                    if (rows.length < 1000) break;
+                    off += 1000;
+                }
+                window.__custReturns = { period: _pName, map: retQty };
+                try { localStorage.setItem('supplierCustomerReturns', JSON.stringify(window.__custReturns)); } catch (e) {}
+                if (typeof displayResults === 'function') displayResults();
+                if (!silent) alert(Object.keys(retQty).length + ' müşteri için fiziksel iade (' + curYear + ') İade sütununa getirildi.');
+            } catch (e) { if (!silent) alert('Müşteri iadesi çekme hatası: ' + (e && e.message ? e.message : e)); }
+        }
+
         async function fillLocationsFromMalKabul() {
             if (typeof allResults === 'undefined' || !allResults || !allResults.length) {
                 alert('Önce tedarikçi verisini yükleyin (LeanSys / Excel).');
