@@ -1650,6 +1650,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <button class="btn btn-primary" style="background: #4caf50; border-color: #4caf50; padding: 6px 12px; font-size: 0.9em;" onclick="bulkUpdateStatus('ONAYLI')">✅ Onaylı Yap</button>
                     <button class="btn btn-primary" style="background: #ff9800; border-color: #ff9800; padding: 6px 12px; font-size: 0.9em;" onclick="bulkUpdateStatus('ONAYSIZ')">⚠️ Onaysız Yap</button>
                     <button class="btn btn-primary" style="background: #2196f3; border-color: #2196f3; padding: 6px 12px; font-size: 0.9em;" onclick="bulkUpdateStatus('MÜŞTERİ')">👤 Müşteri Yap</button>
+                    <span style="width:1px;height:22px;background:#9c27b0;opacity:.4;"></span>
+                    <button class="btn btn-primary" style="background: #00695c; border-color: #00695c; padding: 6px 12px; font-size: 0.9em;" onclick="bulkSetCategory('Otomotiv')">🚗 Otomotiv Yap</button>
+                    <button class="btn btn-primary" style="background: #757575; border-color: #757575; padding: 6px 12px; font-size: 0.9em;" onclick="bulkSetCategory('')">🚫 Kategori Kaldır</button>
                 </div>
 
                 <!-- Performans Raporları (Toplu) -->
@@ -2478,6 +2481,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <div><label style="font-size: .78em; color: #666;">Lokasyon</label><br><select id="locPpmLoc" onchange="renderLocationPpm()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 5px; min-width: 160px;"></select></div>
                     <div><label style="font-size: .78em; color: #666;">Durum</label><br><select id="locPpmDurum" onchange="renderLocationPpm()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 5px;"><option value="ONAYLI">Onaylı (Tedarikçi)</option><option value="MÜŞTERİ">Müşteri</option></select></div>
                     <div><label style="font-size: .78em; color: #666;">Ay</label><br><select id="locPpmAy" onchange="renderLocationPpm()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 5px;"><option value="all">Tüm yıl</option><option value="1">Ocak</option><option value="2">Şubat</option><option value="3">Mart</option><option value="4">Nisan</option><option value="5">Mayıs</option><option value="6">Haziran</option><option value="7">Temmuz</option><option value="8">Ağustos</option><option value="9">Eylül</option><option value="10">Ekim</option><option value="11">Kasım</option><option value="12">Aralık</option></select></div>
+                    <div><label style="font-size: .78em; color: #666;">Kategori</label><br><select id="locPpmKat" onchange="renderLocationPpm()" style="padding: 6px 10px; border: 1px solid #ccc; border-radius: 5px;"><option value="__ALL__">Tümü</option><option value="Otomotiv">🚗 Otomotiv</option></select></div>
                 </div>
                 <div id="locPpmSummary" style="padding: 8px 12px; background: #e0f2f1; border-radius: 6px; margin-bottom: 12px; font-size: .92em;"></div>
                 <div style="height: 320px;"><canvas id="locPpmChart"></canvas></div>
@@ -10252,6 +10256,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function displayResults() {
             document.getElementById('controls').classList.add('active');
             _applyCustReturnsToResults(); // müşteri totalIade=fiziksel → PPM/sıralama tutarlı
+            _reloadCategoryMap();         // kategori (Otomotiv) haritası senkron sonrası tazelensin
             lastFilteredResults = allResults;
             
             // selectedSuppliers Set'ini güncelle (FİLTRE İÇİN ÖNEMLİ!)
@@ -10546,9 +10551,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </td>
                     <td class="supplier-name" style="cursor: pointer; text-decoration: underline; color: #1e3c72; font-weight: 500;" 
                         onclick="openPerformanceDialog('${result.name.replace(/'/g, "\\'")}')"
-                        title="Performans verisini görmek için tıklayın">${result.name}
-                        <button style="margin-left: 6px; padding: 2px 6px; font-size: 0.75em; cursor: pointer; border: 1px solid #1e3c72; border-radius: 4px; background: white; color: #1e3c72;" 
-                                onclick="event.stopPropagation(); openPerformanceCharts('${safeRowKey.replace(/"/g, '&quot;')}')" 
+                        title="Performans verisini görmek için tıklayın">${result.name}${getSupplierCategory(result.name) === 'Otomotiv' ? ' <span style="display:inline-block;font-size:0.7em;font-weight:700;color:#fff;background:#00695c;border-radius:4px;padding:1px 5px;vertical-align:middle;" title="Otomotiv kategorisi">🚗 Otomotiv</span>' : ''}
+                        <button style="margin-left: 6px; padding: 2px 6px; font-size: 0.75em; cursor: pointer; border: 1px solid #1e3c72; border-radius: 4px; background: white; color: #1e3c72;"
+                                onclick="event.stopPropagation(); openPerformanceCharts('${safeRowKey.replace(/"/g, '&quot;')}')"
                                 title="Aylık grafikler">📊</button>
                     </td>
                     <td class="text-center">
@@ -12385,6 +12390,23 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             } catch (e) { if (!silent) alert('Müşteri iadesi çekme hatası: ' + (e && e.message ? e.message : e)); }
         }
 
+        // ── Firma kategorisi (Otomotiv vb.) ──
+        let supplierCategoryMap = (function(){ try { return JSON.parse(localStorage.getItem('supplierCategoryMap') || '{}'); } catch(e){ return {}; } })();
+        function _reloadCategoryMap(){ try { supplierCategoryMap = JSON.parse(localStorage.getItem('supplierCategoryMap') || '{}'); } catch(e){} }
+        function getSupplierCategory(name){ try { return supplierCategoryMap[normalizeName(name)] || ''; } catch(e){ return ''; } }
+        function setSupplierCategory(name, cat){ const k = normalizeName(name); if (cat) supplierCategoryMap[k] = cat; else delete supplierCategoryMap[k]; try { localStorage.setItem('supplierCategoryMap', JSON.stringify(supplierCategoryMap)); } catch(e){} }
+        function bulkSetCategory(cat){
+            if (typeof selectedRows === 'undefined' || selectedRows.size === 0) { if (typeof showAlert === 'function') showAlert('⚠️ Önce tablodan satır seçin (checkbox).', 'warning'); return; }
+            let n = 0;
+            selectedRows.forEach(function(rowKey){
+                const s = allResults.find(function(r){ return (r.mapKey || r.name) === rowKey; });
+                if (s) { setSupplierCategory(s.name, cat); n++; }
+            });
+            if (typeof displayResults === 'function') displayResults();
+            selectedRows.clear();
+            if (typeof showAlert === 'function') showAlert(n + ' firma ' + (cat ? '"' + cat + '" kategorisine ayarlandı' : 'kategoriden çıkarıldı') + '.', 'success');
+        }
+
         // ── Lokasyon Bazlı PPM Analizi ──
         let _locPpmChart = null;
         function openLocationPpmModal() {
@@ -12406,6 +12428,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const loc = document.getElementById('locPpmLoc').value;
                 const durum = document.getElementById('locPpmDurum').value;       // 'ONAYLI' | 'MÜŞTERİ'
                 const ay = document.getElementById('locPpmAy').value;             // 'all' | '1'..'12'
+                const kat = (document.getElementById('locPpmKat') || {}).value || '__ALL__'; // '__ALL__' | 'Otomotiv'
                 const period = (localStorage.getItem('_currentPeriodName') || '').trim();
                 const yr = (period.match(/(\d{4})/) || ['', ''])[1] || '';
                 const cr = window.__custReturns;
@@ -12416,6 +12439,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     const st = (r.status || 'ONAYLI').toUpperCase();
                     if (isMust ? st !== 'MÜŞTERİ' : st !== 'ONAYLI') return false;
                     if (loc !== '__ALL__' && (r.lokasyon || []).indexOf(loc) < 0) return false;
+                    if (kat !== '__ALL__' && getSupplierCategory(r.name) !== kat) return false;
                     return true;
                 });
                 const iadeArrOf = (r) => isMust ? ((custMonOk && cr.mon[normalizeName(r.name)]) ? cr.mon[normalizeName(r.name)] : []) : (r.monthlyIade || []);
@@ -12427,7 +12451,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const tPpm = tSevk > 0 ? Math.round(tIade / tSevk * 1e6) : 0;
                 const locLbl = loc === '__ALL__' ? 'Tüm Lokasyonlar' : loc;
                 document.getElementById('locPpmSummary').innerHTML =
-                    '<b>' + locLbl + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + '</b> · ' +
+                    '<b>' + locLbl + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + (kat !== '__ALL__' ? ' · ' + kat : '') + '</b> · ' +
                     (ay === 'all' ? 'Tüm yıl' : (AYU[parseInt(ay, 10) - 1] || ay)) +
                     ' · Firma: ' + rows.length + ' · Sevk: ' + tSevk.toLocaleString('tr-TR') +
                     ' · İade: ' + tIade.toLocaleString('tr-TR') +
@@ -19860,7 +19884,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
             // Filtreler + ayar/iş anahtarlarını da yedeğe ekle → TEK dosyada tam veri (filtreler kaybolmaz)
             exportData.prefs = {};
-            ['supplierFilters','supplierPerfOverrides','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierIatfData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand','supplierCustomerReturns'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
+            ['supplierFilters','supplierPerfOverrides','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierIatfData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand','supplierCustomerReturns','supplierCategoryMap'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
             try{ for(var pi=0;pi<localStorage.length;pi++){ var lk=localStorage.key(pi); if(lk && (lk.indexOf('ppmTarget_')===0 || lk.indexOf('hataHedefi_')===0)){ exportData.prefs[lk]=localStorage.getItem(lk); } } }catch(e){}
             return exportData;
         }
