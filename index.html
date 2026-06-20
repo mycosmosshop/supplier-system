@@ -12311,11 +12311,34 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // Gerçek tedarikçi = gerçek alım oranı ≥ %5 (yalnızca-iade gelen müşterileri (ör. Mercedes) eler)
                 const isSupplier = (nn) => { const st = stat[nn]; return !!(st && st.tot > 0 && (st.buy / st.tot) >= 0.05); };
 
+                // Müşteri sevk lokasyonu: mal_sevk tablosu (CIKIS_DEPO = sevk eden tesis). Tablo yoksa/boşsa atlanır.
+                const sevkMap = {};
+                try {
+                    let so = 0;
+                    while (true) {
+                        const u2 = PT_SUPA + '/rest/v1/mal_sevk?select=cari_adi,depo&offset=' + so + '&limit=1000';
+                        const r2 = await fetch(u2, { headers: { apikey: PT_ANON, Authorization: 'Bearer ' + PT_ANON } });
+                        if (!r2.ok) break;
+                        const rs2 = await r2.json();
+                        if (!rs2 || !rs2.length) break;
+                        rs2.forEach(row => {
+                            const loc = depoToLoc(row.depo);
+                            if (!loc || !row.cari_adi) return;
+                            const nn = normalizeName(row.cari_adi);
+                            if (!sevkMap[nn]) sevkMap[nn] = new Set();
+                            sevkMap[nn].add(loc);
+                        });
+                        if (rs2.length < 1000) break;
+                        so += 1000;
+                    }
+                } catch (e) { /* mal_sevk henüz kurulmadıysa yoksay */ }
+
                 let matched = 0;
                 allResults.forEach(s => {
                     const nn = normalizeName(s.name);
-                    // Tedarikçi → gerçek alım lokasyonları (yoksa tüm depolar); Müşteri → tüm depo (sevk/iade) lokasyonları
-                    const set = isSupplier(nn) ? (map[nn] || allMap[nn]) : allMap[nn];
+                    // Tedarikçi → gerçek alım lokasyonları (yoksa tüm depolar);
+                    // Müşteri → sevk (mal_sevk) lokasyonları (yoksa mal kabul/iade depoları)
+                    const set = isSupplier(nn) ? (map[nn] || allMap[nn]) : (sevkMap[nn] || allMap[nn]);
                     if (!set || !set.size) return;
                     const locs = ORDER.filter(l => set.has(l));
                     s.lokasyon = locs;
