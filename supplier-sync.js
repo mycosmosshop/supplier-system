@@ -104,6 +104,14 @@
       }).subscribe();
   }
 
+  // KPI "Aktar" butonu için: anlık, AWAIT edilebilir push (sonuç döner; sessiz düşmez)
+  window.__erpForcePush = function(){ return new Promise(function(res){
+    if(!_uid){ res({ok:false, err:'ERP oturumu yok'}); return; }
+    sb.from('supplier_sync').upsert({ id:ROW_ID, data:snapshot(), updated_at:new Date().toISOString(), updated_by:_uid })
+      .then(function(r){ res({ ok:!r.error, err:r.error && r.error.message }); })
+      .catch(function(e){ res({ ok:false, err:(e && e.message) || 'ağ hatası (Failed to fetch)' }); });
+  }); };
+
   async function init(){
     try{
       var ses=(await sb.auth.getSession()).data.session;

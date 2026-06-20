@@ -1694,6 +1694,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                     <button class="btn" onclick="showSupplierAnalysis()" style="background: #673ab7; color: white; border-color: #673ab7;">🔍 Tedarikçi Analizi</button>
                     <button class="btn" onclick="openLocationPpmModal()" style="background: #00695c; color: white; border-color: #00695c;">📍 Lokasyon PPM Analizi</button>
+                    <button class="btn" onclick="sendScoresToKPI()" style="background: #d84315; color: white; border-color: #d84315;" title="Tedarikçi puan/PPM verilerini KPI Takip uygulamasına gönderir">📤 KPI'ya Aktar</button>
                     <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4ff;border:2px solid #1e3c72;border-radius:8px;">
                         <span style="font-weight:700;color:#1e3c72;font-size:0.82em;white-space:nowrap;">🏢 Firma:</span>
                         <select id="companyBrandSelect" onchange="setCompanyBrand(this.value)" style="padding:4px 8px;border:1px solid #1e3c72;border-radius:5px;font-weight:700;background:#1e3c72;color:white;cursor:pointer;font-size:0.88em;">
@@ -10315,6 +10316,29 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 store[year] = { ts: new Date().toISOString(), suppliers: list };
                 localStorage.setItem('supplierComputedScores', JSON.stringify(store)); // sync → supplier_sync (KEYS)
             } catch (e) { console.warn('exportComputedScoresForKPI', e); }
+        }
+
+        // "📤 KPI'ya Aktar" butonu: export'u üret + buluta GÖNDER (await) + görünür sonuç.
+        // Arka plan senkronuna/zamanlamaya güvenmeden, kullanıcıya net ✅/❌ gösterir.
+        async function sendScoresToKPI() {
+            try {
+                if (!allResults || !allResults.length) { showAlert('Önce tedarikçi verisi yüklensin (tablo boş).', 'error'); return; }
+                exportComputedScoresForKPI(); // localStorage.supplierComputedScores'u güncelle
+                var info = '';
+                try {
+                    var s = JSON.parse(localStorage.getItem('supplierComputedScores') || '{}');
+                    var ym = (localStorage.getItem('_currentPeriodName') || '').match(/(20\d{2})/);
+                    var y = ym ? ym[1] : '';
+                    var sup = (s[y] && s[y].suppliers) || [];
+                    var ws = sup.filter(function (x) { return (x.sevk || []).some(function (v) { return v > 0; }); }).length;
+                    info = y + ' · ' + sup.length + ' tedarikçi (sevk>0: ' + ws + ')';
+                } catch (e) { }
+                if (typeof window.__erpForcePush !== 'function') { showAlert('Bulut senkronu henüz hazır değil, birkaç saniye sonra tekrar deneyin.', 'error'); return; }
+                showAlert('📤 KPI\'ya gönderiliyor… ' + info, 'info');
+                var r = await window.__erpForcePush();
+                if (r && r.ok) showAlert('✅ KPI\'ya gönderildi — ' + info + '. Artık KPI uygulamasında çekebilirsiniz.', 'success');
+                else showAlert('❌ Gönderilemedi: ' + ((r && r.err) || 'ağ hatası') + '. Tekrar deneyin (reklam engelleyici/ağ olabilir).', 'error');
+            } catch (e) { showAlert('Hata: ' + (e && e.message), 'error'); }
         }
 
         // GÜVENLİK AĞI: sayfa hangi yolla yüklenirse / DÖNEM değişirse, veri gelince KPI export'unu
