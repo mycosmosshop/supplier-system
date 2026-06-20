@@ -2673,6 +2673,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             </button>
                         </div>
 
+                        <!-- Malzemeleri Mal Kabulden Doldur -->
+                        <div style="background: white; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #333; margin-bottom: 3px;">📦 Malzeme Bilgisini Mal Kabulden Doldur</div>
+                                <div style="font-size: 0.85em; color: #666;">Tedarikçi Bilgileri → "Malzeme(ler)" alanını, o tedarikçiden mal kabul edilen ürün adlarıyla doldurur. İletişim/adres alanlarına dokunmaz (onlar mevcut veride yok)</div>
+                            </div>
+                            <button class="btn btn-secondary" onclick="fillMaterialsFromMalKabul()" style="background: #1565c0; color: white; border-color: #1565c0; white-space: nowrap;">
+                                ⤵️ Doldur
+                            </button>
+                        </div>
+
                         <!-- Doküman Verilerini Sıfırla -->
                         <div style="background: white; padding: 12px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
                             <div style="flex: 1;">
@@ -12300,6 +12311,60 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 alert(matched + ' tedarikçinin lokasyonu mal kabulden dolduruldu. (Eşleşmeyen tedarikçiler değişmedi.)' + statusMsg + '\n\nDeğişiklik Drive yedeğine sonraki otomatik kayıtta yansır.');
             } catch (e) {
                 alert('Lokasyon doldurma hatası: ' + (e && e.message ? e.message : e));
+            }
+        }
+
+        // Mal kabul verisinden her tedarikçinin "Malzeme(ler)" bilgisini doldur (diğer bilgi alanları korunur).
+        async function fillMaterialsFromMalKabul() {
+            if (typeof allResults === 'undefined' || !allResults || !allResults.length) {
+                alert('Önce tedarikçi verisini yükleyin (LeanSys / Excel).');
+                return;
+            }
+            if (typeof isErpAdmin === 'function' && !isErpAdmin()) {
+                alert('Bu işlem yöneticiye özeldir.');
+                return;
+            }
+            if (!confirm('Mal kabul verisindeki ürün/malzeme adları her tedarikçinin "Malzeme(ler)" alanına yazılacak (mevcut malzeme metninin üzerine). İletişim/adres gibi diğer bilgi alanlarına DOKUNULMAZ. Devam edilsin mi?')) return;
+
+            const CAP = 50;
+            try {
+                const map = {}; // normName -> Set(material)
+                let off = 0;
+                while (true) {
+                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,stok_adi&offset=' + off + '&limit=1000';
+                    const r = await fetch(url, { headers: { apikey: PT_ANON, Authorization: 'Bearer ' + PT_ANON } });
+                    if (!r.ok) throw new Error('mal_kabul okunamadı: HTTP ' + r.status);
+                    const rows = await r.json();
+                    if (!rows || !rows.length) break;
+                    rows.forEach(row => {
+                        if (!row.cari_adi || !row.stok_adi) return;
+                        const nn = normalizeName(row.cari_adi);
+                        if (!map[nn]) map[nn] = new Set();
+                        map[nn].add(String(row.stok_adi).trim());
+                    });
+                    if (rows.length < 1000) break;
+                    off += 1000;
+                }
+
+                let filled = 0;
+                allResults.forEach(s => {
+                    const set = map[normalizeName(s.name)];
+                    if (!set || !set.size) return;
+                    const mats = Array.from(set).filter(Boolean).sort();
+                    const txt = mats.length > CAP
+                        ? mats.slice(0, CAP).join('; ') + ' … (+' + (mats.length - CAP) + ' daha)'
+                        : mats.join('; ');
+                    const cur = (typeof getSupplierInfo === 'function' ? getSupplierInfo(s.name) : null) || {};
+                    const info = Object.assign({}, cur, { material: txt });
+                    if (typeof setSupplierInfo === 'function') setSupplierInfo(s.name, info);
+                    filled++;
+                });
+
+                if (typeof displayResults === 'function') displayResults();
+                else if (typeof renderTable === 'function') renderTable(allResults);
+                alert(filled + ' tedarikçinin "Malzeme(ler)" bilgisi mal kabulden dolduruldu. (Diğer bilgi alanlarına dokunulmadı.)\n\nİletişim/adres bilgileri mevcut veride yok — onlar elle ya da ileride LeanSys cari kartından doldurulabilir.');
+            } catch (e) {
+                alert('Malzeme doldurma hatası: ' + (e && e.message ? e.message : e));
             }
         }
 
