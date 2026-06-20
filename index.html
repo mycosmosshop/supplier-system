@@ -8137,7 +8137,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { localStorage.setItem('_sharedCurrentPeriodName', donem); } catch (e) {} // tüm kullanıcılar "(güncel dönem)" etiketini görsün
                 try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch (e) {}
                 try { if (typeof displayResults === 'function') displayResults(); } catch (e) {}
-                try { if (typeof refreshCustomerReturns === 'function') refreshCustomerReturns(true); } catch (e) {} // LeanSys yüklemesinden sonra müşteri fiziksel iadelerini otomatik getir
+                try { if (typeof fillLocationsFromMalKabul === 'function') fillLocationsFromMalKabul({ silent: true, withStatus: false }); } catch (e) {} // LeanSys yüklemesinden sonra: lokasyon + müşteri fiziksel iadeleri otomatik (durum DEĞİŞMEZ, popup yok)
                 try { if (typeof loadSavedFilters === 'function') loadSavedFilters(); } catch (e) {} // filtre kapsamı yeni firmaya göre tazelensin
                 try { if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') setTimeout(function () { try { uploadDatabaseToDrive(); } catch (e) {} }, 1500); } catch (e) {}
                 if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")" + (_ovr ? " · ✋" + _ovr + " elle düzeltme korundu" : "");
@@ -12318,16 +12318,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             } catch (e) { if (!silent) alert('Müşteri iadesi çekme hatası: ' + (e && e.message ? e.message : e)); }
         }
 
-        async function fillLocationsFromMalKabul() {
+        async function fillLocationsFromMalKabul(opts) {
+            const silent = !!(opts && opts.silent);             // LeanSys yüklemesi sonrası otomatik (popup yok)
+            const withStatus = !opts || opts.withStatus !== false; // auto modda durum DEĞİŞTİRİLMEZ (elle sınıflamayı bozmaz)
             if (typeof allResults === 'undefined' || !allResults || !allResults.length) {
-                alert('Önce tedarikçi verisini yükleyin (LeanSys / Excel).');
+                if (!silent) alert('Önce tedarikçi verisini yükleyin (LeanSys / Excel).');
                 return;
             }
-            if (typeof isErpAdmin === 'function' && !isErpAdmin()) {
+            if (!silent && typeof isErpAdmin === 'function' && !isErpAdmin()) {
                 alert('Bu işlem yöneticiye özeldir.');
                 return;
             }
-            if (!confirm('Mal kabul (giriş) verisinden her tedarikçinin mal verdiği lokasyon(lar) bulunup EŞLEŞEN tedarikçilerin lokasyon bilgisi doldurulacak (mevcut seçimin üzerine yazılır). Eşleşmeyenler değişmez. Devam edilsin mi?')) return;
+            if (!silent && !confirm('Mal kabul (giriş) verisinden her tedarikçinin mal verdiği lokasyon(lar) bulunup EŞLEŞEN tedarikçilerin lokasyon bilgisi doldurulacak (mevcut seçimin üzerine yazılır). Eşleşmeyenler değişmez. Devam edilsin mi?')) return;
 
             const depoToLoc = (depo) => {
                 const d = (depo || '').toLocaleUpperCase('tr');
@@ -12421,9 +12423,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 });
                 if (typeof displayResults === 'function') displayResults();
 
-                // Durum otomatik atama (opsiyonel)
+                // Durum otomatik atama (opsiyonel) — yalnız elle çalıştırmada; auto modda durum DEĞİŞMEZ
                 let statusMsg = '';
-                if (typeof updateDurum === 'function' &&
+                if (withStatus && typeof updateDurum === 'function' &&
                     confirm('Durum da otomatik ayarlansın mı?\n\n• Gerçekten hammadde/malzeme ALDIĞIMIZ firma → ONAYLI (tedarikçi)\n• Sadece bizim ürünümüzün İADESİ gelen (ör. Mercedes, Carrefour) veya mal kabulde hiç olmayan → MÜŞTERİ\n• Elle "ONAYSIZ" işaretlenenler korunur\n\nTamam = evet, İptal = sadece lokasyon')) {
                     let onayli = 0, musteri = 0;
                     allResults.forEach(s => {
@@ -12440,9 +12442,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     statusMsg = '\nDurum: ' + onayli + ' → ONAYLI, ' + musteri + ' → MÜŞTERİ (sadece-iade firmalar müşteri sayıldı; ONAYSIZ korundu).';
                 }
 
-                alert(matched + ' firmanın lokasyonu dolduruldu (tedarikçi = aldığımız yer, müşteri = sevk/iade yeri).' + statusMsg + '\n\nDeğişiklik Drive yedeğine sonraki otomatik kayıtta yansır.');
+                if (!silent) alert(matched + ' firmanın lokasyonu dolduruldu (tedarikçi = aldığımız yer, müşteri = sevk/iade yeri).' + statusMsg + '\n\nDeğişiklik Drive yedeğine sonraki otomatik kayıtta yansır.');
             } catch (e) {
-                alert('Lokasyon doldurma hatası: ' + (e && e.message ? e.message : e));
+                if (!silent) alert('Lokasyon doldurma hatası: ' + (e && e.message ? e.message : e));
+                else console.warn('autoFill malkabul/sevk:', e);
             }
         }
 
