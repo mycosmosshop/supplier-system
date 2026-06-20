@@ -10,7 +10,7 @@
   var ROW_ID='tedarikci';
 
   // Paylaşılan İŞ verisi anahtarları (UI seçimleri ve SIRLAR hariç)
-  var KEYS=['selectedSuppliers','tdsData',
+  var KEYS=['selectedSuppliers','tdsData','supplierCustomerReturns',
             'supplierStatusMap','supplierInfoMap','supplierListForCOA','supplierCertData',
             'supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory',
             'targetAgreements','documentTypes','customQualityCertTypes','supplierIatfData',

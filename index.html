@@ -10578,7 +10578,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                               onfocus="this.style.background='#fffde7';this.dataset.original=this.textContent.replace(/\\./g,'').replace(/,/g,'');"
                               onblur="this.style.background='';const v=this.textContent.replace(/\\./g,'').replace(/,/g,'');if(v!=this.dataset.original&&v!==''){updateTotalSevk(this.dataset.supplier,this.textContent);this.dataset.original=v;}">${(result.totalSevk || 0).toLocaleString('tr-TR')}</span>
                     </td>
-                    <td class="text-right">${(result.totalIade || 0).toLocaleString('tr-TR')}</td>
+                    <td class="text-right">${_iadeCellHtml(result)}</td>
                     <td class="text-right">
                         <input type="number" 
                                class="ppm-target-input" 
@@ -11036,7 +11036,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                   onblur="updateTotalSevk('${result.name}', this.textContent)"
                                   onkeypress="if(event.key==='Enter'){this.blur();return false;}">${result.totalSevk.toLocaleString('tr-TR')}</span>
                         </td>
-                        <td class="text-right">${result.totalIade.toLocaleString('tr-TR')}</td>
+                        <td class="text-right">${_iadeCellHtml(result)}</td>
                         <td class="text-right">
                             <input type="number" 
                                    class="ppm-target-input" 
@@ -11653,6 +11653,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
         // "Düzeltmeler" butonu YALNIZCA admin'e görünür (varsayılan gizli; admin çözülünce/şifreyle gösterilir)
         function _updateAdminUI(){ try{ var b=document.getElementById('perfOverridesBtn'); if(b) b.style.display = isErpAdmin() ? '' : 'none'; }catch(e){} _refreshAdminLockBtn(); }
+        // İade hücresi: MÜŞTERİ ise fiziksel iade (mal_kabul, mevcut dönem) göster; aksi halde PPM totalIade
+        function _iadeCellHtml(result){
+            try {
+                var isMust = result && result.status && String(result.status).toUpperCase() === 'MÜŞTERİ';
+                if (isMust) {
+                    if (!window.__custReturns) { try { window.__custReturns = JSON.parse(localStorage.getItem('supplierCustomerReturns') || 'null'); } catch(e){} }
+                    var cr = window.__custReturns;
+                    if (cr && cr.map && cr.period === (localStorage.getItem('_currentPeriodName') || '').trim()) {
+                        var v = cr.map[normalizeName(result.name)];
+                        if (v != null) return '<span title="Fiziksel müşteri iadesi — mal kabul (' + (cr.period || '') + ')" style="color:#c62828;font-weight:600;">' + Number(v).toLocaleString('tr-TR') + '</span>';
+                    }
+                }
+            } catch(e){}
+            return (result.totalIade || 0).toLocaleString('tr-TR');
+        }
         // Admin durumu (supplier-sync'ten) çözülünce: tabloyu tazele (düzenlenebilirlik) + admin-only UI'yı göster/gizle
         try{ window.addEventListener('erp-admin-ready', function(){ _updateAdminUI(); try{ if(allResults && allResults.length && typeof displayResults==='function') displayResults(); }catch(e){} }); }catch(e){}
         try{ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', _updateAdminUI); } else { _updateAdminUI(); } }catch(e){} // erp-admin-ready zaten geçmişse de uygula
@@ -12284,9 +12299,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const map = {};    // normName -> Set(loc)  [yalnızca gerçek alım satırlarından]
                 const allMap = {}; // normName -> Set(loc)  [tüm satırlardan — müşteri için sevk/iade lokasyonu]
                 const stat = {};   // normName -> {tot, buy}  (buy = gerçek satın alma satırı)
+                const retQty = {}; // normName -> fiziksel müşteri iadesi (miktar, mevcut dönem yılı)
+                const _pName = (localStorage.getItem('_currentPeriodName') || '').trim();
+                const _ymatch = _pName.match(/(\d{4})/);
+                const curYear = _ymatch ? _ymatch[1] : String(new Date().getFullYear());
                 let off = 0;
                 while (true) {
-                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade&offset=' + off + '&limit=1000';
+                    const url = PT_SUPA + '/rest/v1/mal_kabul?select=cari_adi,depo,iade,miktar,tarih&offset=' + off + '&limit=1000';
                     const r = await fetch(url, { headers: { apikey: PT_ANON, Authorization: 'Bearer ' + PT_ANON } });
                     if (!r.ok) throw new Error('mal_kabul okunamadı: HTTP ' + r.status);
                     const rows = await r.json();
@@ -12294,6 +12313,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     rows.forEach(row => {
                         if (!row.cari_adi) return;
                         const nn = normalizeName(row.cari_adi);
+                        // Fiziksel müşteri iadesi (mevcut yıl): iade=1 veya ÜRÜN İADE deposu
+                        if (row.tarih && String(row.tarih).slice(0, 4) === curYear) {
+                            const depoR = (row.depo || '').toUpperCase();
+                            if (row.iade === 1 || /IADE|İADE/.test(depoR)) retQty[nn] = (retQty[nn] || 0) + (Number(row.miktar) || 0);
+                        }
                         if (!stat[nn]) stat[nn] = { tot: 0, buy: 0 };
                         stat[nn].tot++;
                         const anyLoc = depoToLoc(row.depo);
@@ -12310,6 +12334,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 }
                 // Gerçek tedarikçi = gerçek alım oranı ≥ %5 (yalnızca-iade gelen müşterileri (ör. Mercedes) eler)
                 const isSupplier = (nn) => { const st = stat[nn]; return !!(st && st.tot > 0 && (st.buy / st.tot) >= 0.05); };
+
+                // Müşteri fiziksel iadeleri (mevcut dönem) — İade hücresinde müşteriler için gösterilir (PPM/İade pipeline'ı değişmez)
+                window.__custReturns = { period: _pName, map: retQty };
+                try { localStorage.setItem('supplierCustomerReturns', JSON.stringify(window.__custReturns)); } catch (e) {}
 
                 // Müşteri sevk lokasyonu: mal_sevk tablosu (CIKIS_DEPO = sevk eden tesis). Tablo yoksa/boşsa atlanır.
                 const sevkMap = {};
@@ -19640,7 +19668,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
             // Filtreler + ayar/iş anahtarlarını da yedeğe ekle → TEK dosyada tam veri (filtreler kaybolmaz)
             exportData.prefs = {};
-            ['supplierFilters','supplierPerfOverrides','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierIatfData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
+            ['supplierFilters','supplierPerfOverrides','documentTypes','customQualityCertTypes','targetAgreements','supplierStatusMap','supplierInfoMap','supplierCertData','supplierIatfData','supplierStatusHistory','supplierEditsHistory','statusChangeHistory','activityHistory','selectedLocations','selectedCustomer','selectedCompanyBrand','supplierCustomerReturns'].forEach(function(pk){ try{ var v=localStorage.getItem(pk); if(v!=null) exportData.prefs[pk]=v; }catch(e){} });
             try{ for(var pi=0;pi<localStorage.length;pi++){ var lk=localStorage.key(pi); if(lk && (lk.indexOf('ppmTarget_')===0 || lk.indexOf('hataHedefi_')===0)){ exportData.prefs[lk]=localStorage.getItem(lk); } } }catch(e){}
             return exportData;
         }
