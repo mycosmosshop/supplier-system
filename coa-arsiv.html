@@ -1736,7 +1736,7 @@
                                     document.getElementById('ocrManualKeyInput').focus();
                                 } else {
                                     document.getElementById('ocrManualKeyRow').style.display = 'none';
-                                    localStorage.setItem('ocrspace_api_key', this.value);
+                                    setActiveOcrKey(this.value);
                                     showToast('✅ OCR.space key güncellendi: ' + this.options[this.selectedIndex].text, 'success');
                                 }
                             ">
@@ -1794,6 +1794,23 @@
             localStorage.setItem('ocrspace_keys_list', JSON.stringify(list));
         }
 
+        // Seçilen/yeni key'i AKTİF yap: OCR döngüsü bunu kullansın + takılı kalan kota/limit durumunu sıfırla
+        function setActiveOcrKey(value) {
+            if (!value || value === '__manual__') return;
+            localStorage.setItem('ocrspace_api_key', value);
+            const keys = getOcrKeysList();
+            const idx = keys.findIndex(k => k.value === value);
+            window.ocrSpaceActiveKeyIndex = idx >= 0 ? idx : 0;   // OCR döngüsü bu indeksten okuyor
+            // Yeni/seçili key TAZE denensin diye limit/kota bayraklarını temizle
+            window.ocrSpaceLimitedKeys = new Set();
+            window.ocrSpaceRateLimited = false;
+            window.ocrSpaceRateLimitTemp = false;
+            window.ocrSpaceRateLimitedAt = 0;
+            window.ocrSpace403ConsecutiveCount = 0;
+            window.ocrSpace403ResetCount = 0;
+            window.ocrSpaceFallbackToTesseract = false;
+        }
+
         function refreshOcrKeyDropdown(selectValue) {
             const select = document.getElementById('ocrApiKeyInput');
             if (!select) return;
@@ -1819,7 +1836,7 @@
             if (keys.find(k => k.value === newKey)) {
                 showToast('ℹ️ Bu key zaten listede', 'info');
                 document.getElementById('ocrApiKeyInput').value = newKey;
-                localStorage.setItem('ocrspace_api_key', newKey);
+                setActiveOcrKey(newKey);
                 document.getElementById('ocrManualKeyRow').style.display = 'none';
                 return;
             }
@@ -1827,7 +1844,7 @@
             keys.push({ value: newKey, label });
             saveOcrKeysList(keys);
             refreshOcrKeyDropdown(newKey);
-            localStorage.setItem('ocrspace_api_key', newKey);
+            setActiveOcrKey(newKey);
             document.getElementById('ocrManualKeyRow').style.display = 'none';
             input.value = '';
             showToast('✅ Yeni OCR.space key kaydedildi: ' + newKey.substring(0,6) + '...', 'success');
@@ -7621,7 +7638,7 @@
             window.ocrSpaceRateLimitWindow = 0; // Gerçek pencere süresi (ms) - hata mesajından alınır
             window.ocrSpace403ResetCount = 0; // 403 reset sayacı - kalıcı kota tespiti için
             window.ocrSpace403ConsecutiveCount = 0; // Ardarda 403 sayacı - key hata tespiti için
-            window.ocrSpaceActiveKeyIndex = 0; // Aktif key indeksi (dropdown listesinde)
+            window.ocrSpaceActiveKeyIndex = (function(){ try { const ks = getOcrKeysList(); const sel = localStorage.getItem('ocrspace_api_key'); const i = ks.findIndex(k => k.value === sel); return i >= 0 ? i : 0; } catch(e){ return 0; } })(); // SEÇİLİ key'den başla (0'a sabitleme)
             window.ocrSpaceLimitedKeys = new Set(); // Saatlik limit aşan key değerleri
             window.ocrSpacePausedForKeyChange = false; // Tüm keyler limitlenince duraklatma
             window.ocrSpaceFallbackToTesseract = false; // Tesseract fallback modu
@@ -10211,18 +10228,12 @@
                                 const isInvalidKey = error.message && /invalid.*key|unauthorized|forbidden|key.*invalid|apikey.*invalid|not.*found/i.test(error.message);
 
                                 if (isPermQuota) {
-                                    window.ocrSpaceRateLimited = true;
-                                    window.ocrSpaceRateLimitTemp = false;
-                                    console.warn('🚫 OCR.space KOTA DOLDU (kalıcı)');
-                                    showToast('🚫 OCR.space aylık kota doldu! Ayarlardan yeni API key girin.', 'error', 10000);
+                                    console.warn('🚫 OCR.space bu key aylık kota doldu → diğer key denenecek');
                                 } else if (isInvalidKey) {
-                                    window.ocrSpaceRateLimited = true;
-                                    window.ocrSpaceRateLimitTemp = false;
-                                    const rawErr = error.message.substring(0, 200);
-                                    console.error('🔑 OCR.space API key geçersiz:', rawErr);
-                                    showToast('🔑 OCR.space API key hatası! Ayarlar → API Key kontrol edin.', 'error', 15000);
-                                } else {
-                                    // Saatlik limit → Key Rotation dene
+                                    console.error('🔑 OCR.space bu key geçersiz → diğer key denenecek:', error.message.substring(0, 200));
+                                }
+                                {
+                                    // HER 403/429 (saatlik limit / aylık kota / geçersiz key) → bu key'i atla, sonraki key'i dene
                                     const windowMatch = error.message && error.message.match(/within\s+(\d+)\s+second/i);
                                     const detectedWindowSec = windowMatch ? parseInt(windowMatch[1]) : (is429 ? 60 : 3600);
                                     window.ocrSpaceRateLimitWindow = detectedWindowSec * 1000;
@@ -10269,7 +10280,7 @@
                                         window.ocrSpaceLimitedKeys = new Set();
                                         window.ocrSpaceActiveKeyIndex = 0;
                                         console.warn('🔄 Tüm OCR.space key\'ler limitlendi → Tesseract.js yerel moduna geçiliyor!');
-                                        showToast('🔄 OCR.space limit doldu → Tesseract.js yerel mod aktif! Bekleme yok, devam ediyor...', 'warning', 7000);
+                                        showToast('🔄 Tüm OCR.space key\'ler doldu → Tesseract.js yerel mod aktif! (Daha iyi sonuç için Ayarlar’dan yeni key ekleyin.)', 'warning', 8000);
                                         // Mevcut bölgeyi Tesseract ile hemen dene
                                         try {
                                             const _tText = await performTesseractOCR(region.imageData);
