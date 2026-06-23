@@ -2332,7 +2332,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                 <div style="font-size: 2em; margin-bottom: 10px;">📁</div>
                                 <div style="font-weight: 600; margin-bottom: 5px;">Doküman Seç</div>
                                 <div style="font-size: 0.85em; color: #666;">Tıklayın veya sürükleyin</div>
-                                <input type="file" id="documentFileInput" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png">
+                                <input type="file" id="documentFileInput" style="display: none;" accept=".pdf,.doc,.docx,.xls,.xlsx,.xlsm,.xlsb,.csv,.ppt,.pptx,.txt,.jpg,.jpeg,.png">
                             </div>
                             <select id="documentTypeSelect" style="width: 100%; padding: 8px; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9em;">
                                 <option value="">Doküman Türü Seç</option>
@@ -4301,6 +4301,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             const officeExtensions = {
                                 'xlsx': 'Excel',
                                 'xls': 'Excel',
+                                'xlsm': 'Excel',
+                                'xlsb': 'Excel',
+                                'csv': 'Excel',
                                 'docx': 'Word',
                                 'doc': 'Word',
                                 'pptx': 'PowerPoint',
