@@ -1875,6 +1875,7 @@
             
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: 500;">Hammadde Kodu Seç:</label>
+                <input type="text" id="tdsMaterialSearch" placeholder="🔍 kod / ad ile ara..." oninput="filterTdsMaterials()" style="width: 100%; padding: 9px; border: 1px solid #ddd; border-radius: 5px; font-size: 13px; margin-bottom: 6px;">
                 <select id="tdsMaterialSelect" onchange="loadTDSForMaterial(false)" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px;">
                     <option value="">Hammadde seçin...</option>
                 </select>
@@ -13089,8 +13090,25 @@
             }
             
             const select = document.getElementById('tdsMaterialSelect');
+            window._tdsAllMaterials = materials;   // arama kutusu tüm listeyi filtreler
+            const _tdsSearch = document.getElementById('tdsMaterialSearch'); if (_tdsSearch) _tdsSearch.value = '';
+            window.filterTdsMaterials = function() {
+                const q = (document.getElementById('tdsMaterialSearch').value || '').toLowerCase().trim();
+                const sel = document.getElementById('tdsMaterialSelect'); const cur = sel.value;
+                const list = window._tdsAllMaterials || [];
+                sel.innerHTML = '<option value="">Hammadde seçin...</option>';
+                list.forEach(m => {
+                    const code = m.code || m.stockCode || m.stokKodu;
+                    const name = m.name || m.stockName || m.stokAdı;
+                    const label = `${code} | ${name}`;
+                    if (q && !label.toLowerCase().includes(q) && code !== cur) return;   // seçili olanı her zaman göster
+                    const o = document.createElement('option'); o.value = code; o.textContent = label;
+                    if (code === cur) o.selected = true;
+                    sel.appendChild(o);
+                });
+            };
             select.innerHTML = '<option value="">Hammadde seçin...</option>';
-            
+
             let foundMatch = false;
             materials.forEach(m => {
                 const code = m.code || m.stockCode || m.stokKodu;
