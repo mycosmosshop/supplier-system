@@ -10052,8 +10052,10 @@
                         const h0 = Math.round(region.height * scaleY);
                         // KAYMA TOLERANSI: çok benzer PDF'lerde değer birkaç px kaymış olabilir; kutuyu her yöne
                         // genişlet ki değer kutu dışına taşsa da yakalansın (yatayda bol, dikeyde komşu satıra girmeyecek kadar).
-                        const padX = Math.max(12, Math.round(w0 * 0.45));
-                        const padY = Math.max(10, Math.round(h0 * 0.35));
+                        // Pay: yatayda biraz (sola yapışık değer için), dikeyde AZ (komşu satırı içine alıp
+                        // bozmasın diye). Çok büyük pay → komşu hücre/satır içeri girip "CT+","n7." gibi çöp üretiyordu.
+                        const padX = Math.max(10, Math.round(w0 * 0.28));
+                        const padY = Math.max(5, Math.round(h0 * 0.16));
                         const x = Math.max(0, x0 - padX);
                         const y = Math.max(0, y0 - padY);
                         const width = Math.min(canvas.width - x, w0 + padX * 2);
