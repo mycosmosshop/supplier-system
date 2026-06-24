@@ -12118,35 +12118,21 @@
                 
                 console.log('📊 COA_Records\'a gönderiliyor:', data);
                 
-                const result = await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.timeout = 60000;
-                    
-                    xhr.onload = function() {
-                        if (xhr.status === 200) {
-                            try {
-                                resolve(JSON.parse(xhr.responseText));
-                            } catch (e) {
-                                reject(new Error('JSON parse hatası'));
-                            }
-                        } else {
-                            reject(new Error('HTTP ' + xhr.status));
-                        }
-                    };
-                    
-                    xhr.onerror = () => reject(new Error('Bağlantı hatası'));
-                    xhr.ontimeout = () => reject(new Error('Zaman aşımı (60sn)'));
-                    
-                    xhr.open('POST', googleScriptUrl, true);
-                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                    
-                    const formData = new URLSearchParams();
-                    formData.append('action', 'saveCOARecord');
-                    formData.append('data', JSON.stringify(data));
-                    
-                    xhr.send(formData.toString());
-                });
-                
+                // GET + action&data URL query'sinde (POST gövdesi Apps Script yönlendirmesinde düşüyordu →
+                // COA_Records'a HİÇ yazılamıyor, COA Analiz boş/"Durum Belirsiz" görünüyordu). Çalışan saveCOARecord/addCOA ile aynı.
+                const result = await (async () => {
+                    const url = `${googleScriptUrl}${googleScriptUrl.includes('?') ? '&' : '?'}action=saveCOARecord&data=${encodeURIComponent(JSON.stringify(data))}`;
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 60000);
+                    try {
+                        const resp = await fetch(url, { method: 'GET', signal: controller.signal });
+                        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                        return await resp.json();
+                    } finally {
+                        clearTimeout(timeoutId);
+                    }
+                })();
+
                 if (result.success) {
                     console.log('✅ COA_Records\'a kaydedildi:', result.recordCount, 'satır');
                     showToast(`📊 ${result.recordCount} özellik COA_Records'a kaydedildi`, 'success', 3000);
