@@ -10130,8 +10130,20 @@
                             // Tesseract bazen başa apostrof/tırnak ekler ('> 150 m → > 150 m)
                             cleanText = cleanText.replace(/^['"''""\u2018\u2019\u201C\u201D]+/, '').trim();
                             
+                            // OCR.space bu (genelde küçük) bölgeyi BOŞ döndürdüyse → Tesseract.js (yerel) ile bir kez daha dene
+                            // (küçük dikdörtgenler OCR.space'te bazen okunamıyor; böylece tüm özellikler okunur ve uygunluk hesaplanabilir)
+                            if (!cleanText && ocrEngine !== 'azure' && ocrEngine !== 'tesseract' && !window.ocrSpaceFallbackToTesseract) {
+                                try {
+                                    console.log(`🟡 [${region.propertyName}] OCR.space boş döndü → Tesseract.js ile yeniden deneniyor...`);
+                                    const tText = await performTesseractOCR(region.imageData);
+                                    let tClean = (tText || '').trim().replace(/\s+/g, ' ').replace(/(\d+)\.\s+(\d+)/g, '$1.$2').trim();
+                                    if (tClean) { cleanText = tClean; console.log(`✅ [${region.propertyName}] Tesseract ile okundu: "${cleanText}"`); }
+                                    else { console.warn(`⚠️ [${region.propertyName}] Tesseract de boş döndü`); }
+                                } catch (tErr) { console.warn(`⚠️ [${region.propertyName}] Tesseract fallback hatası:`, tErr.message); }
+                            }
+
                             console.log(`✅ [${region.index}/${regionsToProcess.length}] ${region.propertyName}: "${cleanText}"`);
-                            
+
                             // Başarılı OCR → ardarda 403 sayacını sıfırla
                             window.ocrSpace403ConsecutiveCount = 0;
                             
