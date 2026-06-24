@@ -3389,11 +3389,13 @@
                         } else {
                             reject(new Error('Timeout - Tüm denemeler başarısız'));
                         }
-                    }, 15000); // 15 saniye timeout
-                    
+                    }, 60000); // 60 saniye timeout (büyük sheet işlemleri 15s'yi aşıp gereksiz 3x tekrara yol açıyordu)
+
                     function cleanup() {
                         clearTimeout(timeout);
-                        delete window[callbackName];
+                        // delete yerine no-op: geç gelen yanıt callback'i çağırınca "cb... is not defined" hatası atmasın
+                        window[callbackName] = function(){};
+                        setTimeout(() => { try { delete window[callbackName]; } catch(_) {} }, 8000);
                         if (script.parentNode) script.parentNode.removeChild(script);
                     }
                     
@@ -8341,58 +8343,40 @@
             }
             
             const idsToDelete = Array.from(selectedItems);
+            const total = idsToDelete.length;
             let successCount = 0;
             let driveDeletedCount = 0;
             let driveErrorCount = 0;
-            
+            showToast(`🗑️ ${total} kayıt siliniyor…`, 'info', 3000);
+
             for (const id of idsToDelete) {
                 const record = coaData.find(c => c.id === id);
-                
-                if (googleScriptUrl) {
-                    // Drive'daki dosyayı sil (driveFileId varsa)
-                    if (record && record.driveFileId) {
-                        console.log(`🗑️ [${successCount + 1}/${idsToDelete.length}] Drive dosyası siliniyor:`, record.driveFileId);
-                        try {
-                            const deleteResult = await jsonpRequest(googleScriptUrl, { 
-                                action: 'deleteDriveFile',
-                                fileId: record.driveFileId
-                            });
-                            
-                            if (deleteResult.success) {
-                                console.log('✅ Drive silme başarılı:', record.fileName);
-                                driveDeletedCount++;
-                            } else {
-                                console.warn('⚠️ Drive dosyası silinemedi:', deleteResult.error);
-                                driveErrorCount++;
-                            }
-                        } catch(driveError) {
-                            console.error('❌ Drive silme hatası:', driveError);
-                            driveErrorCount++;
-                        }
-                    }
-                    
-                    // COA Arşiv'den sil
-                    await deleteFromGoogleSheets(id);
-                    
-                    // COA_Records'dan da sil (materyal kodu, tarih ve irsaliye no ile)
-                    if (record) {
-                        const cleanMaterialCode = record.materialCode.includes('|') 
-                            ? record.materialCode.split('|')[0].trim() 
-                            : record.materialCode.trim();
-                        
-                        await deleteCOARecordFromSheets(
-                            cleanMaterialCode,
-                            record.deliveryDate,
-                            record.deliveryNo
+
+                if (googleScriptUrl && record) {
+                    // Bir kaydın 3 silme işlemi FARKLI hedefler (Drive / COA Arşiv / COA_Records) →
+                    // aynı anda (paralel) yapılabilir. Kayıtlar arası ise sıralı (aynı sheet satır yarışı olmasın).
+                    const tasks = [];
+                    if (record.driveFileId) {
+                        tasks.push(
+                            jsonpRequest(googleScriptUrl, { action: 'deleteDriveFile', fileId: record.driveFileId })
+                                .then(r => { if (r && r.success) { driveDeletedCount++; } else { driveErrorCount++; } })
+                                .catch(() => { driveErrorCount++; })
                         );
                     }
+                    tasks.push(deleteFromGoogleSheets(id).catch(() => false));   // COA Arşiv
+                    const cleanMaterialCode = record.materialCode.includes('|')
+                        ? record.materialCode.split('|')[0].trim()
+                        : record.materialCode.trim();
+                    tasks.push(deleteCOARecordFromSheets(cleanMaterialCode, record.deliveryDate, record.deliveryNo).catch(() => false));   // COA_Records
+                    await Promise.all(tasks);
                 }
-                
+
                 coaData = coaData.filter(c => c.id !== id);
                 selectedItems.delete(id);
                 successCount++;
+                showToast(`🗑️ Siliniyor… ${successCount}/${total}`, 'info', 1200);
             }
-            
+
             saveToLocalStorage(); // Toplu silme sonrası yedekle
             updateUI();
             
