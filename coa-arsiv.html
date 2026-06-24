@@ -7761,10 +7761,33 @@
                         }
                     }
 
+                    // POST gövdesi 3 denemede de düştüyse → PARÇALI GET ile yükle (initUpload/uploadChunk/finalizeUpload;
+                    // GET parametreleri Apps Script yönlendirmesinde KAYBOLMAZ, bu yüzden güvenilir).
+                    if (!uploadResult || !uploadResult.success) {
+                        console.warn('⚠️ Drive POST 3/3 başarısız → parçalı (chunked) GET ile yükleniyor...');
+                        progressTitle.textContent = `☁️ Drive parçalı yükleniyor... (${fileNumber}/${bulkFiles.length})`;
+                        try {
+                            const chunked = await uploadToDriveChunked(compressedData, fileObj.file.name, fileObj.file.type || 'application/pdf');
+                            if (chunked && chunked.success) {
+                                uploadResult = {
+                                    success: true,
+                                    fileId: chunked.fileId,
+                                    viewUrl: chunked.viewUrl || chunked.directUrl || chunked.fileUrl,
+                                    fileName: chunked.fileName || fileObj.file.name,
+                                    fileSize: chunked.fileSize || fileObj.file.size
+                                };
+                                _upErr = null;
+                                console.log('✅ Parçalı GET ile Drive yükleme başarılı:', chunked);
+                            } else {
+                                _upErr = (chunked && chunked.error) || _upErr || 'Bilinmeyen hata';
+                            }
+                        } catch (e) { _upErr = e.message; }
+                    }
+
                     if (!uploadResult || !uploadResult.success) {
                         throw new Error('Drive yükleme başarısız: ' + (_upErr || 'Bilinmeyen hata'));
                     }
-                    
+
                     console.log('✅ Drive yükleme başarılı:', uploadResult);
                     
                     // UI'ın nefes alması için
