@@ -9481,11 +9481,33 @@
                 // Alpha kalsın (data[i + 3])
             }
             
+            // 3. ÇİZGİ (gridline) TEMİZLEME: hücre kenarlıkları OCR'ı yanıltıyordu
+            //    (yatay çizgi → "-"/"——" okunuyor, dikey çizgi → rakama yapışıp bozuyor).
+            //    Tam-genişlik yatay ve tam-yükseklik dikey SÜREKLİ siyah dizileri beyazlat.
+            //    Rakamlar tüm kareyi kaplamadığı için (özellikle pay eklenmiş kutuda) silinmez.
+            const _W = enhancedCanvas.width, _H = enhancedCanvas.height;
+            const _isBlack = (x, y) => data[(y * _W + x) * 4] < 128;
+            const _whiteRow = (y) => { for (let x = 0; x < _W; x++) { const o = (y * _W + x) * 4; data[o] = data[o+1] = data[o+2] = 255; } };
+            const _whiteCol = (x) => { for (let y = 0; y < _H; y++) { const o = (y * _W + x) * 4; data[o] = data[o+1] = data[o+2] = 255; } };
+            // Yatay kenarlık: bir satırda en uzun ardışık siyah dizi ≥ genişliğin %70'i → çizgi
+            for (let y = 0; y < _H; y++) {
+                let run = 0, maxRun = 0;
+                for (let x = 0; x < _W; x++) { if (_isBlack(x, y)) { run++; if (run > maxRun) maxRun = run; } else run = 0; }
+                if (maxRun >= _W * 0.70) _whiteRow(y);
+            }
+            // Dikey kenarlık: bir sütunda en uzun ardışık siyah dizi ≥ yüksekliğin %85'i → çizgi
+            // (eşik yüksek tutuldu ki "1","4" gibi dikey rakam çizgileri silinmesin)
+            for (let x = 0; x < _W; x++) {
+                let run = 0, maxRun = 0;
+                for (let y = 0; y < _H; y++) { if (_isBlack(x, y)) { run++; if (run > maxRun) maxRun = run; } else run = 0; }
+                if (maxRun >= _H * 0.85) _whiteCol(x);
+            }
+
             // Geliştirilmiş veriyi geri yaz
             ctx.putImageData(imageData, 0, 0);
-            
-            console.log('  🎨 Görüntü iyileştirildi: Kontrast +30%, Keskinleştirme, Grayscale');
-            
+
+            console.log('  🎨 Görüntü iyileştirildi: Kontrast +30%, Keskinleştirme, Grayscale, Çizgi temizleme');
+
             return enhancedCanvas;
         }
         
