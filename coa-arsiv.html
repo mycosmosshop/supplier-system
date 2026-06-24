@@ -15006,9 +15006,10 @@
                     </div>
                 `;
             } else {
-                // Header bilgileri
+                const _coaEdit = localStorage.getItem('coaEditMode') === '1';   // gizli admin düzeltme modu
+                // Header bilgileri (BAŞLIĞA ÇİFT TIKLA → admin düzeltme modu aç/kapa)
                 let headerHTML = `
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <div ondblclick="toggleCoaEditMode('${coa.id}')" title="(çift tık: düzeltme modu)" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; cursor: default;">
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                             <div>
                                 <div style="font-size: 0.85em; opacity: 0.9;">Tedarikçi</div>
@@ -15029,7 +15030,8 @@
                         </div>
                     </div>
                 `;
-                
+                if (_coaEdit) headerHTML += `<div style="background:#fff3cd;border:1px solid #ffc107;color:#856404;padding:8px 12px;border-radius:6px;margin-bottom:14px;font-size:0.85em;">✏️ <b>Düzeltme modu açık</b> — <b>COA Değeri</b> hücresine tıklayıp düzelt; durum otomatik güncellenir ve kaydedilir. (Başlığa çift tıkla → kapat)</div>`;
+
                 // Özellikleri tablo olarak göster
                 const properties = Object.entries(coa.ocrProperties);
                 // Durumu kayıtlı veriden + limitlerden + requirement'tan yeniden hesapla
@@ -15192,7 +15194,7 @@
                             <td style="padding: 10px 8px; border: 1px solid #ddd; font-weight: 600; font-size: 0.9em;">${propName}</td>
                             <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; color: #0066cc; font-size: 0.85em;">${tdsLimitDisplay}</td>
                             <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; color: #ff6600; font-size: 0.85em;">${prop.requirement || '-'}</td>
-                            <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: #667eea; font-size: 0.85em;">${prop.coaValue || '-'}</td>
+                            <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; color: #667eea; font-size: 0.85em;">${_coaEdit ? `<input type="text" value="${String(prop.coaValue||'').replace(/"/g,'&quot;')}" onchange="saveCoaCellEdit('${coa.id}', ${index}, this.value)" style="width:80px;text-align:center;font-weight:bold;color:#667eea;border:1px dashed #667eea;border-radius:4px;padding:4px;font-size:1em;" title="Düzelt → Enter veya dışarı tıkla">` : (prop.coaValue || '-')}</td>
                             <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center; font-size: 0.85em;">${prop.unit || '-'}</td>
                             <td style="padding: 10px 8px; border: 1px solid #ddd; text-align: center;">${statusBadge}</td>
                         </tr>
@@ -15213,6 +15215,36 @@
         
         function closeCoaPropertiesModal() {
             document.getElementById('coaPropertiesModal').classList.remove('active');
+        }
+
+        // GİZLİ ADMIN: COA Analiz'de OCR yanlış okumasını elle düzelt. Başlığa çift tıkla → mod aç/kapa.
+        function toggleCoaEditMode(coaId){
+            const on = localStorage.getItem('coaEditMode') === '1';
+            localStorage.setItem('coaEditMode', on ? '0' : '1');
+            showToast(on ? '🔒 Düzeltme modu kapandı' : '✏️ Düzeltme modu açıldı — COA Değeri’ne tıklayıp düzelt', 'info', 2500);
+            showCOAProperties(coaId);   // yeniden çiz
+        }
+        // COA değerini elle düzelt → durumu yeniden hesapla → kalıcı kaydet (COA Arşiv ocrProperties; GET ile güvenilir)
+        async function saveCoaCellEdit(coaId, index, newValue){
+            const coa = coaData.find(c => c.id === coaId);
+            if (!coa || !coa.ocrProperties) { showToast('❌ Kayıt bulunamadı', 'error'); return; }
+            const keys = Object.keys(coa.ocrProperties);
+            const propName = keys[index];
+            if (!propName) return;
+            const prop = coa.ocrProperties[propName];
+            const v = String(newValue).trim();
+            if (v === String(prop.coaValue || '').trim()) return;   // değişmediyse çık
+            prop.coaValue = v;
+            // durumu yeniden hesapla (limit/operatör/requirement'a göre)
+            try { prop.status = (calculatePropertyStatus(v, prop.lowerLimit, prop.upperLimit, prop.operator || 'range', prop) || '-').toLowerCase(); } catch(e) {}
+            saveToLocalStorage();
+            showToast('💾 Kaydediliyor...', 'info', 1500);
+            // COA Arşiv kaydının ocrProperties'ini güncelle (analiz bu kayıttan okuyor; updateCOA = GET, güvenilir)
+            try {
+                const ok = await updateToGoogleSheets({ ...coa, ocrProperties: JSON.stringify(coa.ocrProperties) });
+                showToast(ok ? ('✅ Güncellendi: ' + propName + ' = ' + v) : '⚠️ Sheets güncellenemedi (yerel kaydedildi)', ok ? 'success' : 'warning', 3000);
+            } catch(e){ console.warn('updateCOA:', e); showToast('⚠️ Kaydetme hatası: ' + e.message + ' (yerel kaydedildi)', 'error', 4000); }
+            showCOAProperties(coaId);   // yeniden çiz → değer + durum + sayılar güncellensin
         }
         
         function generateMissingCOAReport() {
