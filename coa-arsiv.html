@@ -3371,10 +3371,10 @@
         });
         
         // ==================== JSONP Helper ====================
-        function jsonp(url, retries = 3) {
+        function jsonp(url, retries = 3, timeoutMs = 20000) {
             return new Promise((resolve, reject) => {
                 let currentRetry = 0;
-                
+
                 function tryConnect() {
                     const callbackName = 'cb_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
                     const script = document.createElement('script');
@@ -3389,7 +3389,7 @@
                         } else {
                             reject(new Error('Timeout - Tüm denemeler başarısız'));
                         }
-                    }, 60000); // 60 saniye timeout (büyük sheet işlemleri 15s'yi aşıp gereksiz 3x tekrara yol açıyordu)
+                    }, timeoutMs); // işleme göre timeout (açılış/okuma kısa; silme gibi yavaş yazmalar uzun — çağrıda verilir)
 
                     function cleanup() {
                         clearTimeout(timeout);
@@ -3432,12 +3432,12 @@
         }
         
         // JSONP Request with parameters
-        function jsonpRequest(baseUrl, params = {}, retries = 3) {
+        function jsonpRequest(baseUrl, params = {}, retries = 3, timeoutMs = 20000) {
             const queryString = Object.keys(params)
                 .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
                 .join('&');
             const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + queryString;
-            return jsonp(url, retries);
+            return jsonp(url, retries, timeoutMs);
         }
         
         // ==================== Google Sheets ====================
@@ -3633,34 +3633,19 @@
                 console.log('Google Sheets\'ten veri yükleniyor...');
                 showToast('🔄 Veriler yükleniyor...', 'info');
                 
-                const data = await new Promise((resolve, reject) => {
-                    const xhr = new XMLHttpRequest();
-                    xhr.timeout = 120000; // 120 saniye (büyük dosyalar için)
-                    
-                    xhr.onload = function() {
-                        if (xhr.status === 200) {
-                            try {
-                                resolve(JSON.parse(xhr.responseText));
-                            } catch(e) {
-                                reject(new Error('JSON parse hatası'));
-                            }
-                        } else {
-                            reject(new Error('HTTP ' + xhr.status));
-                        }
-                    };
-                    
-                    xhr.onerror = () => reject(new Error('Bağlantı hatası'));
-                    xhr.ontimeout = () => reject(new Error('Zaman aşımı'));
-                    
-                    xhr.open('POST', googleScriptUrl, true);
-                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                    
-                    const formData = new URLSearchParams();
-                    formData.append('action', 'getAllCOA');
-                    formData.append('includeFileData', 'true');
-                    
-                    xhr.send(formData.toString());
-                });
+                // GET + action URL query'sinde (POST gövdesi Apps Script yönlendirmesinde düşüp "Geçersiz action" veriyordu)
+                const data = await (async () => {
+                    const url = `${googleScriptUrl}${googleScriptUrl.includes('?') ? '&' : '?'}action=getAllCOA&includeFileData=true`;
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 120000);
+                    try {
+                        const resp = await fetch(url, { method: 'GET', signal: controller.signal });
+                        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                        return await resp.json();
+                    } finally {
+                        clearTimeout(timeoutId);
+                    }
+                })();
                 
                 if (data && data.success) {
                     // Kayıtları al (fileData dahil)
@@ -4474,8 +4459,8 @@
                 const params = new URLSearchParams();
                 params.append('action', 'deleteCOA');
                 params.append('id', id);
-                
-                const result = await jsonp(googleScriptUrl + '?' + params.toString());
+
+                const result = await jsonp(googleScriptUrl + '?' + params.toString(), 3, 45000);   // silme yavaş → 45s
                 console.log('📦 deleteCOA sonucu:', result);
                 
                 if (result.success) {
@@ -4531,8 +4516,8 @@
                 params.append('deliveryNo', deliveryNo);
                 
                 console.log('🌐 Silme isteği URL parametreleri:', params.toString());
-                
-                const result = await jsonp(googleScriptUrl + '?' + params.toString());
+
+                const result = await jsonp(googleScriptUrl + '?' + params.toString(), 3, 45000);   // silme yavaş → 45s
                 
                 console.log('📦 Silme sonucu:', result);
                 
@@ -8353,7 +8338,7 @@
                     const tasks = [];
                     if (record.driveFileId) {
                         tasks.push(
-                            jsonpRequest(googleScriptUrl, { action: 'deleteDriveFile', fileId: record.driveFileId })
+                            jsonpRequest(googleScriptUrl, { action: 'deleteDriveFile', fileId: record.driveFileId }, 3, 45000)
                                 .then(r => { if (r && r.success) { driveDeletedCount++; } else { driveErrorCount++; } })
                                 .catch(() => { driveErrorCount++; })
                         );
@@ -8412,10 +8397,10 @@
                 if (record.driveFileId) {
                     console.log('🗑️ Drive dosyası siliniyor:', record.driveFileId);
                     try {
-                        const deleteResult = await jsonpRequest(googleScriptUrl, { 
+                        const deleteResult = await jsonpRequest(googleScriptUrl, {
                             action: 'deleteDriveFile',
                             fileId: record.driveFileId
-                        });
+                        }, 3, 45000);   // silme yavaş → 45s
                         
                         console.log('📦 deleteDriveFile sonucu:', deleteResult);
                         
