@@ -10145,6 +10145,8 @@
                                     console.log(`🟡 [${region.propertyName}] OCR.space boş döndü → Tesseract.js ile yeniden deneniyor...`);
                                     const tText = await performTesseractOCR(region.imageData);
                                     let tClean = (tText || '').trim().replace(/\s+/g, ' ').replace(/(\d+)\.\s+(\d+)/g, '$1.$2').trim();
+                                    // Boş kareden gelen çöp (sadece tire/çizgi/noktalama: "-", "——", "_") değer SAYILMAZ → boş bırak
+                                    if (tClean && !/[A-Za-z0-9]/.test(tClean)) { console.warn(`⚠️ [${region.propertyName}] Tesseract anlamsız ("${tClean}") → boş sayıldı (bölge muhtemelen boş)`); tClean = ''; }
                                     if (tClean) { cleanText = tClean; console.log(`✅ [${region.propertyName}] Tesseract ile okundu: "${cleanText}"`); }
                                     else { console.warn(`⚠️ [${region.propertyName}] Tesseract de boş döndü`); }
                                 } catch (tErr) { console.warn(`⚠️ [${region.propertyName}] Tesseract fallback hatası:`, tErr.message); }
