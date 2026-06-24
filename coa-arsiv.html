@@ -3964,20 +3964,15 @@
                 console.log('📁 Drive File ID:', driveFileId);
                 console.log('📦 SaveData:', JSON.stringify(saveData, null, 2));
 
+                // GET + action&data URL query'sinde (çalışan saveCOARecord ile AYNI). Apps Script bu deployment'ta
+                // POST gövdesini düşürüyor → "action undefined" / "Veri eksik" hatası. fileData hep '' olduğundan veri küçük, URL'ye sığar.
                 const result = await (async () => {
-                    const body = new URLSearchParams();
-                    body.append('action', 'addCOA');
-                    body.append('data', JSON.stringify(saveData));
+                    const dataStr = JSON.stringify(saveData);
+                    const saveUrl = `${googleScriptUrl}${googleScriptUrl.includes('?') ? '&' : '?'}action=addCOA&data=${encodeURIComponent(dataStr)}`;
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 120000);
                     try {
-                        const saveUrl = googleScriptUrl + (googleScriptUrl.includes('?') ? '&' : '?') + 'action=addCOA';
-                        const resp = await fetch(saveUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                            body: body.toString(),
-                            signal: controller.signal
-                        });
+                        const resp = await fetch(saveUrl, { method: 'GET', signal: controller.signal });
                         if (!resp.ok) throw new Error('HTTP ' + resp.status);
                         return await resp.json();
                     } finally {
