@@ -15241,11 +15241,30 @@
             try { prop.status = (calculatePropertyStatus(v, prop.lowerLimit, prop.upperLimit, prop.operator || 'range', prop) || '-').toLowerCase(); } catch(e) {}
             saveToLocalStorage();
             showToast('💾 Kaydediliyor...', 'info', 1500);
-            // COA Arşiv kaydının ocrProperties'ini güncelle (analiz bu kayıttan okuyor; updateCOA = GET, güvenilir)
+            // 1) COA_Records'u güncelle — ÖNEMLİ: ekran (analiz) değeri enrich ile BURADAN geliyor.
+            //    Sadece COA Arşiv'i güncellersek enrich eski COA_Records değerini geri yazar (pencere kapanınca eskiye döner).
+            let okRec = false;
             try {
-                const ok = await updateToGoogleSheets({ ...coa, ocrProperties: JSON.stringify(coa.ocrProperties) });
-                showToast(ok ? ('✅ Güncellendi: ' + propName + ' = ' + v) : '⚠️ Sheets güncellenemedi (yerel kaydedildi)', ok ? 'success' : 'warning', 3000);
-            } catch(e){ console.warn('updateCOA:', e); showToast('⚠️ Kaydetme hatası: ' + e.message + ' (yerel kaydedildi)', 'error', 4000); }
+                const cleanCode = String(coa.materialCode || '').includes('|') ? coa.materialCode.split('|')[0].trim() : String(coa.materialCode || '').trim();
+                const props = Object.entries(coa.ocrProperties).map(([name, p]) => ({
+                    name,
+                    coaValue: p.coaValue || '',
+                    unit: p.unit || '',
+                    operator: p.operator || ((p.lowerLimit && p.upperLimit) ? 'range' : (p.lowerLimit ? '>=' : (p.upperLimit ? '<=' : 'range'))),
+                    standardValue: p.standardValue || '',
+                    min: p.lowerLimit || '',
+                    max: p.upperLimit || '',
+                    requirement: p.requirement || ''
+                }));
+                await saveCOARecordToSheets(cleanCode, props, {
+                    deliveryDate: coa.deliveryDate, deliveryNo: coa.deliveryNo, lotNumber: coa.lotNumber,
+                    supplier: coa.supplier, location: coa.location, materialName: coa.materialName
+                });
+                okRec = true;
+            } catch(e){ console.warn('saveCOARecord:', e); }
+            // 2) COA Arşiv kaydının ocrProperties'ini de güncelle (updateCOA = GET, güvenilir)
+            try { await updateToGoogleSheets({ ...coa, ocrProperties: JSON.stringify(coa.ocrProperties) }); } catch(e){ console.warn('updateCOA:', e); }
+            showToast(okRec ? ('✅ Güncellendi ve kaydedildi: ' + propName + ' = ' + v) : '⚠️ Kaydetmede sorun oldu (yerel tutuldu)', okRec ? 'success' : 'warning', 3000);
             showCOAProperties(coaId);   // yeniden çiz → değer + durum + sayılar güncellensin
         }
         
