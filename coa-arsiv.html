@@ -7722,39 +7722,47 @@
                     const compressedData = await compressForSheets(fileData, 200);
                     console.log('📦 Sıkıştırılmış boyut:', Math.round(compressedData.length / 1024), 'KB');
                     
-                    const uploadResult = await new Promise((resolve, reject) => {
-                        const xhr = new XMLHttpRequest();
-                        xhr.timeout = 120000; // 120 saniye
-                        
-                        xhr.onload = function() {
-                            if (xhr.status === 200) {
-                                try {
-                                    resolve(JSON.parse(xhr.responseText));
-                                } catch(e) {
-                                    reject(new Error('JSON parse hatası'));
-                                }
-                            } else {
-                                reject(new Error('HTTP ' + xhr.status));
-                            }
-                        };
-                        
-                        xhr.onerror = () => reject(new Error('Bağlantı hatası'));
-                        xhr.ontimeout = () => reject(new Error('Zaman aşımı'));
-                        
-                        xhr.open('POST', googleScriptUrl, true);
-                        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                        
-                        const formData = new URLSearchParams();
-                        formData.append('action', 'uploadFile');
-                        formData.append('fileData', compressedData);
-                        formData.append('fileName', fileObj.file.name);
-                        formData.append('mimeType', fileObj.file.type || 'application/octet-stream');
-                        
-                        xhr.send(formData.toString());
-                    });
-                    
+                    // Drive yükleme — TEK DOSYA yolundaki gibi 3 DENEMELİ retry. Apps Script POST gövdesini
+                    // aralıklı düşürüp "action undefined" veriyor; tekrar deneyince geçiyor (toplu yolda retry yoktu, o yüzden 2. dosyada patlıyordu).
+                    let uploadResult = null, _upErr = null;
+                    for (let attempt = 1; attempt <= 3; attempt++) {
+                        if (attempt > 1) {
+                            console.log(`⚠️ Drive yükleme tekrar deneniyor (${attempt}/3)...`);
+                            progressTitle.textContent = `☁️ Drive tekrar deneniyor (${attempt}/3)... (${fileNumber}/${bulkFiles.length})`;
+                            await new Promise(r => setTimeout(r, 1500));
+                        }
+                        try {
+                            uploadResult = await new Promise((resolve, reject) => {
+                                const xhr = new XMLHttpRequest();
+                                xhr.timeout = 120000; // 120 saniye
+                                xhr.onload = function() {
+                                    if (xhr.status === 200) {
+                                        try { resolve(JSON.parse(xhr.responseText)); }
+                                        catch(e) { reject(new Error('JSON parse hatası')); }
+                                    } else { reject(new Error('HTTP ' + xhr.status)); }
+                                };
+                                xhr.onerror = () => reject(new Error('Bağlantı hatası'));
+                                xhr.ontimeout = () => reject(new Error('Zaman aşımı'));
+                                xhr.open('POST', googleScriptUrl, true);
+                                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                                const formData = new URLSearchParams();
+                                formData.append('action', 'uploadFile');
+                                formData.append('fileData', compressedData);
+                                formData.append('fileName', fileObj.file.name);
+                                formData.append('mimeType', fileObj.file.type || 'application/octet-stream');
+                                xhr.send(formData.toString());
+                            });
+                            if (uploadResult && uploadResult.success) break;   // başarılı → çık
+                            _upErr = (uploadResult && uploadResult.error) || 'Bilinmeyen hata';
+                            console.warn(`⚠️ Drive yükleme denemesi ${attempt}/3 başarısız: ${_upErr}`);
+                        } catch (e) {
+                            _upErr = e.message; uploadResult = null;
+                            console.warn(`⚠️ Drive yükleme denemesi ${attempt}/3 hata: ${_upErr}`);
+                        }
+                    }
+
                     if (!uploadResult || !uploadResult.success) {
-                        throw new Error('Drive yükleme başarısız: ' + (uploadResult?.error || 'Bilinmeyen hata'));
+                        throw new Error('Drive yükleme başarısız: ' + (_upErr || 'Bilinmeyen hata'));
                     }
                     
                     console.log('✅ Drive yükleme başarılı:', uploadResult);
