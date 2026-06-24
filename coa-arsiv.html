@@ -9088,8 +9088,8 @@
                 let coaValuesDisplay = '-';
                 if (c.ocrProperties && Object.keys(c.ocrProperties).length > 0) {
                     const propCount = Object.keys(c.ocrProperties).length;
-                    const passCount = Object.values(c.ocrProperties).filter(p => p.status === 'pass' || p.status === 'uygun').length;
-                    const failCount = Object.values(c.ocrProperties).filter(p => p.status === 'fail' || p.status === 'uygun değil').length;
+                    const passCount = Object.values(c.ocrProperties).filter(p => { const s = computeCoaPropStatus(p); return s === 'pass' || s === 'uygun'; }).length;
+                    const failCount = Object.values(c.ocrProperties).filter(p => { const s = computeCoaPropStatus(p); return s === 'fail' || s.includes('uygun değil'); }).length;
                     
                     let statusBadge = '';
                     if (failCount > 0) {
@@ -14988,6 +14988,58 @@
             document.getElementById('missingCOAModal').classList.remove('active');
         }
         
+        // COA özelliği durumu (uygun / uygun değil / '') — değer + limit/requirement'tan hesapla.
+        // Liste rozeti VE analiz tablosu AYNI bunu kullanır → tutarlı (düzeltilen liste de yeşil olur).
+        function computeCoaPropStatus(prop){
+            if (!prop || !prop.coaValue || !String(prop.coaValue).trim()) return ((prop && prop.status) || '').toLowerCase();
+            const rawCOA = String(prop.coaValue).replace(/,/g, '.').replace(/^[≤≥<>=]+\s*/, '').trim();
+            const lo = parseFloat(String(prop.lowerLimit || '').replace(/,/g, '.'));
+            const hi = parseFloat(String(prop.upperLimit || '').replace(/,/g, '.'));
+            const op = (prop.operator || 'range').toString().trim();
+            const hasLo = !isNaN(lo) && lo !== 0;
+            const hasHi = !isNaN(hi) && hi !== 0;
+            const rangeM = rawCOA.match(/([0-9]+\.?[0-9]*)\s*[-~]\s*([0-9]+\.?[0-9]*)/);
+            if (hasLo || hasHi) {
+                let pass;
+                if (rangeM) {
+                    const cL = parseFloat(rangeM[1]), cH = parseFloat(rangeM[2]);
+                    if (op === '<' || op === '≤' || op === '<=') pass = cH <= hi;
+                    else if (op === '>' || op === '≥' || op === '>=') pass = cL >= lo;
+                    else pass = (hasLo ? cL >= lo : true) && (hasHi ? cH <= hi : true);
+                } else {
+                    const numM = rawCOA.match(/([0-9]+\.?[0-9]*)/);
+                    if (numM) {
+                        const cV = parseFloat(numM[1]);
+                        if (op === '≤' || op === '<=') pass = cV <= hi;
+                        else if (op === '≥' || op === '>=') pass = cV >= lo;
+                        else pass = (hasLo ? cV >= lo : true) && (hasHi ? cV <= hi : true);
+                    } else return (prop.status || '').toLowerCase();
+                }
+                return pass ? 'uygun' : 'uygun değil';
+            }
+            if (prop.requirement) {
+                const reqStr = String(prop.requirement).replace(/,/g, '.');
+                const coaNum = parseFloat(rawCOA);
+                const rangeReq = reqStr.match(/([0-9.]+)\s*[-–]\s*([0-9.]+)/);
+                if (rangeReq && !isNaN(coaNum)) {
+                    const rLo = parseFloat(rangeReq[1]), rHi = parseFloat(rangeReq[2]);
+                    if (!isNaN(rLo) && !isNaN(rHi)) return (coaNum >= rLo && coaNum <= rHi) ? 'uygun' : 'uygun değil';
+                }
+                const opReq = reqStr.match(/^([≤≥<>]=?)\s*([0-9.]+)/);
+                if (opReq && !isNaN(coaNum)) {
+                    const rOp = opReq[1], rLim = parseFloat(opReq[2]);
+                    if (rOp === '≤' || rOp === '<=') return coaNum <= rLim ? 'uygun' : 'uygun değil';
+                    if (rOp === '≥' || rOp === '>=') return coaNum >= rLim ? 'uygun' : 'uygun değil';
+                    if (rOp === '<') return coaNum < rLim ? 'uygun' : 'uygun değil';
+                    if (rOp === '>') return coaNum > rLim ? 'uygun' : 'uygun değil';
+                }
+                const normalizeT = s => String(s).replace(/,/g, '.').toLowerCase().replace(/\s+/g, '').replace(/[ı]/g, 'i').replace(/[İ]/g, 'i').replace(/[ğ]/g, 'g').replace(/[ş]/g, 's').replace(/[ü]/g, 'u').replace(/[ö]/g, 'o').replace(/[ç]/g, 'c').replace(/[≤≥<>=]/g, '');
+                const nc = normalizeT(prop.coaValue), nr = normalizeT(prop.requirement);
+                if (nc && nr && !rangeReq && !opReq) return (nc === nr || nc.includes(nr) || nr.includes(nc)) ? 'uygun' : 'uygun değil';
+            }
+            return (prop.status || '').toLowerCase();
+        }
+
         // COA Properties Modal fonksiyonları
         function showCOAProperties(coaId) {
             const coa = coaData.find(c => c.id === coaId);
@@ -15265,7 +15317,8 @@
             // 2) COA Arşiv kaydının ocrProperties'ini de güncelle (updateCOA = GET, güvenilir)
             try { await updateToGoogleSheets({ ...coa, ocrProperties: JSON.stringify(coa.ocrProperties) }); } catch(e){ console.warn('updateCOA:', e); }
             showToast(okRec ? ('✅ Güncellendi ve kaydedildi: ' + propName + ' = ' + v) : '⚠️ Kaydetmede sorun oldu (yerel tutuldu)', okRec ? 'success' : 'warning', 3000);
-            showCOAProperties(coaId);   // yeniden çiz → değer + durum + sayılar güncellensin
+            showCOAProperties(coaId);   // modalı yeniden çiz → değer + durum + sayılar güncellensin
+            try { renderTable(); } catch(e) {}   // arkadaki liste rozeti de (✅/❌) güncellensin
         }
         
         function generateMissingCOAReport() {
