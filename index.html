@@ -2456,6 +2456,34 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         <label>Dahili</label>
                         <input type="text" id="infoBackupExtension" class="filter-name-input" placeholder="Dahili" />
                     </div>
+                    <div style="grid-column: span 3; margin-top: 6px; padding-top: 10px; border-top: 2px solid #0f4c81;">
+                        <label style="font-weight: 700; color: #0f4c81;">🛡️ PSCR — Ürün Güvenliği ve Uygunluk Temsilcisi</label>
+                        <div style="font-size: 0.8em; color: #666; margin-top: 2px;">IATF 16949 / VDA gereği tedarikçinin atadığı ürün güvenliği sorumlusu (Product Safety &amp; Conformity Representative)</div>
+                    </div>
+                    <div>
+                        <label>PSCR Sorumlusu</label>
+                        <input type="text" id="infoPscrName" class="filter-name-input" placeholder="Ad Soyad" />
+                    </div>
+                    <div>
+                        <label>Ünvan</label>
+                        <input type="text" id="infoPscrTitle" class="filter-name-input" placeholder="Ünvan" />
+                    </div>
+                    <div>
+                        <label>E-posta</label>
+                        <input type="email" id="infoPscrEmail" class="filter-name-input" placeholder="email@firma.com" />
+                    </div>
+                    <div>
+                        <label>GSM</label>
+                        <input type="text" id="infoPscrGsm" class="filter-name-input" placeholder="0(5xx) xxx xx xx" />
+                    </div>
+                    <div>
+                        <label>Telefon2</label>
+                        <input type="text" id="infoPscrPhone2" class="filter-name-input" placeholder="Telefon 2" />
+                    </div>
+                    <div>
+                        <label>Dahili</label>
+                        <input type="text" id="infoPscrExtension" class="filter-name-input" placeholder="Dahili" />
+                    </div>
                     <div style="grid-column: span 3;">
                         <label>Adres</label>
                         <textarea id="infoAddress" class="filter-name-input" rows="3" placeholder="Adres"></textarea>
@@ -5235,6 +5263,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             document.getElementById('infoBackupGsm').value = info.backupGsm || '';
             document.getElementById('infoBackupPhone2').value = info.backupPhone2 || '';
             document.getElementById('infoBackupExtension').value = info.backupExtension || '';
+            document.getElementById('infoPscrName').value = info.pscrName || '';
+            document.getElementById('infoPscrTitle').value = info.pscrTitle || '';
+            document.getElementById('infoPscrEmail').value = info.pscrEmail || '';
+            document.getElementById('infoPscrGsm').value = info.pscrGsm || '';
+            document.getElementById('infoPscrPhone2').value = info.pscrPhone2 || '';
+            document.getElementById('infoPscrExtension').value = info.pscrExtension || '';
             document.getElementById('infoAddress').value = info.address || '';
 
             modal.style.display = 'flex';
@@ -6642,6 +6676,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 backupGsm: document.getElementById('infoBackupGsm').value || '',
                 backupPhone2: document.getElementById('infoBackupPhone2').value || '',
                 backupExtension: document.getElementById('infoBackupExtension').value || '',
+                pscrName: document.getElementById('infoPscrName').value || '',
+                pscrTitle: document.getElementById('infoPscrTitle').value || '',
+                pscrEmail: document.getElementById('infoPscrEmail').value || '',
+                pscrGsm: document.getElementById('infoPscrGsm').value || '',
+                pscrPhone2: document.getElementById('infoPscrPhone2').value || '',
+                pscrExtension: document.getElementById('infoPscrExtension').value || '',
                 address: document.getElementById('infoAddress').value || ''
             };
 
@@ -17648,6 +17688,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     { label: 'Yedek GSM', value: supplierInfo.backupGsm },
                     { label: 'Yedek Telefon 2', value: supplierInfo.backupPhone2 },
                     { label: 'Yedek Dahili', value: supplierInfo.backupExtension },
+                    { label: 'PSCR Sorumlusu', value: supplierInfo.pscrName },
+                    { label: 'PSCR Ünvan', value: supplierInfo.pscrTitle },
+                    { label: 'PSCR E-posta', value: supplierInfo.pscrEmail },
+                    { label: 'PSCR GSM', value: supplierInfo.pscrGsm },
+                    { label: 'PSCR Telefon 2', value: supplierInfo.pscrPhone2 },
+                    { label: 'PSCR Dahili', value: supplierInfo.pscrExtension },
                     { label: 'Adres', value: supplierInfo.address }
                 ];
                 
@@ -17971,6 +18017,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const hasBasicInfo = supplierInfo && Object.values(supplierInfo).some(v => String(v || '').trim());
             const hasContactInfo = supplierInfo && (supplierInfo.primaryEmail || supplierInfo.gsm || supplierInfo.phone2);
             const hasBackupContact = supplierInfo && (supplierInfo.backupName || supplierInfo.backupEmail || supplierInfo.backupGsm);
+            const hasPscr = supplierInfo && (supplierInfo.pscrName || supplierInfo.pscrEmail || supplierInfo.pscrGsm);   // IATF: ürün güvenliği temsilcisi atanmış mı
             
             // Doküman kontrolü
             let hasDocuments = false;
