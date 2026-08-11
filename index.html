@@ -10267,10 +10267,44 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             dropdown.style.display = isVisible ? 'none' : 'block';
         }
 
+        // ---- GELECEK AY KORUMASI ----------------------------------------------
+        // Dönem içinde bulunulan YIL ise, henüz gelmemiş aylar seçilemez ve grafikte çizilmez.
+        // (Ağustos'tayken 9-12. aylar boş sütun olarak görünüyor, "Seçili aylar: 1..12" yazıyordu.)
+        function _donemSonAy(){
+            var ad = '';
+            try { ad = localStorage.getItem('_currentPeriodName') || ''; } catch(e){}
+            var m = String(ad).match(/(20\d{2})/);
+            var bugun = new Date();
+            var yil = m ? +m[1] : bugun.getFullYear();
+            return (yil === bugun.getFullYear()) ? (bugun.getMonth() + 1) : 12;
+        }
+        function _gecerliAylar(){ var n=_donemSonAy(), a=[]; for(var i=1;i<=n;i++) a.push(i); return a; }
+        // Kutuları kırp: gelecek aylar kapatılır+devre dışı, seçili küme güncellenir (yeniden render TETİKLEMEZ)
+        function _ayKutulariniKirp(){
+            var son=_donemSonAy();
+            var kutular=document.querySelectorAll('#monthOptions input[type="checkbox"]:not([value="__TUMU__"])');
+            if(!kutular.length) return false;
+            var degisti=false;
+            kutular.forEach(function(cb){
+                var ay=parseInt(cb.value,10), gelecek=ay>son;
+                cb.disabled=gelecek;
+                var lbl=cb.closest('.multiselect-option'); if(lbl){ lbl.style.opacity=gelecek?'0.35':''; lbl.title=gelecek?'Bu ay henüz gelmedi':''; }
+                if(gelecek && cb.checked){ cb.checked=false; degisti=true; }
+            });
+            var secili=Array.from(kutular).filter(function(cb){return cb.checked;}).map(function(cb){return parseInt(cb.value,10);});
+            selectedMonths=new Set(secili);
+            selectedMonthMax=secili.length?Math.max.apply(null,secili):0;
+            var hepsi=document.querySelector('#monthOptions input[value="__TUMU__"]');
+            if(hepsi) hepsi.checked = secili.length===son;
+            var t=document.getElementById('selectedMonthText');
+            if(t) t.textContent = secili.length===son ? (son===12?'Tümü Seçili':son+' Ay (güncel)') : (secili.length===0?'Hiçbiri':secili.length+' Ay');
+            return degisti;
+        }
         // Ay filtresi yardımcıları
         function toggleAllMonths(checkbox) {
+            const son = _donemSonAy();
             const checkboxes = document.querySelectorAll('#monthOptions input[type="checkbox"]:not([value="__TUMU__"])');
-            checkboxes.forEach(cb => cb.checked = checkbox.checked);
+            checkboxes.forEach(cb => cb.checked = checkbox.checked && parseInt(cb.value,10) <= son);   // gelecek ay seçilmez
             updateMonthFilter();
         }
         
@@ -10280,9 +10314,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             selectedMonths = new Set(months);
             selectedMonthMax = months.length > 0 ? Math.max(...months) : 0;
             const selectAllCheckbox = document.querySelector('#monthOptions input[value="__TUMU__"]');
-            if (selectAllCheckbox) selectAllCheckbox.checked = months.length === 12;
+            const _son = _donemSonAy();
+            if (selectAllCheckbox) selectAllCheckbox.checked = months.length === _son;
             const textEl = document.getElementById('selectedMonthText');
-            if (textEl) textEl.textContent = months.length === 12 ? 'Tümü Seçili' : (months.length === 0 ? 'Hiçbiri' : `${months.length} Ay`);
+            if (textEl) textEl.textContent = months.length === _son ? (_son === 12 ? 'Tümü Seçili' : _son + ' Ay (güncel)')
+                                                                   : (months.length === 0 ? 'Hiçbiri' : `${months.length} Ay`);
             recomputeAllWithSelectedMonths();
         }
 
@@ -10427,6 +10463,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         };
 
         function displayResults() {
+            try { _ayKutulariniKirp(); } catch(e){}   // dönem/ay kutuları güncel tarihe göre
+
             document.getElementById('controls').classList.add('active');
             _applyCustReturnsToResults(); // müşteri totalIade=fiziksel → PPM/sıralama tutarlı
             _reloadCategoryMap();         // kategori (Otomotiv) haritası senkron sonrası tazelensin
@@ -17457,12 +17495,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             
             console.log('📊 displayPerformanceCharts çağrıldı:', supplier.name);
             
-            const months = ['1.Ay', '2.Ay', '3.Ay', '4.Ay', '5.Ay', '6.Ay', '7.Ay', '8.Ay', '9.Ay', '10.Ay', '11.Ay', '12.Ay'];
+            // GELECEK AY ÇİZİLMESİN: içinde bulunulan yılın dönemi açıksa yalnız geçmiş aylar.
+            const _sonAy = _donemSonAy();
+            const _kirp = a => (Array.isArray(a) ? a : Array(12).fill(0)).slice(0, _sonAy);
+            const months = ['1.Ay','2.Ay','3.Ay','4.Ay','5.Ay','6.Ay','7.Ay','8.Ay','9.Ay','10.Ay','11.Ay','12.Ay'].slice(0, _sonAy);
             const ppmTarget = supplier.ppmTarget || 10000;
             const hataHedefi = supplier.hataHedefi || 2;
             
             // Aylık PPM Puanı hesaplama
-            const monthlyPPMScores = Array(12).fill(0).map((_, i) => {
+            const monthlyPPMScores = Array(_sonAy).fill(0).map((_, i) => {
                 const ppm = supplier.monthlyPPM?.[i] || 0;
                 if (ppm === 0) return 100;
                 if (ppm <= ppmTarget / 4) return 100;
@@ -17474,7 +17515,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             });
             
             // Aylık Hata Puanı hesaplama
-            const monthlyHataScores = Array(12).fill(0).map((_, i) => {
+            const monthlyHataScores = Array(_sonAy).fill(0).map((_, i) => {
                 const hata = supplier.monthlyHata?.[i] || 0;
                 if (hata === 0) return 100;
                 if (hata <= hataHedefi / 2) return 100;
@@ -17484,16 +17525,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             });
             
             // Aylık Tamamlanma Puanı
-            const monthlyTamamlanma = Array(12).fill(0).map((_, i) => supplier.monthlyTamamlanmaPuan?.[i] || 100);
+            const monthlyTamamlanma = Array(_sonAy).fill(0).map((_, i) => supplier.monthlyTamamlanmaPuan?.[i] || 100);
             
             // Aylık Termin Puanı
-            const monthlyTermin = Array(12).fill(0).map((_, i) => supplier.monthlyTerminPuan?.[i] || 100);
+            const monthlyTermin = Array(_sonAy).fill(0).map((_, i) => supplier.monthlyTerminPuan?.[i] || 100);
             
             // Chart verilerini oluştur
             const chartData = [
                 { 
                     title: 'AYLIK İADE PPM DEĞİŞİMİ', 
-                    data: supplier.monthlyPPM || Array(12).fill(0), 
+                    data: _kirp(supplier.monthlyPPM), 
                     color: '#ff9800', 
                     maxVal: Math.max(...(supplier.monthlyPPM || [0]), ppmTarget) * 1.2, 
                     showTarget: true, 
@@ -17501,8 +17542,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     showTable: true,
                     tableId: 'ppmTable',
                     tableData: {
-                        sevk: supplier.monthlySevk || Array(12).fill(0),
-                        iade: supplier.monthlyIade || Array(12).fill(0)
+                        sevk: _kirp(supplier.monthlySevk),
+                        iade: _kirp(supplier.monthlyIade)
                     }
                 },
                 { title: 'AYLIK PPM PUANI', data: monthlyPPMScores, color: '#2196f3', maxVal: 100 },
