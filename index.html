@@ -7923,6 +7923,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if(s.sahaProblemSayisi==null) s.sahaProblemSayisi=0;
             if(s.sahaProblemSorumlu==null) s.sahaProblemSorumlu='-';
         }
+        // Puan metni: 90 -> "90", 89.51 -> "89,5". Yuvarlayip "%90" yazip sinifi B demeyelim.
+        function _puanTxt(v){
+            var n=+v; if(!isFinite(n)) return '';
+            // ASLA YUKARI YUVARLAMA: 89,99 -> "89,9". Aksi halde ekranda "%90" yazip
+            // sinif B kaliyor (kullanicinin bildirdigi celiski). Tam sayida ondalik gosterilmez.
+            var f=Math.floor(n*10)/10;
+            return (Math.abs(f-Math.round(f))<1e-9) ? String(Math.round(f))
+                                                    : f.toFixed(1).replace('.', ',');
+        }
         function computeIatfFields(s){
             _iatfDefaults(s);
             var x=+s.musteriAksaklikSayisi||0, y=s.musteriAksaklikSorumlu||'-';
@@ -7939,7 +7948,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if(ag>0 && ah==='Tedarikçi') d+=Math.min(ag*15,25);
             if(ad==='Evet' && ae==='Hayır') d+=5;
             s.iatfDuzeltme = -d;
-            var base = Math.round((+s.tedarikcipuani||0)*100);
+            // HAM puan tabani: eskiden once yuvarlaniyordu (89,51 -> 90) ve ayni satirda
+            // Tedarikci Sinifi B iken Duzeltilmis Sinif A cikiyordu. Sinif ham degerden.
+            var base = (+s.tedarikcipuani||0)*100;
             var ak = base + s.iatfDuzeltme; if(!isFinite(ak)) ak=0; if(ak<0) ak=0;
             s.duzeltilmisPuan = ak;
             s.duzeltilmisSinif = (ak>=90)?'A':(ak>=80?'B':(ak>=70?'C':'D'));
@@ -7977,7 +7988,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             var sp=function(v){ return '<span style="font-size:0.78em;white-space:nowrap;">'+(v||'')+'</span>'; };
             var set=function(key,val){ var c=tr.querySelector('[data-iatf="'+key+'"]'); if(c) c.innerHTML=val; };
             set('musteriDurum',sp(s.musteriDurum)); set('navlunDurum',sp(s.navlunDurum)); set('bildirimDeger',sp(s.bildirimDeger)); set('sahaDurum',sp(s.sahaDurum));
-            set('iatfDuzeltme',sp(s.iatfDuzeltme)); set('duzeltilmisPuan','<b>'+s.duzeltilmisPuan+'</b>');
+            set('iatfDuzeltme',sp(s.iatfDuzeltme)); set('duzeltilmisPuan','<b>'+_puanTxt(s.duzeltilmisPuan)+'</b>');
             set('duzeltilmisSinif','<span class="supplier-class-badge class-'+String(s.duzeltilmisSinif).toLowerCase()+'">'+s.duzeltilmisSinif+'</span>');
             set('riskAnalizi',sp(s.riskAnalizi));
         }
@@ -8019,7 +8030,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
               '<td class="text-center">'+_iatfSel(s.name,'sahaProblemSorumlu',s.sahaProblemSorumlu,IATF_SORUMLU_OPTS)+'</td>'+
               '<td class="text-center" data-iatf="sahaDurum">'+disp(s.sahaDurum)+'</td>'+
               '<td class="text-center" data-iatf="iatfDuzeltme">'+disp(s.iatfDuzeltme)+'</td>'+
-              '<td class="text-center" data-iatf="duzeltilmisPuan"><b>'+s.duzeltilmisPuan+'</b></td>'+
+              '<td class="text-center" data-iatf="duzeltilmisPuan"><b>'+_puanTxt(s.duzeltilmisPuan)+'</b></td>'+
               '<td class="text-center" data-iatf="duzeltilmisSinif"><span class="supplier-class-badge class-'+String(s.duzeltilmisSinif).toLowerCase()+'">'+s.duzeltilmisSinif+'</span></td>'+
               '<td class="text-center" data-iatf="riskAnalizi">'+disp(s.riskAnalizi)+'</td>';
         }
@@ -11313,7 +11324,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         </td>
                         <td class="text-right">
                             <span style="font-weight: 700; color: #1e3c72; font-size: 1.1em;">
-                                ${(result.tedarikcipuani * 100).toFixed(2)}%
+                                ${_puanTxt(result.tedarikcipuani * 100)}%
                             </span>
                         </td>
                         <td class="text-center">
@@ -13463,7 +13474,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         }
                     }
                     
-                    if (cells[23]) cells[23].textContent = (supplier.tedarikcipuani * 100).toFixed(0) + '%';
+                    if (cells[23]) cells[23].textContent = _puanTxt(supplier.tedarikcipuani * 100) + '%';
                     if (cells[24]) {
                         const sinifSpan = cells[24].querySelector('.supplier-class');
                         if (sinifSpan) {
