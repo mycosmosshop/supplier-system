@@ -18045,6 +18045,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 { category: 'Temel Bilgiler', label: 'Tedarikçi İletişim Bilgileri', value: hasBasicInfo, detail: hasBasicInfo ? 'Girilmiş' : 'Girilmemiş' },
                 { category: 'Temel Bilgiler', label: 'İletişim (Email/Tel)', value: hasContactInfo, detail: hasContactInfo ? 'Var' : 'Yok' },
                 { category: 'Temel Bilgiler', label: 'Yedek İletişim', value: hasBackupContact, detail: hasBackupContact ? 'Var' : 'Yok' },
+                { category: 'Temel Bilgiler', label: 'PSCR (Ürün Güvenliği Temsilcisi)', value: hasPscr, detail: hasPscr ? (supplierInfo.pscrName || 'Atanmış') : 'Atanmamış' },
                 
                 // Hedefler
                 { category: 'Hedefler', label: 'PPM Hedefi Tanımlı', value: supplier.ppmTarget > 0, detail: supplier.ppmTarget > 0 ? supplier.ppmTarget : 'Tanımlanmamış' },
