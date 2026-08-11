@@ -3632,6 +3632,24 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
         }
 
+        // Kayıtlı hedefi OKU. Hedefler localStorage'da (ppmTarget_*/hataHedefi_*) tutulur ve
+        // kullanıcılar arasında senkronlanır; ama LeanSys çekiminde yalnız EKRANDAKİ veriden
+        // okunuyordu → verisi olmayan bir bilgisayarda önce çekim yapılınca hedefler
+        // varsayılana (1000 / 2) düşüyordu. Artık önce kalıcı kayda bakılır.
+        function loadPPMTargetFromStorage(supplierName) {
+            try {
+                const v = localStorage.getItem(`ppmTarget_${normalizeName(supplierName)}`);
+                const n = v == null ? NaN : parseFloat(v);
+                return isFinite(n) ? n : null;
+            } catch (e) { return null; }
+        }
+        function loadHataHedefiFromStorage(supplierName) {
+            try {
+                const v = localStorage.getItem(`hataHedefi_${normalizeName(supplierName)}`);
+                const n = v == null ? NaN : parseFloat(v);
+                return isFinite(n) ? n : null;
+            } catch (e) { return null; }
+        }
         // PPM Hedefini localStorage'a kaydet
         function savePPMTargetToStorage(supplierName, target) {
             try {
@@ -9381,8 +9399,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // Hata puanı hesaplama: Excel formülü
                 // =EĞER(Hata_Sayısı_Gerçekleşen=0;1;EĞER(Hata_Sayısı_Hedef/Hata_Sayısı_Gerçekleşen>1;1;Hata_Sayısı_Hedef/Hata_Sayısı_Gerçekleşen))
                 
-                // Mevcut tedarikçinin Hata Hedefini koru, yoksa varsayılan 2
-                const hataHedefi = existingSupplier ? existingSupplier.hataHedefi : 2;
+                // Hata Hedefi: önce KALICI kayıt (senkronlanan), sonra ekrandaki veri, sonra varsayılan
+                const _hhKayitli = loadHataHedefiFromStorage(supplier.name);
+                const hataHedefi = (_hhKayitli != null) ? _hhKayitli
+                                 : (existingSupplier && existingSupplier.hataHedefi != null ? existingSupplier.hataHedefi : 2);
                 
                 let hataPuan;
                 if (hataHedefi === 0) {
@@ -9404,8 +9424,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // EĞER([@[PPM ortalama]]<=0,8*[@[PPM Hedef]];0,8;
                 // EĞER([@[PPM ortalama]]<1,2*[@[PPM Hedef]];0,6;0))))))
                 
-                // Mevcut tedarikçinin PPM hedefini koru, yoksa varsayılan 1000
-                const ppmTarget = existingSupplier ? existingSupplier.ppmTarget : 1000;
+                // PPM Hedefi: önce KALICI kayıt (senkronlanan), sonra ekrandaki veri, sonra varsayılan
+                const _phKayitli = loadPPMTargetFromStorage(supplier.name);
+                const ppmTarget = (_phKayitli != null) ? _phKayitli
+                                : (existingSupplier && existingSupplier.ppmTarget != null ? existingSupplier.ppmTarget : 1000);
                 
                 let ppmPuan = 0;
                 if (ppm === 0) {
