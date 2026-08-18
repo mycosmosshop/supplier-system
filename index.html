@@ -12885,7 +12885,23 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     if (_bs) _bs.textContent = "Firma Bazlı (PPM'e göre · 0 firma)";
                     return;
                 }
-                const iadeArrOf = (r) => isMust ? ((custMonOk && cr.mon[normalizeName(r.name)]) ? cr.mon[normalizeName(r.name)] : []) : (r.monthlyIade || []);
+                // MÜŞTERİ iadesi normalde FİZİKSEL iadedir (mal_kabul). O veri yoksa eskiden
+                // herkes için 0 çiziliyordu — iade varken "iade yok" gibi görünüyordu.
+                // Artık PPM iadesine düşülür ve kaynak özet satırında yazılır.
+                const custYedek = isMust && !custMonOk;
+                if (custYedek && typeof refreshCustomerReturns === 'function' && !window.__custReturnsFetching) {
+                    window.__custReturnsFetching = true;                  // kendini onar: bir kez çek, sonra yeniden çiz
+                    Promise.resolve(refreshCustomerReturns(true)).then(function(){
+                        window.__custReturnsFetching = false;
+                        try { renderLocationPpm(); } catch(e){}
+                    }).catch(function(){ window.__custReturnsFetching = false; });
+                }
+                const iadeArrOf = (r) => {
+                    if (!isMust) return r.monthlyIade || [];
+                    const k = normalizeName(r.name);
+                    if (custMonOk) return cr.mon[k] || [];                // veri var: firmada kayıt yoksa gerçekten 0
+                    return r.monthlyIade || [];                           // veri yok: PPM iadesine düş
+                };
                 const sevkM = Array(12).fill(0), iadeM = Array(12).fill(0);
                 rows.forEach(r => { const sv = r.monthlySevk || [], iv = iadeArrOf(r); for (let m = 0; m < 12; m++) { sevkM[m] += (+sv[m] || 0); iadeM[m] += (+iv[m] || 0); } });
                 const ppmM = sevkM.map((s, m) => s > 0 ? Math.round(iadeM[m] / s * 1e6) : 0);
@@ -12900,6 +12916,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     ' · Firma: ' + rows.length + ' · Sevk: ' + tSevk.toLocaleString('tr-TR') +
                     ' · İade: ' + tIade.toLocaleString('tr-TR') +
                     ' · <span style="color:#c62828;font-weight:700;">PPM: ' + tPpm.toLocaleString('tr-TR') + '</span>' +
+                    (isMust ? ' <span style="color:#6a1b9a;font-size:.86em;">· iade kaynağı: <b>'
+                        + (custMonOk ? 'fiziksel iade (mal kabul)' : 'PPM iadesi — fiziksel iade verisi yüklenmedi') + '</b></span>' : '') +
                     ' <span style="color:#607d8b;font-size:.86em;">(grafikte <b style="color:#2e7d32;">0</b> = ay değerlendirildi, iade yok · <b>–</b> = sevkiyat yok)</span>';
                 const ctx = document.getElementById('locPpmChart').getContext('2d');
                 if (_locPpmChart) _locPpmChart.destroy();
