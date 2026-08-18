@@ -9090,7 +9090,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 result.tedarikcisınıfı = 'A';
             } else if (result.tedarikcipuani >= 0.8) {
                 result.tedarikcisınıfı = 'B';
-            } else if (result.tedarikcipuani >= 0.6) {
+            } else if (result.tedarikcipuani >= 0.7) {   // PR06: D < %70
                 result.tedarikcisınıfı = 'C';
             } else {
                 result.tedarikcisınıfı = 'D';
@@ -9486,7 +9486,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     tedarikcisınıfı = 'A';
                 } else if (tedarikcipuani >= 0.8) {
                     tedarikcisınıfı = 'B';
-                } else if (tedarikcipuani >= 0.6) {
+                } else if (tedarikcipuani >= 0.7) {   // PR06: D < %70
                     tedarikcisınıfı = 'C';
                 }
                 
@@ -11512,7 +11512,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function calculateTedarikcisınıfı(tedarikcipuani) {
             if (tedarikcipuani >= 0.9) return 'A';
             if (tedarikcipuani >= 0.8) return 'B';
-            if (tedarikcipuani >= 0.6) return 'C';
+            if (tedarikcipuani >= 0.7) return 'C';   // PR06: D < %70 (düzeltilmiş sınıfla aynı eşik)
             return 'D';
         }
 
