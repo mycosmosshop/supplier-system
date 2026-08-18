@@ -12886,6 +12886,44 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             return String((r && r.status) || '').toUpperCase().includes('MÜŞTER');
         }
 
+        // ── PDF'lerde Türkçe karakter ───────────────────────────────────────
+        // jsPDF'in gömülü Helvetica'sı Latin-1'dir: ı İ ş Ş ğ Ğ yoktur ve bozuk çıkar
+        // ("İade" → "0ade", "yıl" → "y1l"). Unicode bir TTF gömerek çözülür.
+        // Font ilk PDF üretiminde indirilip bellekte tutulur (dosya boyutu şişmesin).
+        const PDF_FONT = {
+            ad: 'Roboto',
+            url: {
+                normal: 'https://cdn.jsdelivr.net/npm/roboto-font@0.1.0/fonts/Roboto/roboto-regular-webfont.ttf',
+                bold:   'https://cdn.jsdelivr.net/npm/roboto-font@0.1.0/fonts/Roboto/roboto-bold-webfont.ttf'
+            },
+            vfs: null
+        };
+        async function pdfTurkceFont(doc){
+            try {
+                if (!PDF_FONT.vfs) {
+                    const indir = async (u) => {
+                        const r = await fetch(u);
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        const b = new Uint8Array(await r.arrayBuffer());
+                        let t = '', PARCA = 0x8000;                       // yığın taşmasın diye parça parça
+                        for (let i = 0; i < b.length; i += PARCA) t += String.fromCharCode.apply(null, b.subarray(i, i + PARCA));
+                        return btoa(t);
+                    };
+                    const [n1, b1] = await Promise.all([indir(PDF_FONT.url.normal), indir(PDF_FONT.url.bold)]);
+                    PDF_FONT.vfs = { normal: n1, bold: b1 };
+                }
+                doc.addFileToVFS('Roboto-Regular.ttf', PDF_FONT.vfs.normal);
+                doc.addFont('Roboto-Regular.ttf', PDF_FONT.ad, 'normal');
+                doc.addFileToVFS('Roboto-Bold.ttf', PDF_FONT.vfs.bold);
+                doc.addFont('Roboto-Bold.ttf', PDF_FONT.ad, 'bold');
+                doc.setFont(PDF_FONT.ad, 'normal');
+                return PDF_FONT.ad;
+            } catch (e) {
+                console.warn('PDF Türkçe font yüklenemedi:', e);
+                return null;                                              // helvetica ile devam (Türkçe bozuk olabilir)
+            }
+        }
+
         // ── Modal yığını: en son açılan en üstte ─────────────────────────────
         // Bütün .modal-overlay öğeleri aynı z-index'i paylaşıyor; iki modal aynı anda
         // açıkken sırayı DOM konumu belirliyordu (Pareto, Lokasyon PPM'in altında
@@ -13122,13 +13160,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const t = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
             wb.xlsx.writeBuffer().then(b => saveAs(new Blob([b], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Pareto_' + t + '.xlsx'));
         }
-        function paretoPdf(){
+        async function paretoPdf(){
             if (!_paretoSonSatir.length) { showAlert('Aktarılacak veri yok.', 'warning'); return; }
             const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
             if (!JsPDF) { showAlert('PDF kütüphanesi yüklenemedi.', 'error'); return; }
             const doc = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+            const fnt = await pdfTurkceFont(doc);                          // ı İ ş ğ düzgün çıksın
+            if (!fnt) showAlert('⚠️ Türkçe font indirilemedi (çevrimdışı olabilirsiniz); PDF\'te bazı harfler bozuk görünebilir.', 'warning');
             const sayfaEn = doc.internal.pageSize.getWidth();
+            if (fnt) doc.setFont(fnt, 'bold');
             doc.setFontSize(14); doc.text(_paretoBaslikMetni(), 12, 14);
+            if (fnt) doc.setFont(fnt, 'normal');
             doc.setFontSize(9); doc.setTextColor(120);
             let alt = 'Firma: ' + _paretoSonSatir.length;
             if (_paretoBaslik && _paretoBaslik.olcut !== 'ppm') {
@@ -13154,8 +13196,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             doc.autoTable({
                 head: [['#', 'Firma', 'Sevk', 'İade', 'Hata', 'PPM', 'Pay %', 'Küm. %']],
                 body: govde, startY: y, margin: { left: 12, right: 12 },
-                styles: { fontSize: 7, cellPadding: 1.4 },
-                headStyles: { fillColor: [69, 39, 160] },
+                styles: { fontSize: 7, cellPadding: 1.4, font: fnt || 'helvetica' },
+                headStyles: { fillColor: [69, 39, 160], font: fnt || 'helvetica', fontStyle: 'bold' },
                 columnStyles: { 0: { halign: 'center', cellWidth: 8 }, 2: { halign: 'right' }, 3: { halign: 'right' },
                                 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' }, 7: { halign: 'right' } },
                 didParseCell: d => {
