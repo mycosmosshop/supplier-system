@@ -44,8 +44,8 @@ function excel(formul, satir) {
 const ornekler = [
   { ad: 'denetimli, temiz', name: 'X', totalSevk: 500000, totalIade: 300, ppmTarget: 1000, hataHedefi: 2, totalHata: 1, kalitePuan: 100, vdaPuan: 88, talepEdilen8D: 0, cevaplanan8D: 0, terminPuan: 89.6, tamamlanmaPuan: 88.4, iatf: 1, iso9001: 1 },
   { ad: 'denetimsiz, hedef asan', name: 'Y', totalSevk: 200000, totalIade: 900, ppmTarget: 1000, hataHedefi: 2, totalHata: 6, kalitePuan: 70, vdaPuan: 0, talepEdilen8D: 4, cevaplanan8D: 2, terminPuan: 77.4, tamamlanmaPuan: 85.6, iatf: 0, iso9001: 1 },
-  { ad: 'sifir sevk / sifir hata', name: 'Z', totalSevk: 0, totalIade: 0, ppmTarget: 1000, hataHedefi: 2, totalHata: 0, kalitePuan: 80, vdaPuan: 0, talepEdilen8D: 0, cevaplanan8D: 0, terminPuan: 100, tamamlanmaPuan: 100, iatf: 0, iso9001: 1 },
-  { ad: 'OTOMOTIV, IATF yok -> tavan B', name: 'OTO A', totalSevk: 1000000, totalIade: 0, ppmTarget: 1000, hataHedefi: 2, totalHata: 0, kalitePuan: 100, vdaPuan: 95, talepEdilen8D: 0, cevaplanan8D: 0, terminPuan: 100, tamamlanmaPuan: 100, iatf: 0, iso9001: 1 },
+  { ad: 'sifir sevk / sifir hata', name: 'Z', totalSevk: 0, totalIade: 0, ppmTarget: 1000, hataHedefi: 2, totalHata: 0, kalitePuan: 80, vdaPuan: 0, talepEdilen8D: 0, cevaplanan8D: 0, terminPuan: 100, tamamlanmaPuan: 100, iatf: 0, iso9001: 1, iso14001: 1, iso45001: 1 },
+  { ad: 'OTOMOTIV, IATF yok -> tavan B', name: 'OTO A', totalSevk: 1000000, totalIade: 0, ppmTarget: 1000, hataHedefi: 2, totalHata: 0, kalitePuan: 70, vdaPuan: 95, talepEdilen8D: 0, cevaplanan8D: 0, terminPuan: 100, tamamlanmaPuan: 100, iatf: 0, iso9001: 1 },
   { ad: 'OTOMOTIV, belge yok -> tavan C', name: 'OTO B', totalSevk: 1000000, totalIade: 0, ppmTarget: 1000, hataHedefi: 2, totalHata: 0, kalitePuan: 0, vdaPuan: 95, talepEdilen8D: 0, cevaplanan8D: 0, terminPuan: 100, tamamlanmaPuan: 100, iatf: 0, iso9001: 0 },
   { ad: 'IATF olaylari (kesinti)', name: 'W', totalSevk: 400000, totalIade: 200, ppmTarget: 1000, hataHedefi: 2, totalHata: 2, kalitePuan: 100, vdaPuan: 90, talepEdilen8D: 3, cevaplanan8D: 3, terminPuan: 95, tamamlanmaPuan: 95, iatf: 1, iso9001: 1,
     musteriAksaklikSayisi: 3, musteriAksaklikSorumlu: 'Tedarikçi', ekstraNavlunSayisi: 1, ekstraNavlunSorumlu: 'Tedarikçi',
@@ -69,7 +69,8 @@ for (const o of ornekler) {
   app.computeIatfFields(r);
 
   // ---- Excel: formulleri ham girdiler uzerinde coz ----
-  const belge = [o.iatf && 'IATF16949', o.iso9001 && 'ISO 9001'].filter(Boolean).join(', ') || '-';
+  const belge = [o.iatf && 'IATF16949', o.iso9001 && 'ISO 9001',
+                 o.iso14001 && 'ISO 14001', o.iso45001 && 'ISO 45001'].filter(Boolean).join(', ') || '-';
   const S = { F: o.totalSevk, G: o.totalIade, H: o.ppmTarget, K: o.hataHedefi, L: o.totalHata,
     N: belge, O: o.kalitePuan, P: o.vdaPuan, Q: o.talepEdilen8D, R: o.cevaplanan8D,
     T: o.terminPuan, U: o.tamamlanmaPuan,
@@ -79,6 +80,7 @@ for (const o of ornekler) {
     AG: o.sahaProblemSayisi || 0, AH: o.sahaProblemSorumlu || '-',
     AN: o.name.includes('OTO') ? 'EVET' : 'HAYIR' };
   S.I  = excel(XF.ppm(10), S);         S.J  = excel(XF.ppmPuan(10), S);
+  S.O  = excel(XF.kbp(10), S);         // Kalite Belge Puani belgelerden turetilir
   S.M  = excel(XF.hataPuan(10), S);    S.S  = excel(XF.donus8D(10), S);
   S.V  = excel(XF.tdp(10), S);         S.W  = excel(XF.sinif(10, 'V'), S);
   S.AJ = excel(XF.kesinti(10), S);     S.AK = excel(XF.dtp(10), S);
@@ -92,6 +94,7 @@ for (const o of ornekler) {
     ['PPM Puani',         S.J,  r.ppmPuan * 100],
     ['Hata Puani',        S.M,  r.hataPuan * 100],
     ['8D Donus',          S.S,  r.donusOrani8D],
+    ['Kalite Belge Puani', S.O, o.kalitePuan],
     ['TDP',               S.V,  tdpApp],
     ['Sinif',             S.W,  r.tedarikcisınıfı],
     ['IATF kesinti',      S.AJ, r.iatfDuzeltme],

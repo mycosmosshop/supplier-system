@@ -8049,7 +8049,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             var set=function(key,val){ var c=tr.querySelector('[data-iatf="'+key+'"]'); if(c) c.innerHTML=val; };
             set('musteriDurum',sp(s.musteriDurum)); set('navlunDurum',sp(s.navlunDurum)); set('bildirimDeger',sp(s.bildirimDeger)); set('sahaDurum',sp(s.sahaDurum));
             set('iatfDuzeltme',sp(s.iatfDuzeltme)); set('duzeltilmisPuan','<b>'+_puanTxt(s.duzeltilmisPuan)+'%</b>');
-            set('duzeltilmisSinif','<span class="supplier-class-badge class-'+String(s.duzeltilmisSinif).toLowerCase()+'">'+s.duzeltilmisSinif+'</span>');
+            set('duzeltilmisSinif', sinifHucresiHtml(s, s.duzeltilmisSinif, 'supplier-class-badge'));
             set('riskAnalizi',sp(s.riskAnalizi));
         }
         function _iatfFindRow(name){
@@ -8091,7 +8091,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
               '<td class="text-center" data-iatf="sahaDurum">'+disp(s.sahaDurum)+'</td>'+
               '<td class="text-center" data-iatf="iatfDuzeltme">'+disp(s.iatfDuzeltme)+'</td>'+
               '<td class="text-center" data-iatf="duzeltilmisPuan"><b>'+_puanTxt(s.duzeltilmisPuan)+'%</b></td>'+
-              '<td class="text-center" data-iatf="duzeltilmisSinif"><span class="supplier-class-badge class-'+String(s.duzeltilmisSinif).toLowerCase()+'">'+s.duzeltilmisSinif+'</span></td>'+
+              '<td class="text-center" data-iatf="duzeltilmisSinif">'+sinifHucresiHtml(s, s.duzeltilmisSinif, 'supplier-class-badge')+'</td>'+
               '<td class="text-center" data-iatf="riskAnalizi">'+disp(s.riskAnalizi)+'</td>';
         }
         function iatfHeaderHtml(){ return IATF_HEADERS.map(function(h){ return '<th class="text-center" style="min-width:90px;background:#0f4c81;">'+h+'</th>'; }).join(''); }
@@ -10982,7 +10982,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </td>
                     <td class="text-right" style="font-weight: bold; ${isMusteri ? 'opacity: 0.3; pointer-events: none; background: #f5f5f5;' : ''}">${_puanTxt((result.tedarikcipuani || 0) * 100)}%</td>
                     <td class="text-center" style="${isMusteri ? 'opacity: 0.3; pointer-events: none; background: #f5f5f5;' : ''}">
-                        ${sinifTavaniSebep(result) ? `<span title="${sinifTavaniSebep(result).replace(/"/g,'&quot;')}" style="color:#b45309;font-weight:800;cursor:help;margin-right:4px">⚠</span>` : ''}<span class="supplier-class class-${(result.tedarikcisınıfı || 'D').toLowerCase()}"${sinifTavaniSebep(result)?` title="${sinifTavaniSebep(result).replace(/"/g,'&quot;')}"`:''}>${result.tedarikcisınıfı || 'D'}</span>
+                        ${sinifHucresiHtml(result, result.tedarikcisınıfı, 'supplier-class')}
                     </td>
                     ${iatfCellsHtml(result)}
                 </tr>
@@ -11432,10 +11432,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             </span>
                         </td>
                         <td class="text-center">
-                            ${sinifTavaniSebep(result) ? `<span title="${sinifTavaniSebep(result).replace(/"/g,'&quot;')}" style="color:#b45309;font-weight:700;cursor:help;margin-right:3px">⚠</span>` : ''}
-                            <span class="supplier-class-badge class-${result.tedarikcisınıfı.toLowerCase()}" ${sinifTavaniSebep(result)?`title="${sinifTavaniSebep(result).replace(/"/g,'&quot;')}"`:''}>
-                                ${result.tedarikcisınıfı}
-                            </span>
+                            ${sinifHucresiHtml(result, result.tedarikcisınıfı, 'supplier-class-badge')}
                         </td>
                         ${iatfCellsHtml(result)}
                     </tr>
@@ -12646,6 +12643,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                       + 'ancak Genel Müdür onayı ve PL33 sistem geliştirme planı ile çalışılabilir (PR06 sınıf tavanı)';
             }catch(e){ return ''; }
         }
+        // Sınıf hücresinin TEK kaynağı. Sertifika/puan düzenlendiğinde satır yerinde
+        // tazeleniyor; ⚠ ayrı yerde üretilirse (eskiden öyleydi) IATF eklenince harf
+        // düzeliyor ama uyarı ekranda kalıyordu.
+        function sinifHucresiHtml(s, sinif, cls){
+            const not = sinifTavaniSebep(s);
+            const t = not ? ' title="' + not.replace(/"/g, '&quot;') + '"' : '';
+            const h = sinif || 'D';
+            return (not ? '<span' + t + ' style="color:#b45309;font-weight:800;cursor:help;margin-right:4px">⚠</span>' : '')
+                 + '<span class="' + (cls || 'supplier-class') + ' class-' + String(h).toLowerCase() + '"' + t + '>' + h + '</span>';
+        }
         function sinifTavaniUygula(sinif, s){
             if (!sinif || !sinifTavaniSebep(s)) return sinif;
             const tavan = s.iso9001 ? 'B' : 'C';
@@ -13603,12 +13610,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     }
                     
                     if (cells[23]) cells[23].textContent = _puanTxt(supplier.tedarikcipuani * 100) + '%';
-                    if (cells[24]) {
-                        const sinifSpan = cells[24].querySelector('.supplier-class');
-                        if (sinifSpan) {
-                            sinifSpan.textContent = supplier.tedarikcisınıfı;
-                            sinifSpan.className = `supplier-class class-${supplier.tedarikcisınıfı.toLowerCase()}`;
-                        }
+                    // ⚠ tavan uyarısı da bu hücrede; harfle BİRLİKTE yeniden üretilmeli
+                    // (yoksa IATF eklenince sınıf A oluyor ama eski ⚠ ekranda kalıyordu).
+                    if (cells[24] && cells[24].querySelector('.supplier-class')) {
+                        cells[24].innerHTML = sinifHucresiHtml(supplier, supplier.tedarikcisınıfı, 'supplier-class');
                     }
                     break;
                 }
@@ -14038,7 +14043,31 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // ExcelJS workbook oluştur
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Onaylı Tedarikçi Listesi');
-            
+
+            // ── Açılır liste kaynakları (gizli sayfa) ────────────────────────────
+            // Seçenek metinlerinde virgül var (belge kombinasyonları), bu yüzden
+            // hücre içi liste yerine ayrı sayfadaki aralık kullanılır.
+            const LST = {
+                sorumlu: ['-', 'Tedarikçi', 'Müşteri', 'İç/Ultech'],
+                evetHayir: ['Evet', 'Hayır'],
+                ppap: ['Evet', 'Hayır', 'Gerekmiyor'],
+                belge: ['-', 'IATF16949', 'IATF16949, ISO 9001', 'ISO 9001',
+                        'ISO 9001, ISO 14001', 'ISO 9001, ISO 45001',
+                        'ISO 9001, ISO 14001, ISO 45001', 'ISO 14001', 'ISO 45001']
+            };
+            const lstSheet = workbook.addWorksheet('Listeler');
+            lstSheet.state = 'veryHidden';
+            const LST_REF = {};
+            Object.keys(LST).forEach((k, ci) => {
+                const col = lstSheet.getColumn(ci + 1);
+                col.values = [k].concat(LST[k]);
+                const L = col.letter;
+                LST_REF[k] = 'Listeler!$' + L + '$2:$' + L + '$' + (LST[k].length + 1);
+            });
+            // showErrorMessage:false → liste önerilir, mevcut serbest metin (tarihli belge
+            // adları gibi) geçersiz sayılıp engellenmez.
+            const dv = (cell, key) => { cell.dataValidation = { type: 'list', allowBlank: true, formulae: [LST_REF[key]], showErrorMessage: false }; };
+
             // Logo hücresi (A1:C3 birleştirilmiş)
             worksheet.mergeCells('A1:C3');
             const logoCell = worksheet.getCell('A1');
@@ -14334,6 +14363,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         + `IF(AE${n}="Gerekmiyor","✅ Kabul Edildi","⚠️ PPAP / Onay Bekliyor (–5 Puan)")))`,
                 // IATF kesintisi: müşteri aksaklığı −10/olay (tavan 20), navlun −5 (tavan 10),
                 // saha problemi −15 (tavan 25) — yalnız sorumlu "Tedarikçi" ise; PPAP bekliyorsa −5
+                kbp: n => `IF(ISNUMBER(SEARCH("IATF",N${n})),100,`
+                        + `IF(ISNUMBER(SEARCH("ISO 9001",N${n})),`
+                        + `70+IF(ISNUMBER(SEARCH("ISO 14001",N${n})),5,0)+IF(ISNUMBER(SEARCH("ISO 45001",N${n})),5,0),0))`,
                 kesinti: n => `-(IF(AND(X${n}>0,Y${n}="Tedarikçi"),MIN(X${n}*10,20),0)`
                         + `+IF(AND(AA${n}>0,AB${n}="Tedarikçi"),MIN(AA${n}*5,10),0)`
                         + `+IF(AND(AG${n}>0,AH${n}="Tedarikçi"),MIN(AG${n}*15,25),0)`
@@ -14383,7 +14415,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     (+r.totalHata || 0),
                     { formula: XF.hataPuan(XR) },                // M
                     belgeText,
-                    (+r.kalitePuan || 0),                        // O (0–100, elle değiştirilebilir)
+                    { formula: XF.kbp(XR) },                     // O — belgelerden türetilir (0–100, elle değiştirilebilir)
                     (+r.vdaPuan || 0),                           // P
                     (+r.talepEdilen8D || 0),
                     (+r.cevaplanan8D || 0),
@@ -14404,6 +14436,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 ];
                 
                 const dataRow = worksheet.addRow(rowData);
+                // Açılır listeler: belge seti, olay sorumluları, özel durum / PPAP
+                dv(dataRow.getCell(14), 'belge');        // N  Kalite Belgeleri → O puanı formülle güncellenir
+                dv(dataRow.getCell(25), 'sorumlu');      // Y  Müşteri Aksaklığı Sorumlusu
+                dv(dataRow.getCell(28), 'sorumlu');      // AB Ekstra Navlun Sorumlusu
+                dv(dataRow.getCell(30), 'evetHayir');    // AD Özel Durum Bildirimi
+                dv(dataRow.getCell(31), 'ppap');         // AE PPAP / Onay Durumu
+                dv(dataRow.getCell(34), 'sorumlu');      // AH Saha Problemi Sorumlusu
                 // Sayı biçimleri: puan sütunları ondalıklı sayı, sayaçlar tam sayı
                 [9, 10, 13, 15, 16, 19, 20, 21, 22, 36, 37].forEach(c => {
                     dataRow.getCell(c).numFmt = (c === 9) ? '#,##0' : '0.0';
