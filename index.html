@@ -1398,6 +1398,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
          kismi JS'in urettigi satir ici style="" icinde oldugu icin nitelik
          secicileri + !important gerekiyor. -->
     <style id="koyuTema">
+    /* Tema degisiminde gecisleri kapat (zeminler sirayla degisip yanip sonuyordu) */
+    :root.tema-gecis, :root.tema-gecis *, :root.tema-gecis *::before, :root.tema-gecis *::after{
+      transition:none!important; animation-duration:0s!important; animation-delay:0s!important;
+    }
     :root[data-theme="dark"]{
       --k-bg:#191c20; --k-yuzey:#23272d; --k-yuzey2:#2b3037; --k-yuzey3:#333941;
       --k-kenar:#3c434c; --k-metin:#e7e9ec; --k-metin2:#a8b0b9;
@@ -1544,6 +1548,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     (function koyuTemaDinle(){
       function uygula(t){
         if(!t) return;
+        var _k = document.documentElement;
+        _k.classList.add('tema-gecis');                       // yanip sonmeyi onle
+        clearTimeout(window.__temaGecisZ);
+        window.__temaGecisZ = setTimeout(function(){ _k.classList.remove('tema-gecis'); }, 140);
         document.documentElement.setAttribute('data-theme', t);
         document.documentElement.setAttribute('data-bs-theme', t);
         try{
