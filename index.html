@@ -1548,8 +1548,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     (function koyuTemaDinle(){
       function uygula(t){
         if(!t) return;
+        // Gecis animasyonlarini kisa sureligine kapat (ogeler farkli surelerle
+        // animasyon yapinca zeminler sirayla degisiyordu).
+        // NOT: Icerigi gizleyip atomik gecis denendi ve GERI ALINDI — tum ekran
+        // sonup yaniyordu, daha rahatsiz ediciydi.
         var _k = document.documentElement;
-        _k.classList.add('tema-gecis');                       // yanip sonmeyi onle
+        _k.classList.add('tema-gecis');
         clearTimeout(window.__temaGecisZ);
         window.__temaGecisZ = setTimeout(function(){ _k.classList.remove('tema-gecis'); }, 140);
         document.documentElement.setAttribute('data-theme', t);
