@@ -12825,6 +12825,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
         // ── Lokasyon Bazlı PPM Analizi ──
         let _locPpmChart = null;
+        let _locPpmFirma = null;          // tabloda seçili firma (null = tümü)
+        function locPpmFirmaSec(ad){
+            _locPpmFirma = (_locPpmFirma === ad) ? null : (ad || null);   // aynısına tekrar tıklayınca kalkar
+            renderLocationPpm();
+        }
+        function locPpmFirmaTemizle(){ _locPpmFirma = null; renderLocationPpm(); }
         function openLocationPpmModal() {
             const m = document.getElementById('locPpmModal'); if (!m) return;
             const canon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Sakarya', 'İstanbul', 'Ultech1', 'Ultech2'];
@@ -12835,6 +12841,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             base.forEach(r => (r.lokasyon || []).forEach(l => { if (l) set[l] = 1; }));
             const sel = document.getElementById('locPpmLoc');
             sel.innerHTML = '<option value="__ALL__">Tüm Lokasyonlar</option>' + Object.keys(set).sort().map(l => '<option value="' + l + '">' + l + '</option>').join('');
+            _locPpmFirma = null;
             m.style.display = 'flex';
             renderLocationPpm();
         }
@@ -12860,7 +12867,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     && typeof lastFilteredResults !== 'undefined' && lastFilteredResults && lastFilteredResults.length;
                 const base = _kayitliFiltre ? lastFilteredResults : allResults;
                 const filtreAktif = _kayitliFiltre;
-                const rows = base.filter(r => {
+                let rows = base.filter(r => {
                     if (!r) return false;
                     if (isMust ? !_durumMusteri(r) : !_durumOnayli(r)) return false;
                     if (loc !== '__ALL__' && (r.lokasyon || []).indexOf(loc) < 0) return false;
@@ -12888,7 +12895,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // MÜŞTERİ iadesi normalde FİZİKSEL iadedir (mal_kabul). O veri yoksa eskiden
                 // herkes için 0 çiziliyordu — iade varken "iade yok" gibi görünüyordu.
                 // Artık PPM iadesine düşülür ve kaynak özet satırında yazılır.
-                const custYedek = isMust && !custMonOk;
+                // mal_kabul yüklü olsa da içinde HİÇ iade satırı yoksa fiziksel iade kaynağı
+                // kullanılamaz; müşterilerin iadesi monthlyIade'de duruyor (tabloda görünen değer).
+                const custDolu = custMonOk && Object.keys(cr.mon || {}).length > 0;
+                const custYedek = isMust && !custDolu;
                 if (custYedek && typeof refreshCustomerReturns === 'function' && !window.__custReturnsFetching) {
                     window.__custReturnsFetching = true;                  // kendini onar: bir kez çek, sonra yeniden çiz
                     Promise.resolve(refreshCustomerReturns(true)).then(function(){
@@ -12896,11 +12906,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         try { renderLocationPpm(); } catch(e){}
                     }).catch(function(){ window.__custReturnsFetching = false; });
                 }
+                // Tabloda bir firma seçiliyse grafik/özet yalnız onu gösterir
+                const rowsTum = rows;
+                const rows2 = _locPpmFirma ? rows.filter(r => r.name === _locPpmFirma) : rows;
+                if (_locPpmFirma && !rows2.length) _locPpmFirma = null;   // filtre değişip firma düştüyse seçimi bırak
+                rows = _locPpmFirma ? rows2 : rows;
                 const iadeArrOf = (r) => {
                     if (!isMust) return r.monthlyIade || [];
                     const k = normalizeName(r.name);
-                    if (custMonOk) return cr.mon[k] || [];                // veri var: firmada kayıt yoksa gerçekten 0
-                    return r.monthlyIade || [];                           // veri yok: PPM iadesine düş
+                    if (custDolu) return cr.mon[k] || [];                 // gerçek fiziksel iade verisi var
+                    return r.monthlyIade || [];                           // yoksa PPM iadesine düş
                 };
                 const sevkM = Array(12).fill(0), iadeM = Array(12).fill(0);
                 rows.forEach(r => { const sv = r.monthlySevk || [], iv = iadeArrOf(r); for (let m = 0; m < 12; m++) { sevkM[m] += (+sv[m] || 0); iadeM[m] += (+iv[m] || 0); } });
@@ -12911,13 +12926,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const locLbl = loc === '__ALL__' ? 'Tüm Lokasyonlar' : loc;
                 document.getElementById('locPpmSummary').innerHTML =
                     (filtreAktif ? '<span style="color:#1565c0;font-weight:700;">🔍 Aktif filtre: ' + base.length + ' firma</span> · ' : '') +
+                    (_locPpmFirma ? '<span style="background:#1565c0;color:#fff;border-radius:12px;padding:2px 10px;font-weight:700;">'
+                        + _locPpmFirma + '</span> <button onclick="locPpmFirmaTemizle()" style="border:none;background:#eceff1;color:#37474f;border-radius:10px;padding:2px 9px;cursor:pointer;font-weight:700;">✕ tüm firmalar</button> · ' : '') +
                     '<b>' + locLbl + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + (kat !== '__ALL__' ? ' · ' + kat : '') + '</b> · ' +
                     (ay === 'all' ? 'Tüm yıl' : (AYU[parseInt(ay, 10) - 1] || ay)) +
                     ' · Firma: ' + rows.length + ' · Sevk: ' + tSevk.toLocaleString('tr-TR') +
                     ' · İade: ' + tIade.toLocaleString('tr-TR') +
                     ' · <span style="color:#c62828;font-weight:700;">PPM: ' + tPpm.toLocaleString('tr-TR') + '</span>' +
                     (isMust ? ' <span style="color:#6a1b9a;font-size:.86em;">· iade kaynağı: <b>'
-                        + (custMonOk ? 'fiziksel iade (mal kabul)' : 'PPM iadesi — fiziksel iade verisi yüklenmedi') + '</b></span>' : '') +
+                        + (custDolu ? 'fiziksel iade (mal kabul)'
+                             : (custMonOk ? 'PPM iadesi — mal kabul verisinde iade kaydı yok' : 'PPM iadesi — fiziksel iade verisi yüklenmedi')) + '</b></span>' : '') +
                     ' <span style="color:#607d8b;font-size:.86em;">(grafikte <b style="color:#2e7d32;">0</b> = ay değerlendirildi, iade yok · <b>–</b> = sevkiyat yok)</span>';
                 const ctx = document.getElementById('locPpmChart').getContext('2d');
                 if (_locPpmChart) _locPpmChart.destroy();
@@ -12957,15 +12975,26 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         }
                     }]
                 });
-                const firmRows = rows.map(r => {
+                const firmRows = rowsTum.map(r => {
                     const sv = r.monthlySevk || [], iv = iadeArrOf(r); let s = 0, i = 0;
                     months.forEach(m => { s += (+sv[m] || 0); i += (+iv[m] || 0); });
                     return { name: r.name, sevk: s, iade: i, ppm: s > 0 ? Math.round(i / s * 1e6) : 0 };
                 }).filter(x => x.sevk > 0 || x.iade > 0).sort((a, b) => b.ppm - a.ppm);
                 const _bslk = document.getElementById('locPpmTableTitle');
                 if (_bslk) _bslk.textContent = "Firma Bazlı (PPM'e göre · " + firmRows.length + " firma)";
-                const tb = firmRows.map(x => '<tr><td style="padding:3px 6px;">' + x.name + '</td><td style="text-align:right;padding:3px 6px;">' + x.sevk.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;color:#c62828;">' + x.iade.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;font-weight:600;">' + x.ppm.toLocaleString('tr-TR') + '</td></tr>').join('');
-                document.getElementById('locPpmTable').innerHTML = '<tr style="background:#37474f;color:white;position:sticky;top:0;"><th style="text-align:left;padding:4px 6px;">Firma</th><th style="padding:4px 6px;">Sevk</th><th style="padding:4px 6px;">İade</th><th style="padding:4px 6px;">PPM</th></tr>' + (tb || '<tr><td colspan="4" style="padding:8px;text-align:center;color:#888;">Veri yok</td></tr>');
+                const _esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+                const tb = firmRows.map(x => '<tr data-firma="' + _esc(x.name) + '" style="cursor:pointer;'
+                    + (x.name === _locPpmFirma ? 'background:#e3f2fd;font-weight:700;' : '') + '" title="Grafiği bu firmaya göre filtrele">'
+                    + '<td style="padding:3px 6px;">' + x.name + '</td><td style="text-align:right;padding:3px 6px;">' + x.sevk.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;color:#c62828;">' + x.iade.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;font-weight:600;">' + x.ppm.toLocaleString('tr-TR') + '</td></tr>').join('');
+                const _tbl = document.getElementById('locPpmTable');
+                if (!_tbl.dataset.tikBagli) {
+                    _tbl.dataset.tikBagli = '1';
+                    _tbl.addEventListener('click', function(ev){
+                        const tr = ev.target && ev.target.closest ? ev.target.closest('tr[data-firma]') : null;
+                        if (tr) locPpmFirmaSec(tr.getAttribute('data-firma'));
+                    });
+                }
+                _tbl.innerHTML = '<tr style="background:#37474f;color:white;position:sticky;top:0;"><th style="text-align:left;padding:4px 6px;">Firma</th><th style="padding:4px 6px;">Sevk</th><th style="padding:4px 6px;">İade</th><th style="padding:4px 6px;">PPM</th></tr>' + (tb || '<tr><td colspan="4" style="padding:8px;text-align:center;color:#888;">Veri yok</td></tr>');
             } catch (e) { console.warn('renderLocationPpm', e); }
         }
 
