@@ -10104,7 +10104,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     
                     // Tedarikçi puanını yeniden hesapla
                     supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                    supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                    supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                     
                     savePPMTargetToStorage(supplier.name, value);
                     updatedCount++;
@@ -10148,7 +10148,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     
                     // Tedarikçi puanını yeniden hesapla
                     supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                    supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                    supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                     
                     saveHataHedefiToStorage(supplier.name, value);
                     updatedCount++;
@@ -10982,7 +10982,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </td>
                     <td class="text-right" style="font-weight: bold; ${isMusteri ? 'opacity: 0.3; pointer-events: none; background: #f5f5f5;' : ''}">${_puanTxt((result.tedarikcipuani || 0) * 100)}%</td>
                     <td class="text-center" style="${isMusteri ? 'opacity: 0.3; pointer-events: none; background: #f5f5f5;' : ''}">
-                        <span class="supplier-class class-${(result.tedarikcisınıfı || 'D').toLowerCase()}">${result.tedarikcisınıfı || 'D'}</span>
+                        ${sinifTavaniSebep(result) ? `<span title="${sinifTavaniSebep(result).replace(/"/g,'&quot;')}" style="color:#b45309;font-weight:800;cursor:help;margin-right:4px">⚠</span>` : ''}<span class="supplier-class class-${(result.tedarikcisınıfı || 'D').toLowerCase()}"${sinifTavaniSebep(result)?` title="${sinifTavaniSebep(result).replace(/"/g,'&quot;')}"`:''}>${result.tedarikcisınıfı || 'D'}</span>
                     </td>
                     ${iatfCellsHtml(result)}
                 </tr>
@@ -11529,7 +11529,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
             const counts = { A: 0, B: 0, C: 0, D: 0 };
             results.forEach(r => {
-                const cls = (r.tedarikcisınıfı || calculateTedarikcisınıfı(r.tedarikcipuani || 0) || 'D').toUpperCase();
+                const cls = (r.tedarikcisınıfı || sinifTavaniUygula(calculateTedarikcisınıfı(r.tedarikcipuani || 0), r) || 'D').toUpperCase();
                 if (counts[cls] !== undefined) counts[cls] += 1;
             });
 
@@ -11670,7 +11670,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Sınıf filtresi (A/B/C/D)
             const classFiltered = selectedClassFilter
                 ? filtered.filter(r => {
-                    const cls = (r.tedarikcisınıfı || calculateTedarikcisınıfı(r.tedarikcipuani || 0) || 'D').toUpperCase();
+                    const cls = (r.tedarikcisınıfı || sinifTavaniUygula(calculateTedarikcisınıfı(r.tedarikcipuani || 0), r) || 'D').toUpperCase();
                     return cls === selectedClassFilter;
                 })
                 : filtered;
@@ -11772,7 +11772,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 
                 // Tedarikçi puanını yeniden hesapla
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 // Tabloyu yeniden render et
                 renderTable(lastFilteredResults.length ? lastFilteredResults : allResults);
@@ -12133,7 +12133,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 supplier.ppmPuan = ppmPuan;
                 
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 // Hemen güncelle - setTimeout kaldırıldı
                 updateSupplierCells(supplierName);
@@ -12303,7 +12303,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 supplier.hataPuan = hataPuan;
                 
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 // Scroll pozisyonunu kaydet
                 const savedScrollY = scrollY;
@@ -12345,7 +12345,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 
                 // Tedarikçi puanını yeniden hesapla
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 updateSupplierCells(supplierName);
                 showAlert(`✅ ${supplierName} için Hata hedefi ${target} olarak güncellendi`, 'success');
@@ -12549,7 +12549,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             
             // Tedarikçi puanını yeniden hesapla
             supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-            supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+            supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
             
             // Display'i güncelle
             const belgeler = [];
@@ -13244,7 +13244,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 
                 // Tedarikçi puanını yeniden hesapla
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 // DOM'u doğrudan güncelle (sayfa yeniden render edilmez, scroll korunur)
                 updateSupplierCells(supplierName);
@@ -13273,7 +13273,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 
                 // Tedarikçi puanını yeniden hesapla (VDA değiştiğinde formül değişebilir)
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 updateSupplierCells(supplierName);
                 // Dashboard ve görünüm güncelle
@@ -13312,7 +13312,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 
                 // Tedarikçi puanını yeniden hesapla
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 updateSupplierCells(supplierName);
             }
@@ -13398,7 +13398,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 
                 // Tedarikçi puanını yeniden hesapla
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 updateSupplierCells(supplierName);
                 updateDashboard(lastFilteredResults.length ? lastFilteredResults : allResults);
@@ -13466,7 +13466,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 
                 // Tedarikçi puanını yeniden hesapla
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 
                 updateSupplierCells(supplierName);
                 updateDashboard(lastFilteredResults.length ? lastFilteredResults : allResults);
@@ -21031,7 +21031,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     }
                 }
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 updateSupplierCells(supplierName);
                 updateDashboard(lastFilteredResults.length ? lastFilteredResults : allResults);
                 showAlert(`✅ ${supplierName} kalite puanı ${value}% olarak güncellendi.`, 'success');
@@ -21051,7 +21051,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 supplier.hataPuan = value / 100;
                 recordPerfOverride(supplierName, 'hpd', value);   // kalıcı: direkt Hata Puanı, LeanSys yenilemesi ezmesin
                 supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                 updateSupplierCells(supplierName);
                 updateDashboard(lastFilteredResults.length ? lastFilteredResults : allResults);
                 showAlert(`✅ ${supplierName} hata puanı ${value}% olarak güncellendi.`, 'success');
@@ -21442,7 +21442,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         
                         // Tedarikçi puanını yeniden hesapla
                         supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                        supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                        supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                         
                         // Tabloyu güncelle (toplam hata dahil)
                         updateSupplierCells(supplier.name);
@@ -21581,7 +21581,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         
                         // Tedarikçi puanını yeniden hesapla
                         supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                        supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                        supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                         
                         // HEMEN tablo ve dashboard güncelle
                         updateSupplierCells(supplier.name);
@@ -21719,7 +21719,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         
                         // Tedarikçi puanını yeniden hesapla
                         supplier.tedarikcipuani = calculateTedarikcipuani(supplier);
-                        supplier.tedarikcisınıfı = calculateTedarikcisınıfı(supplier.tedarikcipuani);
+                        supplier.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(supplier.tedarikcipuani), supplier);   // PR06 sınıf tavanı
                         
                         // HEMEN tablo ve dashboard güncelle
                         updateSupplierCells(supplier.name);
