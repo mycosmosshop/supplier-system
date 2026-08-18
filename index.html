@@ -1555,6 +1555,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                 <span>Eskişehir</span>
                             </label>
                             <label class="multiselect-option">
+                                <input type="checkbox" value="Sakarya" onchange="updateLocationFilter()" checked>
+                                <span>Sakarya</span>
+                            </label>
+                            <label class="multiselect-option">
+                                <input type="checkbox" value="İstanbul" onchange="updateLocationFilter()" checked>
+                                <span>İstanbul</span>
+                            </label>
+                            <label class="multiselect-option">
                                 <input type="checkbox" value="Ultech1" onchange="updateLocationFilter()" checked>
                                 <span>Ultech1</span>
                             </label>
@@ -10915,6 +10923,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                     <input type="checkbox" value="Eskişehir" ${(result.lokasyon || []).includes('Eskişehir') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Eskişehir', this.checked)"> Eskişehir
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
+                                    <input type="checkbox" value="Sakarya" ${(result.lokasyon || []).includes('Sakarya') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Sakarya', this.checked)"> Sakarya
+                                </label>
+                                <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
+                                    <input type="checkbox" value="İstanbul" ${(result.lokasyon || []).includes('İstanbul') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'İstanbul', this.checked)"> İstanbul
+                                </label>
+                                <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
                                     <input type="checkbox" value="Ultech1" ${(result.lokasyon || []).includes('Ultech1') ? 'checked' : ''} onchange="handleLokasyonCheckbox('${result.name}', ${index}, 'Ultech1', this.checked)"> Ultech1
                                 </label>
                                 <label style="display: block; margin: 4px 0; cursor: pointer; font-size: 0.85em; text-align: left;">
@@ -11389,6 +11403,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                 <option value="Bursa" ${(result.lokasyon || []).includes('Bursa') ? 'selected' : ''}>Bursa</option>
                                 <option value="Adana" ${(result.lokasyon || []).includes('Adana') ? 'selected' : ''}>Adana</option>
                                 <option value="Eskişehir" ${(result.lokasyon || []).includes('Eskişehir') ? 'selected' : ''}>Eskişehir</option>
+                                <option value="Sakarya" ${(result.lokasyon || []).includes('Sakarya') ? 'selected' : ''}>Sakarya</option>
+                                <option value="İstanbul" ${(result.lokasyon || []).includes('İstanbul') ? 'selected' : ''}>İstanbul</option>
                                 <option value="Ultech1" ${(result.lokasyon || []).includes('Ultech1') ? 'selected' : ''}>Ultech1</option>
                                 <option value="Ultech2" ${(result.lokasyon || []).includes('Ultech2') ? 'selected' : ''}>Ultech2</option>
                                 <option value="Müşteri" ${(result.lokasyon || []).includes('Müşteri') ? 'selected' : ''}>Müşteri</option>
@@ -12811,7 +12827,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         let _locPpmChart = null;
         function openLocationPpmModal() {
             const m = document.getElementById('locPpmModal'); if (!m) return;
-            const canon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Ultech1', 'Ultech2'];
+            const canon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Sakarya', 'İstanbul', 'Ultech1', 'Ultech2'];
             const base = ((typeof currentFilterId !== 'undefined' && currentFilterId)
                 && typeof lastFilteredResults !== 'undefined' && lastFilteredResults && lastFilteredResults.length)
                 ? lastFilteredResults : (allResults || []);
@@ -12851,6 +12867,24 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     if (kat !== '__ALL__' && getSupplierCategory(r.name) !== kat) return false;
                     return true;
                 });
+                // Sonuc bos ise NEDEN bos oldugunu yaz: hangi durumlar var, lokasyon/kategori kac firma eledi.
+                if (!rows.length) {
+                    const durumSay = {};
+                    (base || []).forEach(r => { const d = String((r && r.status) || 'ONAYLI').trim() || '(boş)'; durumSay[d] = (durumSay[d] || 0) + 1; });
+                    const durumTxt = Object.keys(durumSay).sort().map(k => k + ': ' + durumSay[k]).join(' · ') || 'liste boş';
+                    const locSay = (base || []).filter(r => loc === '__ALL__' || (r.lokasyon || []).indexOf(loc) >= 0).length;
+                    document.getElementById('locPpmSummary').innerHTML =
+                        '<b style="color:#c62828;">Sonuç yok.</b> Aranan durum: <b>' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + '</b>' +
+                        (loc !== '__ALL__' ? ' · lokasyon <b>' + loc + '</b> (' + locSay + ' firma)' : '') +
+                        (kat !== '__ALL__' ? ' · kategori <b>' + kat + '</b>' : '') +
+                        '<br><span style="color:#555;font-size:.9em;">Listedeki durumlar (' + (base || []).length + ' firma) → ' + durumTxt + '</span>';
+                    if (_locPpmChart) { _locPpmChart.destroy(); _locPpmChart = null; }
+                    document.getElementById('locPpmTable').innerHTML =
+                        '<tr><td style="padding:8px;text-align:center;color:#888;">Veri yok</td></tr>';
+                    const _bs = document.getElementById('locPpmTableTitle');
+                    if (_bs) _bs.textContent = "Firma Bazlı (PPM'e göre · 0 firma)";
+                    return;
+                }
                 const iadeArrOf = (r) => isMust ? ((custMonOk && cr.mon[normalizeName(r.name)]) ? cr.mon[normalizeName(r.name)] : []) : (r.monthlyIade || []);
                 const sevkM = Array(12).fill(0), iadeM = Array(12).fill(0);
                 rows.forEach(r => { const sv = r.monthlySevk || [], iv = iadeArrOf(r); for (let m = 0; m < 12; m++) { sevkM[m] += (+sv[m] || 0); iadeM[m] += (+iv[m] || 0); } });
@@ -12938,9 +12972,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 if (d.indexOf('ADANA') === 0) return 'Adana';
                 if (d.indexOf('ANKARA') === 0) return 'Ankara';
                 if (d.indexOf('BURSA') === 0) return 'Bursa';
+                if (d.indexOf('SAKARYA') === 0) return 'Sakarya';
+                if (d.indexOf('ISTANBUL') === 0 || d.indexOf('İSTANBUL') === 0) return 'İstanbul';
                 return null; // GÜMRÜK vb. atlanır
             };
-            const ORDER = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Ultech1', 'Ultech2'];
+            const ORDER = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Sakarya', 'İstanbul', 'Ultech1', 'Ultech2'];
 
             try {
                 const map = {};    // normName -> Set(loc)  [yalnızca gerçek alım satırlarından]
@@ -13120,7 +13156,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             
             // Tümü seçildi
             if (location === '__TUMU__' && checked) {
-                currentLokasyon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Ultech1', 'Ultech2'];
+                currentLokasyon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Sakarya', 'İstanbul', 'Ultech1', 'Ultech2'];
                 // Tüm checkbox'ları işaretle
                 const dropdown = document.getElementById(`lokasyonDropdown_${index}`);
                 dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
