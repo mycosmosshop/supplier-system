@@ -1454,6 +1454,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 </select>
             </label>
             <button onclick="loadFromSupabase()" style="background:#2e7d32; color:#fff; border:none; padding:9px 22px; border-radius:8px; cursor:pointer; font-weight:700; font-size:1em; box-shadow:0 2px 6px rgba(46,125,50,.3);">⬇️ Yükle</button>
+            <label style="font-weight:600; color:#5d4037; display:flex; align-items:center; gap:5px; cursor:pointer;"
+                   title="Kapalıysa tablo birebir LeanSys verisidir; elle yazılmış Sevk/Hata/Termin/Tamamlanma değerleri uygulanmaz (kayıtlar silinmez).">
+                <input type="checkbox" id="ptOverrideKoru" onchange="try{localStorage.setItem('_ptOverrideKoru', this.checked?'1':'0');}catch(e){}">
+                ✋ Elle düzeltmeleri uygula
+            </label>
             <span id="ptLoadStatus" style="color:#555; font-size:.9em;"></span>
             <span style="color:#888; font-size:.82em;">(Excel'e gerek yok — PPM+Termin otomatik gelir)</span>
         </div>
@@ -8247,6 +8252,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             });
             return aoa;
         }
+        // "Elle düzeltmeleri uygula" anahtarı — VARSAYILAN KAPALI: yükleme sonrası tablo
+        // birebir LeanSys verisidir. Açıkken eski davranış (override'lar geri uygulanır).
+        (function ptOverrideAnahtar(){
+            function kur(){
+                var cb = document.getElementById('ptOverrideKoru');
+                if (!cb) return;
+                var v = '0'; try { v = localStorage.getItem('_ptOverrideKoru') || '0'; } catch(e){}
+                cb.checked = (v === '1');
+            }
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', kur);
+            else kur();
+        })();
         // Yıl listesi: 2025'ten 2030'a; varsayılan içinde bulunulan yıl (yoksa en yakın seçenek).
         (function ptYillariDoldur(){
             function doldur(){
@@ -8288,8 +8305,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { if (typeof load8DCountsFromDB === 'function') await load8DCountsFromDB(); } catch (e) {}
                 // ELLE DÜZELTMELERİ GERİ UYGULA (Sevk/Hata/Hata Puanı/VDA/Termin/Tamamlanma/8D) — LeanSys verisi elle yazdıklarınızı EZMEZ;
                 // snapshot da düzeltilmiş haliyle kaydedilsin diye saveEdits'ten ÖNCE.
-                var _ovr = 0;
-                try { if (typeof applyPerfOverrides === 'function') _ovr = applyPerfOverrides(donem); } catch (e) {}
+                var _ovr = 0, _ovKoru = false;
+                try { _ovKoru = !!(document.getElementById('ptOverrideKoru') || {}).checked; } catch (e) {}
+                if (_ovKoru) { try { if (typeof applyPerfOverrides === 'function') _ovr = applyPerfOverrides(donem); } catch (e) {} }
                 // dönem olarak kaydet + paylaş (processFile onload'unun yaptığı)
                 try { if (typeof saveEditsToIndexedDB === 'function') saveEditsToIndexedDB(donem); } catch (e) {}
                 try { localStorage.setItem('_currentPeriodName', donem); } catch (e) {}
@@ -8320,8 +8338,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                            : (" · gelen aylar: " + _gelen.join(",") + " · tabloda: " + (_tablo.join(",") || "yok")
                               + (_eksik.length ? "  ⚠️ İŞLENMEYEN AY: " + _eksik.join(",") : ""));
                 if (_eksik.length) console.warn("Yüklendi ama tabloya işlenmeyen aylar:", _eksik);
-                if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")" + _ayTxt + (_ovr ? " · ✋" + _ovr + " elle düzeltme korundu" : "");
-                showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + donem + ")" + (_ovr ? "\n✋ " + _ovr + " tedarikçideki elle düzeltmeler korundu (Sevk/Hata/Termin/Tamamlanma)." : "") + "\nDrive + canlı senkron ile paylaşıldı.", "success");
+                if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")" + _ayTxt + (_ovKoru ? (_ovr ? " · ✋" + _ovr + " elle düzeltme uygulandı" : "") : " · ham LeanSys verisi (elle düzeltme uygulanmadı)");
+                showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + donem + ")" + (_ovKoru ? (_ovr ? "\n✋ " + _ovr + " tedarikçideki elle düzeltme uygulandı (Sevk/Hata/Termin/Tamamlanma)." : "") : "\n📋 Tablo birebir LeanSys verisi — elle düzeltmeler uygulanmadı.") + "\nDrive + canlı senkron ile paylaşıldı.", "success");
             } catch (e) {
                 if (st) st.textContent = "❌ " + e.message;
                 showAlert("❌ Supabase hatası: " + e.message, "error");
