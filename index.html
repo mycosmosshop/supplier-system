@@ -8307,6 +8307,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { localStorage.setItem('_sharedCurrentPeriodName', donem); } catch (e) {} // tüm kullanıcılar "(güncel dönem)" etiketini görsün
                 try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch (e) {}
                 try { if (typeof displayResults === 'function') displayResults(); } catch (e) {}
+                // KALICI YAP + YAYINLA: açılışta veri buradan geri yükleniyor. Bu satır olmadan
+                // taze LeanSys verisi yalnız bellekte kalıyor, sayfa yenilenince eski veri dönüyordu.
+                try { if (allResults && allResults.length) localStorage.setItem('selectedSuppliers', JSON.stringify(allResults)); } catch (e) {}
                 try { if (typeof fillLocationsFromMalKabul === 'function') fillLocationsFromMalKabul({ silent: true, withStatus: false }); } catch (e) {} // LeanSys yüklemesinden sonra: lokasyon + müşteri fiziksel iadeleri otomatik (durum DEĞİŞMEZ, popup yok)
                 try { if (typeof loadSavedFilters === 'function') loadSavedFilters(); } catch (e) {} // filtre kapsamı yeni firmaya göre tazelensin
                 try { if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') setTimeout(function () { try { uploadDatabaseToDrive(); } catch (e) {} }, 1500); } catch (e) {}
@@ -8327,9 +8330,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     _tablo = Object.keys(_vt).map(Number).sort(function(a,b){ return a-b; });
                 } catch(e){}
                 var _eksik = _gelen.filter(function(m){ return _tablo.indexOf(m) < 0; });
+                var _kayitli = 0;
+                try { _kayitli = (JSON.parse(localStorage.getItem('selectedSuppliers') || '[]') || []).length; } catch(e){}
                 var _ayTxt = !_gelen.length ? " · ⚠️ Supabase'de hiçbir ayda veri yok"
                            : (" · gelen aylar: " + _gelen.join(",") + " · tabloda: " + (_tablo.join(",") || "yok")
-                              + (_eksik.length ? "  ⚠️ İŞLENMEYEN AY: " + _eksik.join(",") : ""));
+                              + (_eksik.length ? "  ⚠️ İŞLENMEYEN AY: " + _eksik.join(",") : "")
+                              + " · kalıcı: " + _kayitli + " tedarikçi");
                 if (_eksik.length) console.warn("Yüklendi ama tabloya işlenmeyen aylar:", _eksik);
                 if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")" + _ayTxt + " · LeanSys verisi" + (_ovr ? " · ✋" + _ovr + " VDA puanı korundu" : "");
                 showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + donem + ")" + ("\n📋 Sevk / İade / Hata / Termin / Tamamlanma birebir LeanSys verisidir." + (_ovr ? "\n✋ " + _ovr + " tedarikçide elle girilen VDA/Denetim Puanı korundu." : "")) + "\nDrive + canlı senkron ile paylaşıldı.", "success");
