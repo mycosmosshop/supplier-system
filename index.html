@@ -8299,14 +8299,27 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { if (typeof fillLocationsFromMalKabul === 'function') fillLocationsFromMalKabul({ silent: true, withStatus: false }); } catch (e) {} // LeanSys yüklemesinden sonra: lokasyon + müşteri fiziksel iadeleri otomatik (durum DEĞİŞMEZ, popup yok)
                 try { if (typeof loadSavedFilters === 'function') loadSavedFilters(); } catch (e) {} // filtre kapsamı yeni firmaya göre tazelensin
                 try { if (typeof getDriveSettings === 'function' && getDriveSettings() && typeof uploadDatabaseToDrive === 'function') setTimeout(function () { try { uploadDatabaseToDrive(); } catch (e) {} }, 1500); } catch (e) {}
-                // Gelen aylar: "veri neden Haziran'da kalmış" sorusu ekrandan cevaplansın
-                var _aylar = [];
+                // AY TEŞHİSİ: Supabase'den GELEN aylar ile tabloya İŞLENEN ayları yan yana yaz.
+                // İkisi farklıysa kayıp yüklemeden SONRA (işleme/override adımında) olmuştur.
+                var _gelen = [], _tablo = [];
                 try {
                     var _va = {};
                     rows.forEach(function(x){ if ((+x.sevk||0) > 0 || (+x.iade||0) > 0) _va[+x.month] = 1; });
-                    _aylar = Object.keys(_va).map(Number).sort(function(a,b){ return a-b; });
+                    _gelen = Object.keys(_va).map(Number).sort(function(a,b){ return a-b; });
                 } catch(e){}
-                var _ayTxt = _aylar.length ? " · aylar: " + _aylar.join(",") : " · ⚠️ hiçbir ayda veri yok";
+                try {
+                    var _vt = {};
+                    (allResults || []).forEach(function(r){
+                        var ms = r.monthlySevk || [], mi = r.monthlyIade || [];
+                        for (var m = 0; m < 12; m++) if ((+ms[m]||0) > 0 || (+mi[m]||0) > 0) _vt[m+1] = 1;
+                    });
+                    _tablo = Object.keys(_vt).map(Number).sort(function(a,b){ return a-b; });
+                } catch(e){}
+                var _eksik = _gelen.filter(function(m){ return _tablo.indexOf(m) < 0; });
+                var _ayTxt = !_gelen.length ? " · ⚠️ Supabase'de hiçbir ayda veri yok"
+                           : (" · gelen aylar: " + _gelen.join(",") + " · tabloda: " + (_tablo.join(",") || "yok")
+                              + (_eksik.length ? "  ⚠️ İŞLENMEYEN AY: " + _eksik.join(",") : ""));
+                if (_eksik.length) console.warn("Yüklendi ama tabloya işlenmeyen aylar:", _eksik);
                 if (st) st.textContent = "✅ " + rows.length + " kayıt yüklendi (" + donem + ")" + _ayTxt + (_ovr ? " · ✋" + _ovr + " elle düzeltme korundu" : "");
                 showAlert("✅ LeanSys'ten yüklendi: " + rows.length + " kayıt (" + donem + ")" + (_ovr ? "\n✋ " + _ovr + " tedarikçideki elle düzeltmeler korundu (Sevk/Hata/Termin/Tamamlanma)." : "") + "\nDrive + canlı senkron ile paylaşıldı.", "success");
             } catch (e) {
