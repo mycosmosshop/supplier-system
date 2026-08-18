@@ -58,6 +58,25 @@ if (eksik.length) {
 }
 assert.strictEqual(eksik.length, 0, eksik.length + ' acik zemin rengi koyu temada ezilmiyor');
 
+// 4b) <style> BLOKLARINDA tanimli acik yuzeyler: nitelik secicileri bunlari
+//     YAKALAMAZ (onlar yalniz satir ici style="" icin calisir), bu yuzden
+//     gercek sinif/eleman adiyla eslenmeleri gerekir. Beyaz kalan kontrol
+//     paneli tam olarak bu gozden kacmisti.
+const govdeCss = [...govde.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(x => x[1]).join('\n');
+const eksikSecici = [];
+for (const m of govdeCss.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+  const sec = m[1].trim(), gov = m[2];
+  if (!/background(-color)?\s*:\s*(#fff|#ffffff|white|#f8f9fa|#f5f5f5|#fafafa)/i.test(gov)) continue;
+  const ana = sec.split(',')[0].trim().split(':')[0].trim();
+  if (ana && !koyu.includes(ana.toLowerCase())) eksikSecici.push(ana);
+}
+if (eksikSecici.length) {
+  console.log('\nKOYU TEMADA KARSILIGI OLMAYAN <style> SECICILERI:');
+  [...new Set(eksikSecici)].forEach(x => console.log('  ✘ ' + x));
+}
+assert.strictEqual(eksikSecici.length, 0,
+  [...new Set(eksikSecici)].length + ' acik yuzey <style> icinde tanimli ve koyu temada ezilmiyor');
+
 // 5) Temel yuzeylerin kurali var mi (yapisal kontrol)
 ['body', '.modal-dialog', 'tbody tr', 'input', 'select'].forEach(sec => {
   assert.ok(koyu.includes(sec), 'koyu temada "' + sec + '" kurali yok');

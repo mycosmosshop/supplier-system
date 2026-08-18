@@ -1431,6 +1431,45 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     :root[data-theme="dark"] option{ background:var(--k-yuzey2); color:var(--k-metin); }
     :root[data-theme="dark"] [contenteditable="true"]{ color:var(--k-metin)!important; }
 
+    /* ── <style> icinde tanimli yuzeyler (nitelik secicileri bunlari YAKALAMAZ,
+         bu yuzden gercek sinif adlariyla ayrica eslenir) ── */
+    :root[data-theme="dark"] .controls,
+    :root[data-theme="dark"] .upload-section,
+    :root[data-theme="dark"] .suppliers-table-container,
+    :root[data-theme="dark"] .saved-filters-section,
+    :root[data-theme="dark"] .stat-card,
+    :root[data-theme="dark"] .pie-card,
+    :root[data-theme="dark"] .multiselect-selected,
+    :root[data-theme="dark"] .multiselect-dropdown,
+    :root[data-theme="dark"] .month-8d-btn{
+      background:var(--k-yuzey)!important; color:var(--k-metin)!important; border-color:var(--k-kenar)!important;
+    }
+    :root[data-theme="dark"] .upload-area,
+    :root[data-theme="dark"] .multiselect-option.select-all,
+    :root[data-theme="dark"] .d1-team-member,
+    :root[data-theme="dark"] .d3-action,
+    :root[data-theme="dark"] .d4-root-cause{
+      background:var(--k-yuzey2)!important; color:var(--k-metin)!important; border-color:var(--k-kenar)!important;
+    }
+    :root[data-theme="dark"] .btn-secondary{
+      background:var(--k-yuzey2)!important; color:var(--k-metin)!important; border-color:var(--k-kenar)!important;
+    }
+    :root[data-theme="dark"] tr:hover,
+    :root[data-theme="dark"] .multiselect-selected:hover,
+    :root[data-theme="dark"] .ppm-target-input:focus{ background:var(--k-yuzey3)!important; }
+    :root[data-theme="dark"] .multiselect-option:hover{ background:var(--k-yuzey3)!important; }
+    /* Logolar beyaz zemin ISTER (seffaf PNG'ler koyuda kaybolur) — dokunulmaz */
+    :root[data-theme="dark"] .header-logos img{ background:#fff!important; }
+    /* Bolum basliklari ve etiketler okunur kalsin */
+    :root[data-theme="dark"] h1,:root[data-theme="dark"] h2,:root[data-theme="dark"] h3,
+    :root[data-theme="dark"] h4,:root[data-theme="dark"] label,
+    :root[data-theme="dark"] .stat-label,:root[data-theme="dark"] .saved-filters-header h3{
+      color:var(--k-metin)!important;
+    }
+    :root[data-theme="dark"] .filter-name-input{
+      background:var(--k-yuzey2)!important; color:var(--k-metin)!important; border-color:var(--k-kenar)!important;
+    }
+
     /* ── Satir ici BEYAZ zeminler (JS sablonlarindan gelir) ── */
     :root[data-theme="dark"] [style*="background: white"],
     :root[data-theme="dark"] [style*="background:white"],
