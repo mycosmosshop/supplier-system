@@ -14269,7 +14269,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 'Hata Puanı', 'Kalite Belgeleri', 'Kalite Belge Puanı', 'VDA/Denetim Puanı', 
                 'Talep Edilen 8D', 'Cevaplanan 8D', '8D Dönüş Oranı', 'Termin Puanı', 
                 'Tamamlanma Puanı', 'Tedarikçi Puanı', 'Tedarikçi Sınıfı',
-                ...(typeof IATF_HEADERS !== 'undefined' ? IATF_HEADERS : [])
+                ...(typeof IATF_HEADERS !== 'undefined' ? IATF_HEADERS : []),
+                'Tip A (Otomotiv)'          // sınıf tavanı formülünün girdisi
             ];
 
             const headerRow = worksheet.getRow(9);
@@ -14295,6 +14296,56 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 };
             });
             
+            // ── CANLI EXCEL FORMÜLLERİ ────────────────────────────────────────────
+            // Hesaplanan her sütun statik metin yerine formül olarak yazılır; kullanıcı
+            // sevkiyat/iade/hedef/VDA/8D vb. değiştirdiğinde puan ve sınıf Excel'de
+            // yeniden hesaplanır. Formüller uygulamadaki kurallarla birebir aynıdır
+            // (recalculateSupplierScore + computeIatfFields + PR06 sınıf tavanı).
+            // Sütunlar: F Sevk · G İade · H PPM Hedef · I PPM · J PPMP · K Hata Hedef
+            //           L Hata · M HP · N Belgeler · O KBP · P DP · Q Talep8D · R Cevap8D
+            //           S 8DP · T TP · U STP · V TDP · W Sınıf · AJ IATF kesinti
+            //           AK Düzeltilmiş puan · AL Düzeltilmiş sınıf · AM Risk · AN Tip A
+            const XF = {
+                ppm:     n => `IF(F${n}=0,0,G${n}/F${n}*1000000)`,
+                // PPM Puanı basamakları: 0→100, ≤%20 hedef→95, ≤%40→90, ≤%60→85, ≤%80→80, <%120→60, üzeri→0
+                ppmPuan: n => `IF(I${n}=0,100,IF(I${n}<=0.2*H${n},95,IF(I${n}<=0.4*H${n},90,`
+                            + `IF(I${n}<=0.6*H${n},85,IF(I${n}<=0.8*H${n},80,IF(I${n}<1.2*H${n},60,0))))))`,
+                // HP = EĞER(Hata=0;100;MİN(Hedef/Hata;1)×100) — hedef 0 iken hata varsa 0
+                hataPuan: n => `IF(L${n}=0,100,IF(K${n}=0,0,MIN(K${n}/L${n},1)*100))`,
+                donus8D:  n => `IF(Q${n}=0,100,MIN(R${n}/Q${n},1)*100)`,
+                // TDP: VDA/denetim puanı varsa denetimli ağırlıklar, yoksa denetimsiz ağırlıklar
+                tdp: n => `ROUNDDOWN(IF(P${n}>0,`
+                        + `P${n}*0.20+J${n}*0.30+T${n}*0.20+U${n}*0.10+M${n}*0.10+O${n}*0.05+S${n}*0.05,`
+                        + `J${n}*0.40+T${n}*0.20+U${n}*0.10+M${n}*0.15+O${n}*0.05+S${n}*0.10),1)`,
+                // Sınıf + PR06 sınıf tavanı: Tip A (Otomotiv) tedarikçide IATF yoksa en fazla B,
+                // ISO 9001 de yoksa en fazla C. Belge varlığı N sütunundaki metinden okunur.
+                sinif: (n, c) => `IF(AND(AN${n}="EVET",ISERROR(SEARCH("IATF",N${n}))),`
+                        + `IF(ISNUMBER(SEARCH("ISO 9001",N${n})),`
+                        +   `IF(${c}${n}>=80,"B",IF(${c}${n}>=70,"C","D")),`
+                        +   `IF(${c}${n}>=70,"C","D")),`
+                        + `IF(${c}${n}>=90,"A",IF(${c}${n}>=80,"B",IF(${c}${n}>=70,"C","D"))))`,
+                durum: (n, say, sor, sariVar) => `IF(${say}${n}=0,"✅ Yeşil",`
+                        + `IF(${sor}${n}="Müşteri","🔵 Müşteri Kaynaklı – Puan Etkilenmez",`
+                        + `IF(${sor}${n}="İç/Ultech","🟡 İç Kaynaklı – Puan Etkilenmez",`
+                        + (sariVar ? `IF(${say}${n}=1,"⚠️ Sarı","🔴 Kırmızı"))))`
+                                  : `"🔴 Kırmızı – Tedarikçi Kaynaklı")))`),
+                bildirim: n => `IF(AD${n}="Hayır","✅ Bildirim Yok",`
+                        + `IF(AE${n}="Evet","✅ PPAP / Onay Tamamlandı",`
+                        + `IF(AE${n}="Gerekmiyor","✅ Kabul Edildi","⚠️ PPAP / Onay Bekliyor (–5 Puan)")))`,
+                // IATF kesintisi: müşteri aksaklığı −10/olay (tavan 20), navlun −5 (tavan 10),
+                // saha problemi −15 (tavan 25) — yalnız sorumlu "Tedarikçi" ise; PPAP bekliyorsa −5
+                kesinti: n => `-(IF(AND(X${n}>0,Y${n}="Tedarikçi"),MIN(X${n}*10,20),0)`
+                        + `+IF(AND(AA${n}>0,AB${n}="Tedarikçi"),MIN(AA${n}*5,10),0)`
+                        + `+IF(AND(AG${n}>0,AH${n}="Tedarikçi"),MIN(AG${n}*15,25),0)`
+                        + `+IF(AND(AD${n}="Evet",AE${n}="Hayır"),5,0))`,
+                dtp:  n => `MAX(0,V${n}+AJ${n})`,
+                risk: n => `IF(OR(AK${n}<70,AND(X${n}>0,Y${n}="Tedarikçi"),AND(AG${n}>0,AH${n}="Tedarikçi")),`
+                        + `"🔴 HIGH – Kritik Tedarikçi",`
+                        + `IF(OR(AK${n}<90,AND(H${n}>0,I${n}>H${n}),AND(AA${n}>0,AB${n}="Tedarikçi"),`
+                        + `AND(AD${n}="Evet",AE${n}="Hayır")),"🟠 MEDIUM – İyileştirme Gerekli",`
+                        + `"🟢 LOW – Stabil Tedarikçi"))`
+            };
+
             // Veri satırlarını ekle
             dataToExport.forEach((r, i) => {
                 const belgeler = [];
@@ -14316,38 +14367,47 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const docText = docCount > 0 ? `${docCount} dosya` : '-';
                 
                 try { if (typeof computeIatfFields === 'function') computeIatfFields(r); } catch(e) {}
+                const XR = i + 10;          // veri satırı numarası (başlık 9. satırda)
                 const rowData = [
                     i + 1,
                     r.status,
                     r.name,
                     r.lokasyon || '-',
                     docText,
-                    r.totalSevk,
-                    r.totalIade,
-                    r.ppmTarget,
-                    parseFloat(r.ppm.toFixed(2)),
-                    (r.ppmPuan * 100).toFixed(0) + '%',
-                    r.hataHedefi,
-                    r.totalHata,
-                    (r.hataPuan * 100).toFixed(0) + '%',
+                    (+r.totalSevk || 0),
+                    (+r.totalIade || 0),
+                    (+r.ppmTarget || 1000),                      // H (uygulamadaki varsayılan)
+                    { formula: XF.ppm(XR) },                     // I
+                    { formula: XF.ppmPuan(XR) },                 // J
+                    (+r.hataHedefi || 2),                        // K (uygulamadaki varsayılan)
+                    (+r.totalHata || 0),
+                    { formula: XF.hataPuan(XR) },                // M
                     belgeText,
-                    r.kalitePuan.toFixed(0) + '%',
-                    r.vdaPuan.toFixed(0) + '%',
-                    r.talepEdilen8D,
-                    r.cevaplanan8D,
-                    (r.talepEdilen8D === 0 ? 100 : r.donusOrani8D).toFixed(0) + '%',
-                    r.terminPuan.toFixed(0) + '%',
-                    r.tamamlanmaPuan.toFixed(0) + '%',
-                    _puanTxt(r.tedarikcipuani * 100) + '%',
-                    r.tedarikcisınıfı,
-                    (r.musteriAksaklikSayisi||0), (r.musteriAksaklikSorumlu||'-'), (r.musteriDurum||''),
-                    (r.ekstraNavlunSayisi||0), (r.ekstraNavlunSorumlu||'-'), (r.navlunDurum||''),
-                    (r.ozelDurum||'Hayır'), (r.ppapOnay||'Gerekmiyor'), (r.bildirimDeger||''),
-                    (r.sahaProblemSayisi||0), (r.sahaProblemSorumlu||'-'), (r.sahaDurum||''),
-                    (r.iatfDuzeltme||0), (r.duzeltilmisPuan!=null?_puanTxt(r.duzeltilmisPuan)+'%':''), (r.duzeltilmisSinif||''), (r.riskAnalizi||'')
+                    (+r.kalitePuan || 0),                        // O (0–100, elle değiştirilebilir)
+                    (+r.vdaPuan || 0),                           // P
+                    (+r.talepEdilen8D || 0),
+                    (+r.cevaplanan8D || 0),
+                    { formula: XF.donus8D(XR) },                 // S
+                    (+r.terminPuan || 0),                        // T
+                    (+r.tamamlanmaPuan || 0),                    // U
+                    { formula: XF.tdp(XR) },                     // V
+                    { formula: XF.sinif(XR, 'V') },              // W
+                    (r.musteriAksaklikSayisi||0), (r.musteriAksaklikSorumlu||'-'), { formula: XF.durum(XR,'X','Y',1) },
+                    (r.ekstraNavlunSayisi||0), (r.ekstraNavlunSorumlu||'-'), { formula: XF.durum(XR,'AA','AB',1) },
+                    (r.ozelDurum||'Hayır'), (r.ppapOnay||'Gerekmiyor'), { formula: XF.bildirim(XR) },
+                    (r.sahaProblemSayisi||0), (r.sahaProblemSorumlu||'-'), { formula: XF.durum(XR,'AG','AH',0) },
+                    { formula: XF.kesinti(XR) },                 // AJ
+                    { formula: XF.dtp(XR) },                     // AK
+                    { formula: XF.sinif(XR, 'AK') },             // AL
+                    { formula: XF.risk(XR) },                    // AM
+                    (typeof getSupplierCategory === 'function' && getSupplierCategory(r.name) === 'Otomotiv') ? 'EVET' : 'HAYIR'
                 ];
                 
                 const dataRow = worksheet.addRow(rowData);
+                // Sayı biçimleri: puan sütunları ondalıklı sayı, sayaçlar tam sayı
+                [9, 10, 13, 15, 16, 19, 20, 21, 22, 36, 37].forEach(c => {
+                    dataRow.getCell(c).numFmt = (c === 9) ? '#,##0' : '0.0';
+                });
                 
                 // Tedarikçi sınıfına göre renk belirleme (sadece son sütun için)
                 let sınıfColor = 'FFFFFFFF'; // Varsayılan beyaz
@@ -14419,7 +14479,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     }
                     // IATF Durum / Bildirim / Risk hücreleri (26,29,32,35,39) — içeriğe göre renk
                     else if (colNumber === 26 || colNumber === 29 || colNumber === 32 || colNumber === 35 || colNumber === 39) {
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _iatfStatusColor(cell.value) } };
+                        // hücre artık formül nesnesi tutuyor; rengi hesaplanmış metinden al
+                        const _dm = { 26: r.musteriDurum, 29: r.navlunDurum, 32: r.bildirimDeger, 35: r.sahaDurum, 39: r.riskAnalizi }[colNumber];
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: _iatfStatusColor(_dm || '') } };
                     } else {
                         cell.fill = {
                             type: 'pattern',
@@ -14436,6 +14498,31 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 });
             });
             
+            // Renkler de canlı olsun: sınıf/PPM sütunları formül sonucuna göre yeniden boyanır
+            const _son = 9 + dataToExport.length;
+            if (dataToExport.length) {
+                const _dolgu = argb => ({ style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb } } } });
+                [['W', 'V'], ['AL', 'AK']].forEach(([sinifCol]) => {
+                    worksheet.addConditionalFormatting({
+                        ref: `${sinifCol}10:${sinifCol}${_son}`,
+                        rules: [
+                            { type: 'cellIs', operator: 'equal', formulae: ['"A"'], priority: 1, ..._dolgu('FF92D050') },
+                            { type: 'cellIs', operator: 'equal', formulae: ['"B"'], priority: 2, ..._dolgu('FFFFFF00') },
+                            { type: 'cellIs', operator: 'equal', formulae: ['"C"'], priority: 3, ..._dolgu('FFFFC000') },
+                            { type: 'cellIs', operator: 'equal', formulae: ['"D"'], priority: 4, ..._dolgu('FFFF0000') }
+                        ]
+                    });
+                });
+                worksheet.addConditionalFormatting({
+                    ref: `I10:I${_son}`,
+                    rules: [
+                        { type: 'expression', formulae: [`AND($H10>0,$I10>$H10*2)`], priority: 1, ..._dolgu('FFDC3545') },
+                        { type: 'expression', formulae: [`AND($H10>0,$I10>$H10)`],   priority: 2, ..._dolgu('FFFFC107') },
+                        { type: 'expression', formulae: [`$I10<=$H10`],              priority: 3, ..._dolgu('FF28A745') }
+                    ]
+                });
+            }
+
             // Sütun genişliklerini ayarla
             worksheet.columns = [
                 { width: 6 },   // Sıra
@@ -14465,8 +14552,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 { width: 14 }, { width: 16 }, { width: 16 },   // Ekstra Navlun
                 { width: 16 }, { width: 16 }, { width: 22 },   // Özel Durum, PPAP, Bildirim
                 { width: 16 }, { width: 16 }, { width: 18 },   // Saha Problemi
-                { width: 15 }, { width: 18 }, { width: 18 }, { width: 28 }  // IATF düzeltme, Düzeltilmiş Puan/Sınıf, Risk
+                { width: 15 }, { width: 18 }, { width: 18 }, { width: 28 },  // IATF düzeltme, Düzeltilmiş Puan/Sınıf, Risk
+                { width: 15 }   // Tip A (Otomotiv) — sınıf tavanı formülünün girdisi
             ];
+            worksheet.views = [{ state: 'frozen', xSplit: 3, ySplit: 9 }];   // başlık + tedarikçi adı sabit
             
             // Excel dosyasını oluştur ve indir
             const date = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
@@ -14475,7 +14564,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
                 });
                 saveAs(blob, `Onayli_Tedarikciler_${date}.xlsx`);
-                showAlert('✅ Excel dosyası profesyonel başlık ve renklendirme ile indirildi!', 'success');
+                showAlert("✅ Excel indirildi — puan/sınıf sütunları canlı formül. Sevkiyat, iade, hedef, VDA, 8D veya IATF olay sayılarını değiştirdiğinizde puanlar Excel'de yeniden hesaplanır.", "success");
             });
         }
 
