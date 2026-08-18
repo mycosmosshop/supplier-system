@@ -3192,6 +3192,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 <button class="modal-close" onclick="closePerformanceDialog()">✕</button>
             </div>
             <div class="modal-body">
+                <div style="margin-bottom: 14px; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-weight: 600; color: #333;">Kategori:</span>
+                    <span id="perfKatRozet"></span>
+                    <button type="button" id="perfKatBtn" onclick="perfKategoriDegistir()"
+                            style="border: none; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-weight: 700; font-size: .9em;"></button>
+                    <span style="color: #78909c; font-size: .82em;">Otomotiv (Tip A) tedarikçide IATF 16949 yoksa PR06 sınıf tavanı uygulanır.</span>
+                </div>
                 <div style="margin-bottom: 20px;">
                     <label for="perfYear">Yıl:</label>
                     <input type="number" id="perfYear" class="filter-name-input" style="margin-top: 8px; width: 150px;" placeholder="2024" onchange="calculateNextTargets()">
@@ -12664,6 +12671,33 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function _reloadCategoryMap(){ try { supplierCategoryMap = JSON.parse(localStorage.getItem('supplierCategoryMap') || '{}'); } catch(e){} }
         function getSupplierCategory(name){ try { return supplierCategoryMap[normalizeName(name)] || ''; } catch(e){ return ''; } }
         function setSupplierCategory(name, cat){ const k = normalizeName(name); if (cat) supplierCategoryMap[k] = cat; else delete supplierCategoryMap[k]; try { localStorage.setItem('supplierCategoryMap', JSON.stringify(supplierCategoryMap)); } catch(e){} }
+        // Tedarikçi Hedefi modalindeki Otomotiv anahtarı (tablodaki toplu işlemle aynı kaynak)
+        function perfKategoriCiz(){
+            const ad = (document.getElementById('perfSupplierName') || {}).textContent || '';
+            const rozet = document.getElementById('perfKatRozet'), btn = document.getElementById('perfKatBtn');
+            if (!rozet || !btn) return;
+            const oto = getSupplierCategory(ad) === 'Otomotiv';
+            rozet.innerHTML = oto
+                ? '<span style="display:inline-block;font-size:.8em;font-weight:700;color:#fff;background:#00695c;border-radius:4px;padding:2px 8px;">🚗 Otomotiv</span>'
+                : '<span style="display:inline-block;font-size:.8em;font-weight:600;color:#607d8b;background:#eceff1;border-radius:4px;padding:2px 8px;">Kategori yok</span>';
+            btn.textContent = oto ? '🚗 Otomotivden Çıkar' : '🚗 Otomotiv Yap';
+            btn.style.background = oto ? '#b71c1c' : '#00695c';
+            btn.style.color = '#fff';
+        }
+        function perfKategoriDegistir(){
+            const ad = (document.getElementById('perfSupplierName') || {}).textContent || '';
+            if (!ad) return;
+            const oto = getSupplierCategory(ad) === 'Otomotiv';
+            setSupplierCategory(ad, oto ? '' : 'Otomotiv');
+            perfKategoriCiz();
+            // Kategori sınıf tavanını etkiler → sınıf/rozet yeniden hesaplansın
+            try {
+                const s = allResults.find(r => r.name === ad || normalizeName(r.name) === normalizeName(ad));
+                if (s) { s.tedarikcisınıfı = sinifTavaniUygula(calculateTedarikcisınıfı(s.tedarikcipuani), s); }
+            } catch(e){}
+            if (typeof displayResults === 'function') displayResults();
+            if (typeof showAlert === 'function') showAlert(ad + (oto ? ' Otomotiv kategorisinden çıkarıldı.' : ' Otomotiv (Tip A) kategorisine alındı.'), 'success');
+        }
         function bulkSetCategory(cat){
             if (typeof selectedRows === 'undefined' || selectedRows.size === 0) { if (typeof showAlert === 'function') showAlert('⚠️ Önce tablodan satır seçin (checkbox).', 'warning'); return; }
             let n = 0;
@@ -21073,6 +21107,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             }
             
             perfSupplierName.textContent = supplierName;
+            try { perfKategoriCiz(); } catch(e){}
             dialog.style.display = 'flex';
             
             // Listeden tedarikçiyi bul ve hedef/gerçekleşme değerlerini yükle
