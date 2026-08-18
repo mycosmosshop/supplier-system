@@ -12128,7 +12128,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             var FL={sevk:'Toplam Sevk', hata:'Toplam Hata', hpd:'Hata Puanı (direkt)', vda:'VDA/Denetim Puanı', trm:'Termin Puanı', tmm:'Tamamlanma Puanı'};
             var _adm=isErpAdmin();
             var h='<div style="text-align:left;max-height:420px;overflow:auto;">';
-            h+='<div style="margin-bottom:10px;color:#555;font-size:0.9em;">Elle yapılan düzeltmeler burada saklanır. <b>Yalnızca VDA/Denetim Puanı</b> yeniden uygulanır — çünkü LeanSys bu alanı üretmez. Sevk / İade / Hata / Termin / Tamamlanma <b>her zaman LeanSys'ten gelir</b>; buradaki eski değerleri tabloya yazılmaz (kayıt olarak durur).'
+            h+='<div style="margin-bottom:10px;color:#555;font-size:0.9em;">Elle yapılan düzeltmeler burada saklanır. <b>Yalnızca VDA/Denetim Puanı</b> yeniden uygulanır — çünkü LeanSys bu alanı üretmez. Sevk / İade / Hata / Termin / Tamamlanma <b>her zaman LeanSys verisinden gelir</b>; buradaki eski değerleri tabloya yazılmaz (kayıt olarak durur).'
               + (_adm ? ' Silerseniz bir sonraki LeanSys yüklemesinde o değer tekrar LeanSys\'ten gelir.' : '<br><b style="color:#b71c1c;">🔒 Yalnızca yönetici ekleyebilir/silebilir; siz görüntülüyorsunuz.</b>') + '</div>';
             if(!keys.length){ h+='<div style="text-align:center;padding:18px;color:#888;">Kayıtlı elle düzeltme yok.</div>'; }
             keys.forEach(function(k){
@@ -12812,7 +12812,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function openLocationPpmModal() {
             const m = document.getElementById('locPpmModal'); if (!m) return;
             const canon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Ultech1', 'Ultech2'];
-            const base = (typeof lastFilteredResults !== 'undefined' && lastFilteredResults && lastFilteredResults.length) ? lastFilteredResults : (allResults || []);
+            const base = ((typeof currentFilterId !== 'undefined' && currentFilterId)
+                && typeof lastFilteredResults !== 'undefined' && lastFilteredResults && lastFilteredResults.length)
+                ? lastFilteredResults : (allResults || []);
             const set = {}; canon.forEach(l => set[l] = 1);
             base.forEach(r => (r.lokasyon || []).forEach(l => { if (l) set[l] = 1; }));
             const sel = document.getElementById('locPpmLoc');
@@ -12836,8 +12838,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const custMonOk = !!(cr && cr.period === period && cr.mon);
                 const isMust = durum === 'MÜŞTERİ';
                 // Aktif filtre (kayıtlı filtre vb.) varsa yalnız o görünümü analiz et
-                const base = (typeof lastFilteredResults !== 'undefined' && lastFilteredResults && lastFilteredResults.length) ? lastFilteredResults : allResults;
-                const filtreAktif = base !== allResults && base.length < (allResults ? allResults.length : base.length);
+                // Yalnız KAYITLI FİLTRE analizi daraltır. Aktif sekme (Onaylı/Müşteriler) daraltmaz —
+                // yoksa modalde MÜŞTERİ seçilince liste boş kalıyordu (sekme onaylıları gösterirken).
+                const _kayitliFiltre = (typeof currentFilterId !== 'undefined') && !!currentFilterId
+                    && typeof lastFilteredResults !== 'undefined' && lastFilteredResults && lastFilteredResults.length;
+                const base = _kayitliFiltre ? lastFilteredResults : allResults;
+                const filtreAktif = _kayitliFiltre;
                 const rows = base.filter(r => {
                     if (!r) return false;
                     if (isMust ? !_durumMusteri(r) : !_durumOnayli(r)) return false;
