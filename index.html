@@ -1714,8 +1714,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         </div>
         
         <div class="saved-filters-section" id="savedFiltersSection" style="display: none;">
-            <div class="saved-filters-header">
-                <h3>💾 Kaydedilmiş Filtreler</h3>
+            <div class="saved-filters-header" style="display:flex; align-items:center; gap:12px;">
+                <h3 style="margin:0;">💾 Kaydedilmiş Filtreler</h3>
+                <button type="button" id="anaListeBtn" onclick="anaListeyeDon()" style="display:none;
+                        background:#455a64; color:#fff; border:none; border-radius:6px;
+                        padding:5px 14px; cursor:pointer; font-weight:700; font-size:.85em;"
+                        title="Kaydedilmiş filtreden çık, tüm tedarikçileri göster">↩ Ana listeye dön</button>
             </div>
             <div class="saved-filters-list" id="savedFiltersList">
                 <!-- Saved filters will be populated here -->
@@ -7976,7 +7980,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         });
 
         // ===== IATF 8.4.2.4/8.4.2.5 EK DEĞERLENDİRME SÜTUNLARI (Onaylı Tedarikçi ek yapısı — Excel formülleriyle birebir) =====
-        var IATF_SORUMLU_OPTS = ['-','Tedarikçi','Müşteri','İç/Ultech'];
+        var IATF_SORUMLU_OPTS = ['-','Tedarikçi','Müşteri','İç'];
+        // Eski kayıtlarda 'İç/Ultech' yazıyor olabilir; ikisi de İç kaynaklı sayılır.
+        var _icMi = function(v){ return v==='İç' || v==='İç/Ultech'; };
         var IATF_HEADERS = ['Müşteri Aksaklığı Olay Sayısı','Müşteri Aksaklığı Sorumlusu','Müşteri Aksaklığı Durum','Ekstra Navlun Olay Sayısı','Ekstra Navlun Sorumlusu','Ekstra Navlun Durum','Özel Durum Bildirimi Geldi mi?','PPAP / Onay Durumu','Bildirim Değerlendirmesi','Saha/Garanti Problemi Sayısı','Saha Problemi Sorumlusu','Saha Problemi Durum','IATF Puan Düzeltmesi','Düzeltilmiş Tedarikçi Puanı','Düzeltilmiş Tedarikçi Sınıfı','Risk Analizi Sonucu'];
         function _iatfDefaults(s){
             if(s.musteriAksaklikSayisi==null) s.musteriAksaklikSayisi=0;
@@ -8003,9 +8009,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             var aa=+s.ekstraNavlunSayisi||0, ab=s.ekstraNavlunSorumlu||'-';
             var ad=s.ozelDurum||'Hayır', ae=s.ppapOnay||'Gerekmiyor';
             var ag=+s.sahaProblemSayisi||0, ah=s.sahaProblemSorumlu||'-';
-            s.musteriDurum = (x===0)?'✅ Yeşil':(y==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(y==='İç/Ultech'?'🟡 İç Kaynaklı – Puan Etkilenmez':(x===1?'⚠️ Sarı':'🔴 Kırmızı')));
-            s.navlunDurum = (aa===0)?'✅ Yeşil':(ab==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(ab==='İç/Ultech'?'🟡 İç Kaynaklı – Puan Etkilenmez':(aa===1?'⚠️ Sarı':'🔴 Kırmızı')));
-            s.sahaDurum = (ag===0)?'✅ Yeşil':(ah==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(ah==='İç/Ultech'?'🟡 İç Kaynaklı – Puan Etkilenmez':'🔴 Kırmızı – Tedarikçi Kaynaklı'));
+            s.musteriDurum = (x===0)?'✅ Yeşil':(y==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(_icMi(y)?'🟡 İç Kaynaklı – Puan Etkilenmez':(x===1?'⚠️ Sarı':'🔴 Kırmızı')));
+            s.navlunDurum = (aa===0)?'✅ Yeşil':(ab==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(_icMi(ab)?'🟡 İç Kaynaklı – Puan Etkilenmez':(aa===1?'⚠️ Sarı':'🔴 Kırmızı')));
+            s.sahaDurum = (ag===0)?'✅ Yeşil':(ah==='Müşteri'?'🔵 Müşteri Kaynaklı – Puan Etkilenmez':(_icMi(ah)?'🟡 İç Kaynaklı – Puan Etkilenmez':'🔴 Kırmızı – Tedarikçi Kaynaklı'));
             s.bildirimDeger = (ad==='Hayır')?'✅ Bildirim Yok':(ae==='Evet'?'✅ PPAP / Onay Tamamlandı':(ae==='Gerekmiyor'?'✅ Kabul Edildi':'⚠️ PPAP / Onay Bekliyor (–5 Puan)'));
             var d=0;
             if(x>0 && y==='Tedarikçi') d+=Math.min(x*10,20);
@@ -12710,6 +12716,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (typeof showAlert === 'function') showAlert(n + ' firma ' + (cat ? '"' + cat + '" kategorisine ayarlandı' : 'kategoriden çıkarıldı') + '.', 'success');
         }
 
+        // Durum testi — tablo filtresiyle AYNI kural. Ayrı/katı bir kopya "ONAYLANDI",
+        // "ONAYLI (yeni)" gibi varyantları eleyip listeyi boş bırakıyordu.
+        // 'MÜŞTER' ön eki bilerek: JS toUpperCase('i') = 'I' (noktasız), 'MÜŞTERİ' ile eşleşmez.
+        function _durumOnayli(r){
+            const st = String((r && r.status) || 'ONAYLI').toUpperCase();
+            return st === 'ONAYLI' || (st.includes('ONAY') && !st.includes('ONAYSIZ') && !st.includes('MÜŞTER'));
+        }
+        function _durumMusteri(r){
+            return String((r && r.status) || '').toUpperCase().includes('MÜŞTER');
+        }
+
         // ── Lokasyon Bazlı PPM Analizi ──
         let _locPpmChart = null;
         function openLocationPpmModal() {
@@ -12743,8 +12760,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const filtreAktif = base !== allResults && base.length < (allResults ? allResults.length : base.length);
                 const rows = base.filter(r => {
                     if (!r) return false;
-                    const st = (r.status || 'ONAYLI').toUpperCase();
-                    if (isMust ? st !== 'MÜŞTERİ' : st !== 'ONAYLI') return false;
+                    if (isMust ? !_durumMusteri(r) : !_durumOnayli(r)) return false;
                     if (loc !== '__ALL__' && (r.lokasyon || []).indexOf(loc) < 0) return false;
                     if (kat !== '__ALL__' && getSupplierCategory(r.name) !== kat) return false;
                     return true;
@@ -14114,7 +14130,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Seçenek metinlerinde virgül var (belge kombinasyonları), bu yüzden
             // hücre içi liste yerine ayrı sayfadaki aralık kullanılır.
             const LST = {
-                sorumlu: ['-', 'Tedarikçi', 'Müşteri', 'İç/Ultech'],
+                sorumlu: ['-', 'Tedarikçi', 'Müşteri', 'İç'],
                 evetHayir: ['Evet', 'Hayır'],
                 ppap: ['Evet', 'Hayır', 'Gerekmiyor'],
                 belge: ['-', 'IATF16949', 'IATF16949, ISO 9001', 'ISO 9001',
@@ -14182,7 +14198,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('AJ1:AM1');
+            worksheet.mergeCells('AJ1:AO1');
             const dokNoValue = worksheet.getCell('AJ1');
             dokNoValue.value = 'PL11';
             dokNoValue.font = { size: 11 };
@@ -14205,7 +14221,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('AJ2:AM2');
+            worksheet.mergeCells('AJ2:AO2');
             const ytrhValue = worksheet.getCell('AJ2');
             ytrhValue.value = '13.02.2013';
             ytrhValue.font = { size: 11 };
@@ -14228,7 +14244,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('AJ3:AM3');
+            worksheet.mergeCells('AJ3:AO3');
             const revValue = worksheet.getCell('AJ3');
             revValue.value = '03/29.08.2025';
             revValue.font = { size: 11 };
@@ -14270,7 +14286,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 bottom: { style: 'thin' }, right: { style: 'thin' }
             };
             
-            worksheet.mergeCells('M5:AM5');
+            worksheet.mergeCells('M5:AO5');
             const reviewCell = worksheet.getCell('M5');
             reviewCell.value = `Gözden Geçirme Tarihi: ${exportReviewDate}`;
             reviewCell.font = { bold: true, size: 12 };
@@ -14346,7 +14362,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             col5.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             
             // Ortalama Tedarikçi Puanı (Q-W) - 23 sütunla uyumlu
-            worksheet.mergeCells('Q7:AM7');
+            worksheet.mergeCells('Q7:AO7');
             const col6 = worksheet.getCell('Q7');
             col6.value = `ORTALAMA TEDARİKÇİ PUANI\n${avgSupplierScore.toFixed(2)}`;
             col6.font = { bold: true, size: 10 };
@@ -14365,7 +14381,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 'Talep Edilen 8D', 'Cevaplanan 8D', '8D Dönüş Oranı', 'Termin Puanı', 
                 'Tamamlanma Puanı', 'Tedarikçi Puanı', 'Tedarikçi Sınıfı',
                 ...(typeof IATF_HEADERS !== 'undefined' ? IATF_HEADERS : []),
-                'Tip A (Otomotiv)'          // sınıf tavanı formülünün girdisi
+                'Tip A (Otomotiv)',         // sınıf tavanı formülünün girdisi
+                'Sınıf Tavanı Açıklaması'   // tavan uygulandıysa gerekçe (⚠)
             ];
 
             const headerRow = worksheet.getRow(9);
@@ -14400,6 +14417,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             //           L Hata · M HP · N Belgeler · O KBP · P DP · Q Talep8D · R Cevap8D
             //           S 8DP · T TP · U STP · V TDP · W Sınıf · AJ IATF kesinti
             //           AK Düzeltilmiş puan · AL Düzeltilmiş sınıf · AM Risk · AN Tip A
+            // Sınıf tavanı koşulu: Tip A (Otomotiv) + geçerli IATF belgesi yok
+            const _tavanVar = n => `AND(AN${n}="EVET",ISERROR(SEARCH("IATF",N${n})))`;
             const XF = {
                 ppm:     n => `IF(F${n}=0,0,G${n}/F${n}*1000000)`,
                 // PPM Puanı basamakları: 0→100, ≤%20 hedef→95, ≤%40→90, ≤%60→85, ≤%80→80, <%120→60, üzeri→0
@@ -14414,14 +14433,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         + `J${n}*0.40+T${n}*0.20+U${n}*0.10+M${n}*0.15+O${n}*0.05+S${n}*0.10),1)`,
                 // Sınıf + PR06 sınıf tavanı: Tip A (Otomotiv) tedarikçide IATF yoksa en fazla B,
                 // ISO 9001 de yoksa en fazla C. Belge varlığı N sütunundaki metinden okunur.
-                sinif: (n, c) => `IF(AND(AN${n}="EVET",ISERROR(SEARCH("IATF",N${n}))),`
+                tavanVar: _tavanVar,
+                tavanNot: n => `IF(${_tavanVar(n)},IF(ISNUMBER(SEARCH("ISO 9001",N${n})),`
+                        + `"⚠ Tip A (Otomotiv) tedarikçide geçerli IATF 16949 belgesi yok → sınıf en fazla B (PR06 sınıf tavanı)",`
+                        + `"⚠ Tip A (Otomotiv) tedarikçide IATF 16949 ve ISO 9001 belgesi yok → sınıf en fazla C; ancak Genel Müdür onayı ve PL33 sistem geliştirme planı ile çalışılabilir (PR06 sınıf tavanı)"),"")`,
+                sinif: (n, c) => `IF(${_tavanVar(n)},"⚠ ","")&IF(AND(AN${n}="EVET",ISERROR(SEARCH("IATF",N${n}))),`
                         + `IF(ISNUMBER(SEARCH("ISO 9001",N${n})),`
                         +   `IF(${c}${n}>=80,"B",IF(${c}${n}>=70,"C","D")),`
                         +   `IF(${c}${n}>=70,"C","D")),`
                         + `IF(${c}${n}>=90,"A",IF(${c}${n}>=80,"B",IF(${c}${n}>=70,"C","D"))))`,
                 durum: (n, say, sor, sariVar) => `IF(${say}${n}=0,"✅ Yeşil",`
                         + `IF(${sor}${n}="Müşteri","🔵 Müşteri Kaynaklı – Puan Etkilenmez",`
-                        + `IF(${sor}${n}="İç/Ultech","🟡 İç Kaynaklı – Puan Etkilenmez",`
+                        + `IF(OR(${sor}${n}="İç",${sor}${n}="İç/Ultech"),"🟡 İç Kaynaklı – Puan Etkilenmez",`
                         + (sariVar ? `IF(${say}${n}=1,"⚠️ Sarı","🔴 Kırmızı"))))`
                                   : `"🔴 Kırmızı – Tedarikçi Kaynaklı")))`),
                 bildirim: n => `IF(AD${n}="Hayır","✅ Bildirim Yok",`
@@ -14498,7 +14521,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     { formula: XF.dtp(XR) },                     // AK
                     { formula: XF.sinif(XR, 'AK') },             // AL
                     { formula: XF.risk(XR) },                    // AM
-                    (typeof getSupplierCategory === 'function' && getSupplierCategory(r.name) === 'Otomotiv') ? 'EVET' : 'HAYIR'
+                    (typeof getSupplierCategory === 'function' && getSupplierCategory(r.name) === 'Otomotiv') ? 'EVET' : 'HAYIR',
+                    { formula: XF.tavanNot(XR) }                 // AO
                 ];
                 
                 const dataRow = worksheet.addRow(rowData);
@@ -14607,14 +14631,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const _son = 9 + dataToExport.length;
             if (dataToExport.length) {
                 const _dolgu = argb => ({ style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb } } } });
-                [['W', 'V'], ['AL', 'AK']].forEach(([sinifCol]) => {
+                // Hücre "B" ya da tavan uygulandıysa "⚠ B" olabilir → son karakterden bak
+                [['W'], ['AL']].forEach(([sinifCol]) => {
+                    const harf = h => [`RIGHT($${sinifCol}10,1)="${h}"`];
                     worksheet.addConditionalFormatting({
                         ref: `${sinifCol}10:${sinifCol}${_son}`,
                         rules: [
-                            { type: 'cellIs', operator: 'equal', formulae: ['"A"'], priority: 1, ..._dolgu('FF92D050') },
-                            { type: 'cellIs', operator: 'equal', formulae: ['"B"'], priority: 2, ..._dolgu('FFFFFF00') },
-                            { type: 'cellIs', operator: 'equal', formulae: ['"C"'], priority: 3, ..._dolgu('FFFFC000') },
-                            { type: 'cellIs', operator: 'equal', formulae: ['"D"'], priority: 4, ..._dolgu('FFFF0000') }
+                            { type: 'expression', formulae: harf('A'), priority: 1, ..._dolgu('FF92D050') },
+                            { type: 'expression', formulae: harf('B'), priority: 2, ..._dolgu('FFFFFF00') },
+                            { type: 'expression', formulae: harf('C'), priority: 3, ..._dolgu('FFFFC000') },
+                            { type: 'expression', formulae: harf('D'), priority: 4, ..._dolgu('FFFF0000') }
                         ]
                     });
                 });
@@ -14658,7 +14684,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 { width: 16 }, { width: 16 }, { width: 22 },   // Özel Durum, PPAP, Bildirim
                 { width: 16 }, { width: 16 }, { width: 18 },   // Saha Problemi
                 { width: 15 }, { width: 18 }, { width: 18 }, { width: 28 },  // IATF düzeltme, Düzeltilmiş Puan/Sınıf, Risk
-                { width: 15 }   // Tip A (Otomotiv) — sınıf tavanı formülünün girdisi
+                { width: 15 },  // Tip A (Otomotiv) — sınıf tavanı formülünün girdisi
+                { width: 60 }   // Sınıf Tavanı Açıklaması
             ];
             worksheet.views = [{ state: 'frozen', xSplit: 3, ySplit: 9 }];   // başlık + tedarikçi adı sabit
             
@@ -14828,6 +14855,22 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             filtersList.innerHTML = html;
         }
 
+        // Kaydedilmiş filtreden çık: tüm tedarikçiler seçili, arama/lokasyon sıfır, ana liste.
+        function anaListeyeDon(){
+            currentFilterId = null;
+            const ara = document.getElementById('searchInput'); if (ara) ara.value = '';
+            try {
+                selectedSuppliers.clear();
+                allResults.forEach(sp => selectedSuppliers.add(sp.mapKey || sp.name));
+            } catch(e){}
+            document.querySelectorAll('.multiselect-option input[type="checkbox"]').forEach(cb => { cb.checked = true; });
+            document.querySelectorAll('#locationOptions input[type="checkbox"]').forEach(cb => { cb.checked = true; });
+            try { if (typeof updateSelectedText === 'function') updateSelectedText(); } catch(e){}
+            try { if (typeof loadSavedFilters === 'function') loadSavedFilters(); } catch(e){}
+            try { if (typeof filterTable === 'function') filterTable(); } catch(e){}
+            const btn = document.getElementById('anaListeBtn'); if (btn) btn.style.display = 'none';
+            if (typeof showAlert === 'function') showAlert('↩ Ana listeye dönüldü — tüm tedarikçiler gösteriliyor.', 'success');
+        }
         function applyFilter(filterId) {
             const savedFilters = JSON.parse(localStorage.getItem('supplierFilters') || '[]');
             const filter = savedFilters.find(f => f.id === filterId);
@@ -14917,6 +14960,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Tabloyu filtrele
             filterTable();
             
+            const _abtn = document.getElementById('anaListeBtn'); if (_abtn) _abtn.style.display = '';
             showAlert(`✅ "${filter.name}" filtresi uygulandı!`, 'success');
         }
 
@@ -17482,15 +17526,42 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 `);
             }
             
-            // Tedarikçi Sınıfı - sadece varsa
+            // Kategori (Tip A / Otomotiv) — sınıf tavanının girdisi
+            const _oto = (typeof getSupplierCategory === 'function') && getSupplierCategory(supplier.name) === 'Otomotiv';
+            infoItems.push(`
+                <div style="padding: 15px; background: linear-gradient(135deg, ${_oto ? '#e0f2f1 0%, #b2dfdb' : '#f5f5f5 0%, #e8e8e8'} 100%); border-radius: 8px; border-left: 4px solid ${_oto ? '#00695c' : '#9e9e9e'}; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                    <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Kategori</div>
+                    <div style="font-size: 1.1em; font-weight: 600; color: ${_oto ? '#00695c' : '#757575'};">${_oto ? '🚗 Otomotiv (Tip A)' : 'Kategori yok'}</div>
+                </div>
+            `);
+
+            // Tedarikçi Sınıfı - sadece varsa (PR06 sınıf tavanı uygulandıysa ⚠ + gerekçe)
             if (supplier.tedarikcisınıfı) {
+                const _tavanNot = (typeof sinifTavaniSebep === 'function') ? sinifTavaniSebep(supplier) : '';
                 infoItems.push(`
                     <div style="padding: 15px; background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%); border-radius: 8px; border-left: 4px solid #9c27b0; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
                         <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">Tedarikçi Sınıfı</div>
-                        <div style="font-size: 1.1em; font-weight: 600; color: #9c27b0;">${supplier.tedarikcisınıfı}</div>
+                        <div style="font-size: 1.1em; font-weight: 600; color: #9c27b0;">${_tavanNot ? '<span style="color:#b45309;">⚠</span> ' : ''}${supplier.tedarikcisınıfı}</div>
+                        ${_tavanNot ? `<div style="margin-top:6px;font-size:.78em;font-weight:600;color:#b45309;line-height:1.35;">${_tavanNot}</div>` : ''}
                     </div>
                 `);
             }
+
+            // IATF ek değerlendirmesi — düzeltilmiş puan/sınıf ve risk
+            try {
+                if (typeof computeIatfFields === 'function') {
+                    computeIatfFields(supplier);
+                    const _dNot = (typeof sinifTavaniSebep === 'function') ? sinifTavaniSebep(supplier) : '';
+                    infoItems.push(`
+                        <div style="padding: 15px; background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); border-radius: 8px; border-left: 4px solid #ff8f00; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                            <div style="font-size: 0.9em; color: #666; margin-bottom: 5px;">IATF Düzeltilmiş Puan / Sınıf</div>
+                            <div style="font-size: 1.1em; font-weight: 600; color: #e65100;">${_puanTxt(supplier.duzeltilmisPuan)}% · ${_dNot ? '<span style="color:#b45309;">⚠</span> ' : ''}${supplier.duzeltilmisSinif || '-'}</div>
+                            <div style="margin-top:6px;font-size:.82em;font-weight:600;">${supplier.riskAnalizi || ''}</div>
+                            ${supplier.iatfDuzeltme ? `<div style="margin-top:4px;font-size:.78em;color:#795548;">IATF puan düzeltmesi: ${supplier.iatfDuzeltme}</div>` : ''}
+                        </div>
+                    `);
+                }
+            } catch(e) {}
             
             // İletişim Bilgileri - sadece varsa
             if (hasInfo) {

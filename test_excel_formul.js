@@ -11,12 +11,13 @@ function blok(bas, son) {
   return html.slice(i, j);
 }
 // --- HTML'den gercek kod ---
-const XF = new Function('return ' + blok('const XF = {', '\n            };').replace('const XF = ', '') + '}')();
+const XF = new Function(blok('const _tavanVar =', '\n            };') + '};\nreturn XF;')();
 const app = new Function(
   'getSupplierCategory',
   blok('const _SINIF_SIRA', '\n        function _reloadCategoryMap') +
   blok('function recalculateSupplierScore(', '\n        function analyzeData') +
   blok('function computeIatfFields(', '\n        function saveSupplierIatfData') +
+  blok('var _icMi = function', '\n') + '\n' +   // 'Ic'/'Ic-Ultech' ayrimi HTML'den
   'function _iatfDefaults(){}\n' +   // testte varsayilanlar zaten ornek verisinde
   'return {recalculateSupplierScore, computeIatfFields, sinifTavaniUygula};'
 )(ad => (ad || '').includes('OTO') ? 'Otomotiv' : 'Diger');
@@ -29,13 +30,14 @@ const F = {
   MIN: (...a) => Math.min(...a), MAX: (...a) => Math.max(...a),
   ROUNDDOWN: (n, d) => Math.floor(n * 10 ** d) / 10 ** d,
   SEARCH: (ara, ic) => { const i = String(ic).toUpperCase().indexOf(String(ara).toUpperCase()); return i < 0 ? HATA : i + 1; },
-  ISERROR: v => v === HATA, ISNUMBER: v => typeof v === 'number'
+  ISERROR: v => v === HATA, ISNUMBER: v => typeof v === 'number',
+  RIGHT: (v, n) => String(v).slice(-(n || 1))
 };
 function excel(formul, satir) {
   // tirnak disini donustur: hucre referansi -> S["X"], '=' -> '===', '<>' -> '!=='
   const js = formul.split(/("(?:[^"]*)")/).map((p, i) => i % 2 ? p :
     p.replace(/\$?\b([A-Z]{1,2})\$?\d+\b/g, (_, c) => 'S[' + JSON.stringify(c) + ']')
-     .replace(/<>/g, '!==').replace(/(?<![<>!=])=(?!=)/g, '===')).join('');
+     .replace(/<>/g, '!==').replace(/(?<![<>!=])=(?!=)/g, '===').replace(/&/g, '+')).join('');
   try { return new Function('S', 'F', 'with(F) return ' + js)(satir, F); }
   catch (e) { throw new Error('Formul cozulemedi: ' + formul + '\n' + e.message); }
 }
@@ -96,10 +98,12 @@ for (const o of ornekler) {
     ['8D Donus',          S.S,  r.donusOrani8D],
     ['Kalite Belge Puani', S.O, o.kalitePuan],
     ['TDP',               S.V,  tdpApp],
-    ['Sinif',             S.W,  r.tedarikcisınıfı],
+    ['Sinif',             String(S.W).replace('⚠ ', ''), r.tedarikcisınıfı],
+    ['Sinif uyarisi',     String(S.W).startsWith('⚠'), !!r.sinifTavaniNot],
     ['IATF kesinti',      S.AJ, r.iatfDuzeltme],
     ['Duzeltilmis puan',  S.AK, Math.max(0, tdpApp + r.iatfDuzeltme)],
-    ['Duzeltilmis sinif', S.AL, r.duzeltilmisSinif],
+    ['Duzeltilmis sinif', String(S.AL).replace('⚠ ', ''), r.duzeltilmisSinif],
+    ['Tavan aciklamasi',  excel(XF.tavanNot(10), S).replace('⚠ ', ''), r.sinifTavaniNot || ''],
     ['Risk',              S.AM, r.riskAnalizi],
     ['Musteri durum',     durumM, r.musteriDurum],
     ['Saha durum',        durumS, r.sahaDurum]
