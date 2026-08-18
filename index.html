@@ -1391,6 +1391,144 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
         }
     </style>
+
+    <!-- ════ KOYU TEMA ════════════════════════════════════════════════════════
+         Portal temayi <html data-theme="dark"> olarak yazar. Bu blok YALNIZ
+         gorunumu degistirir; hicbir JS islevine dokunulmaz. Renklerin buyuk
+         kismi JS'in urettigi satir ici style="" icinde oldugu icin nitelik
+         secicileri + !important gerekiyor. -->
+    <style id="koyuTema">
+    :root[data-theme="dark"]{
+      --k-bg:#191c20; --k-yuzey:#23272d; --k-yuzey2:#2b3037; --k-yuzey3:#333941;
+      --k-kenar:#3c434c; --k-metin:#e7e9ec; --k-metin2:#a8b0b9;
+      color-scheme:dark;
+    }
+    /* ── Zemin ve genel metin ── */
+    :root[data-theme="dark"] body{ background:var(--k-bg)!important; color:var(--k-metin)!important; }
+    :root[data-theme="dark"] .container,
+    :root[data-theme="dark"] .card,
+    :root[data-theme="dark"] .upload-section,
+    :root[data-theme="dark"] .stat-card,
+    :root[data-theme="dark"] .modal-dialog,
+    :root[data-theme="dark"] .saved-filters-section{
+      background:var(--k-yuzey)!important; color:var(--k-metin)!important; border-color:var(--k-kenar)!important;
+    }
+    :root[data-theme="dark"] .modal-overlay{ background:rgba(0,0,0,.62)!important; }
+
+    /* ── Tablolar ── */
+    :root[data-theme="dark"] table{ color:var(--k-metin)!important; }
+    :root[data-theme="dark"] td{ border-color:var(--k-kenar)!important; }
+    :root[data-theme="dark"] tbody tr{ background:var(--k-yuzey)!important; }
+    :root[data-theme="dark"] tbody tr:nth-child(even){ background:var(--k-yuzey2)!important; }
+    :root[data-theme="dark"] tbody tr:hover{ background:var(--k-yuzey3)!important; }
+    :root[data-theme="dark"] .table-wrapper{ background:var(--k-yuzey)!important; border-color:var(--k-kenar)!important; }
+
+    /* ── Form ogeleri ── */
+    :root[data-theme="dark"] input,:root[data-theme="dark"] select,:root[data-theme="dark"] textarea{
+      background:var(--k-yuzey2)!important; color:var(--k-metin)!important; border-color:var(--k-kenar)!important;
+    }
+    :root[data-theme="dark"] input::placeholder,:root[data-theme="dark"] textarea::placeholder{ color:var(--k-metin2)!important; }
+    :root[data-theme="dark"] option{ background:var(--k-yuzey2); color:var(--k-metin); }
+    :root[data-theme="dark"] [contenteditable="true"]{ color:var(--k-metin)!important; }
+
+    /* ── Satir ici BEYAZ zeminler (JS sablonlarindan gelir) ── */
+    :root[data-theme="dark"] [style*="background: white"],
+    :root[data-theme="dark"] [style*="background:white"],
+    :root[data-theme="dark"] [style*="background: #fff"],
+    :root[data-theme="dark"] [style*="background:#fff"],
+    :root[data-theme="dark"] [style*="background: #FFF"],
+    :root[data-theme="dark"] [style*="background-color: white"],
+    :root[data-theme="dark"] [style*="background-color:#fff"]{
+      background:var(--k-yuzey)!important; color:var(--k-metin)!important;
+    }
+    /* ── Acik gri yuzeyler ── */
+    :root[data-theme="dark"] [style*="#f5f5f5"],
+    :root[data-theme="dark"] [style*="#f8f9fa"],
+    :root[data-theme="dark"] [style*="#fafafa"],
+    :root[data-theme="dark"] [style*="#eceff1"],
+    :root[data-theme="dark"] [style*="#e8e8e8"],
+    :root[data-theme="dark"] [style*="#eee"],
+    :root[data-theme="dark"] [style*="#f9f9f9"],:root[data-theme="dark"] [style*="#f0f0f0"],
+    :root[data-theme="dark"] [style*="#f5f7fa"],:root[data-theme="dark"] [style*="#f0f2f5"]{
+      background:var(--k-yuzey2)!important; color:var(--k-metin)!important; }
+
+    /* ── Anlamli pastel zeminler: rengi KORU, koyulastir (yesil=iyi, kirmizi=sorun) ── */
+    :root[data-theme="dark"] [style*="#e8f5e9"],:root[data-theme="dark"] [style*="#c8e6c9"],
+    :root[data-theme="dark"] [style*="#d4edda"],:root[data-theme="dark"] [style*="#f1f8f4"]{
+      background:#17351f!important; color:#a5d6a7!important; }
+    :root[data-theme="dark"] [style*="#e3f2fd"],:root[data-theme="dark"] [style*="#bbdefb"],
+    :root[data-theme="dark"] [style*="#e0f2f1"],:root[data-theme="dark"] [style*="#b2dfdb"],
+    :root[data-theme="dark"] [style*="#f0f8ff"],:root[data-theme="dark"] [style*="#f0f9ff"],
+    :root[data-theme="dark"] [style*="#e1f5fe"],:root[data-theme="dark"] [style*="#e3f5ff"],
+    :root[data-theme="dark"] [style*="#e8eaf6"],:root[data-theme="dark"] [style*="#f0f4ff"],
+    :root[data-theme="dark"] [style*="#d1ecf1"]{ background:#16324a!important; color:#90caf9!important; }
+    :root[data-theme="dark"] [style*="#fff3cd"],:root[data-theme="dark"] [style*="#fff8e1"],
+    :root[data-theme="dark"] [style*="#ffecb3"],:root[data-theme="dark"] [style*="#fffde7"],
+    :root[data-theme="dark"] [style*="#fff9c4"],:root[data-theme="dark"] [style*="#fffbf0"],
+    :root[data-theme="dark"] [style*="#fff3e0"],:root[data-theme="dark"] [style*="#ffe0b2"]{
+      background:#3b3314!important; color:#ffe082!important; }
+    :root[data-theme="dark"] [style*="#ffebee"],:root[data-theme="dark"] [style*="#f8d7da"],
+    :root[data-theme="dark"] [style*="#ffcdd2"],:root[data-theme="dark"] [style*="#fdecea"],
+    :root[data-theme="dark"] [style*="#ffe0e0"],:root[data-theme="dark"] [style*="#fff5f5"],
+    :root[data-theme="dark"] [style*="#fce4ec"]{ background:#3c1d20!important; color:#ef9a9a!important; }
+    :root[data-theme="dark"] [style*="#f3e5f5"],:root[data-theme="dark"] [style*="#e1bee7"],
+    :root[data-theme="dark"] [style*="#ede7f6"]{ background:#2e2140!important; color:#ce93d8!important; }
+
+    /* ── Koyu metin renkleri (acik zemine gore yazilmis) aydinlatilir ── */
+    :root[data-theme="dark"] [style*="color: #333"],:root[data-theme="dark"] [style*="color:#333"],
+    :root[data-theme="dark"] [style*="color: #444"],:root[data-theme="dark"] [style*="color:#444"],
+    :root[data-theme="dark"] [style*="color: #212529"],:root[data-theme="dark"] [style*="color:#212529"],
+    :root[data-theme="dark"] [style*="color: black"],:root[data-theme="dark"] [style*="color:#000"]{ color:var(--k-metin)!important; }
+    :root[data-theme="dark"] [style*="color: #555"],:root[data-theme="dark"] [style*="color:#555"],
+    :root[data-theme="dark"] [style*="color: #666"],:root[data-theme="dark"] [style*="color:#666"],
+    :root[data-theme="dark"] [style*="color: #777"],:root[data-theme="dark"] [style*="color:#888"],
+    :root[data-theme="dark"] [style*="color: #607d8b"]{ color:var(--k-metin2)!important; }
+    /* Koyu lacivert basliklar okunur tona cekilir */
+    :root[data-theme="dark"] [style*="color: #1e3c72"],:root[data-theme="dark"] [style*="color:#1e3c72"],
+    :root[data-theme="dark"] [style*="color: #37474f"],:root[data-theme="dark"] [style*="color:#0d47a1"]{ color:#8ab4f8!important; }
+
+    /* ── Kenarliklar ── */
+    :root[data-theme="dark"] [style*="border: 1px solid #ddd"],
+    :root[data-theme="dark"] [style*="border:1px solid #ddd"],
+    :root[data-theme="dark"] [style*="border: 1px solid #eee"],
+    :root[data-theme="dark"] [style*="1px solid #e0e0e0"],
+    :root[data-theme="dark"] [style*="1px solid #ccc"]{ border-color:var(--k-kenar)!important; }
+
+    /* ── Doygun vurgu renkleri (butonlar, rozetler) KOYU ZEMINDE ZATEN OKUNUR:
+         bilerek dokunulmaz; sinif renkleri (A/B/C/D) anlamlarini korur. ── */
+    :root[data-theme="dark"] .supplier-class,:root[data-theme="dark"] .supplier-class-badge{ color:#12151a!important; }
+    </style>
+    <script>
+    // Portal temayi <html data-theme> olarak yazar; ayrica postMessage/storage ile
+    // bildirir. Burada yalnizca tema NITELIGI ayarlanir ve grafik yazi rengi
+    // guncellenir — baska hicbir islev degismez.
+    (function koyuTemaDinle(){
+      function uygula(t){
+        if(!t) return;
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.setAttribute('data-bs-theme', t);
+        try{
+          if(window.Chart && Chart.defaults){
+            Chart.defaults.color = (t==='dark') ? '#c9ced6' : '#666';
+            if(Chart.defaults.scale && Chart.defaults.scale.grid)
+              Chart.defaults.scale.grid.color = (t==='dark') ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.1)';
+          }
+        }catch(e){}
+      }
+      // 1) Acilista: portal zaten yazmis olabilir, yoksa ortak anahtardan oku
+      var ilk = document.documentElement.getAttribute('data-theme');
+      if(!ilk){ try{ ilk = localStorage.getItem('erp_portal_theme'); }catch(e){} }
+      uygula(ilk);
+      // 2) Portal degistirince
+      window.addEventListener('message', function(e){
+        if(e && e.data && e.data.tip==='erp-tema') uygula(e.data.tema);
+      });
+      // 3) Ayni origin'deki baska sekme/pencere degistirince
+      window.addEventListener('storage', function(e){
+        if(e && e.key==='erp_portal_theme') uygula(e.newValue);
+      });
+    })();
+    </script>
 </head>
 <body>
     <div class="header">
