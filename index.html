@@ -3420,12 +3420,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // Doküman yüklü tedarikçiler — IndexedDB async, tablo render'i senkron olduğu için
         // adlar bir kez okunup burada tutulur; doküman modalinde değişince tazelenir.
         let _dokumanVar = new Set();
+        let _dokumanOkundu = false;      // tarama pahalı (tüm belge kayıtları) — oturumda bir kez
         function hasSupplierDocs(name){
             try { return _dokumanVar.has(normalizeName(name)); } catch(e){ return false; }
         }
         function refreshDocPresence(yenidenCiz){
             return new Promise(function(ok){
                 if (!db) { ok(false); return; }
+                _dokumanOkundu = true;
                 try {
                     const tx = db.transaction([DOC_STORE_NAME], 'readonly');
                     const rq = tx.objectStore(DOC_STORE_NAME).getAll();
@@ -10591,7 +10593,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             document.getElementById('controls').classList.add('active');
             _applyCustReturnsToResults(); // müşteri totalIade=fiziksel → PPM/sıralama tutarlı
             _reloadCategoryMap();         // kategori (Otomotiv) haritası senkron sonrası tazelensin
-            try { if (!_dokumanVar.size) refreshDocPresence(true); } catch(e){}   // doküman butonu dolgusu (ilk çizimde)
+            try { if (!_dokumanOkundu) refreshDocPresence(true); } catch(e){}    // doküman butonu dolgusu (oturumda bir kez)
             lastFilteredResults = allResults;
             
             // selectedSuppliers Set'ini güncelle (FİLTRE İÇİN ÖNEMLİ!)
@@ -12905,12 +12907,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // kullanılamaz; müşterilerin iadesi monthlyIade'de duruyor (tabloda görünen değer).
                 const custDolu = custMonOk && Object.keys(cr.mon || {}).length > 0;
                 const custYedek = isMust && !custDolu;
-                if (custYedek && typeof refreshCustomerReturns === 'function' && !window.__custReturnsFetching) {
-                    window.__custReturnsFetching = true;                  // kendini onar: bir kez çek, sonra yeniden çiz
-                    Promise.resolve(refreshCustomerReturns(true)).then(function(){
-                        window.__custReturnsFetching = false;
-                        try { renderLocationPpm(); } catch(e){}
-                    }).catch(function(){ window.__custReturnsFetching = false; });
+                // Fiziksel iade verisi yoksa OTURUMDA BİR KEZ çekmeyi dene. Bayrak sonuçtan
+                // bağımsız kalıcı: veri hiç yoksa (mal_kabul'de iade satırı olmayabilir)
+                // aksi halde çek→çiz→çek sonsuz döngüsü oluşuyordu.
+                if (custYedek && typeof refreshCustomerReturns === 'function' && !window.__custReturnsTried) {
+                    window.__custReturnsTried = true;
+                    Promise.resolve(refreshCustomerReturns(true))
+                        .then(function(){ try { renderLocationPpm(); } catch(e){} })
+                        .catch(function(){});
                 }
                 // Tabloda bir firma seçiliyse grafik/özet yalnız onu gösterir
                 const rowsTum = rows;
