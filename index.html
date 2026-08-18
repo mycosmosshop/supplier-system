@@ -8012,6 +8012,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             var ak = base + s.iatfDuzeltme; if(!isFinite(ak)) ak=0; if(ak<0) ak=0;
             s.duzeltilmisPuan = ak;
             s.duzeltilmisSinif = (ak>=90)?'A':(ak>=80?'B':(ak>=70?'C':'D'));
+            s.duzeltilmisSinif = sinifTavaniUygula(s.duzeltilmisSinif, s);        // PR06 sınıf tavanı
+            s.sinifTavaniNot = sinifTavaniSebep(s);
             var ppm=+s.ppm||+s.currentPPM||0, ppmHedef=+s.ppmTarget||0;
             if(ak<70 || (x>0&&y==='Tedarikçi') || (ag>0&&ah==='Tedarikçi')) s.riskAnalizi='🔴 HIGH – Kritik Tedarikçi';
             else if(ak<90 || (ppmHedef>0&&ppm>ppmHedef) || (aa>0&&ab==='Tedarikçi') || (ad==='Evet'&&ae==='Hayır')) s.riskAnalizi='🟠 MEDIUM – İyileştirme Gerekli';
@@ -9095,6 +9097,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             } else {
                 result.tedarikcisınıfı = 'D';
             }
+            result.tedarikcisınıfı = sinifTavaniUygula(result.tedarikcisınıfı, result);   // PR06 sınıf tavanı
         }
 
         function analyzeData(worksheet) {
@@ -9489,6 +9492,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 } else if (tedarikcipuani >= 0.7) {   // PR06: D < %70
                     tedarikcisınıfı = 'C';
                 }
+                tedarikcisınıfı = sinifTavaniUygula(tedarikcisınıfı, supplier);   // PR06 sınıf tavanı
                 
                 return {
                     status: supplier.status,
@@ -11428,7 +11432,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             </span>
                         </td>
                         <td class="text-center">
-                            <span class="supplier-class-badge class-${result.tedarikcisınıfı.toLowerCase()}">
+                            ${sinifTavaniSebep(result) ? `<span title="${sinifTavaniSebep(result).replace(/"/g,'&quot;')}" style="color:#b45309;font-weight:700;cursor:help;margin-right:3px">⚠</span>` : ''}
+                            <span class="supplier-class-badge class-${result.tedarikcisınıfı.toLowerCase()}" ${sinifTavaniSebep(result)?`title="${sinifTavaniSebep(result).replace(/"/g,'&quot;')}"`:''}>
                                 ${result.tedarikcisınıfı}
                             </span>
                         </td>
@@ -12622,6 +12627,29 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 if (typeof displayResults === 'function') displayResults();
                 if (!silent) alert(Object.keys(retQty).length + ' müşteri için fiziksel iade (' + curYear + ') İade sütununa getirildi.');
             } catch (e) { if (!silent) alert('Müşteri iadesi çekme hatası: ' + (e && e.message ? e.message : e)); }
+        }
+
+        // ── PR06 SINIF TAVANI KURALI ──────────────────────────────────────────────
+        // Tip A (ERP'de 🚗 Otomotiv kategorisi) tedarikçide GEÇERLİ IATF 16949 belgesi yoksa,
+        // hesaplanan puan 90+ olsa dahi sınıf en fazla B atanır. ISO 9001 de yoksa en fazla C
+        // (bu durumda ancak Genel Müdür onayı ve PL33 planı ile çalışılabilir).
+        // PUAN DEĞİŞMEZ — yalnızca sınıf harfi tavana çekilir.
+        const _SINIF_SIRA = { A: 0, B: 1, C: 2, D: 3 };
+        function sinifTavaniSebep(s){
+            try{
+                if (!s || typeof getSupplierCategory !== 'function') return '';
+                if (getSupplierCategory(s.name) !== 'Otomotiv') return '';
+                if (s.iatf) return '';
+                return s.iso9001
+                    ? 'Tip A (Otomotiv) tedarikçide geçerli IATF 16949 belgesi yok → sınıf en fazla B (PR06 sınıf tavanı)'
+                    : 'Tip A (Otomotiv) tedarikçide IATF 16949 ve ISO 9001 belgesi yok → sınıf en fazla C; '
+                      + 'ancak Genel Müdür onayı ve PL33 sistem geliştirme planı ile çalışılabilir (PR06 sınıf tavanı)';
+            }catch(e){ return ''; }
+        }
+        function sinifTavaniUygula(sinif, s){
+            if (!sinif || !sinifTavaniSebep(s)) return sinif;
+            const tavan = s.iso9001 ? 'B' : 'C';
+            return (_SINIF_SIRA[sinif] < _SINIF_SIRA[tavan]) ? tavan : sinif;
         }
 
         // ── Firma kategorisi (Otomotiv vb.) ──
