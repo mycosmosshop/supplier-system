@@ -12729,15 +12729,45 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     (ay === 'all' ? 'Tüm yıl' : (AYU[parseInt(ay, 10) - 1] || ay)) +
                     ' · Firma: ' + rows.length + ' · Sevk: ' + tSevk.toLocaleString('tr-TR') +
                     ' · İade: ' + tIade.toLocaleString('tr-TR') +
-                    ' · <span style="color:#c62828;font-weight:700;">PPM: ' + tPpm.toLocaleString('tr-TR') + '</span>';
+                    ' · <span style="color:#c62828;font-weight:700;">PPM: ' + tPpm.toLocaleString('tr-TR') + '</span>' +
+                    ' <span style="color:#607d8b;font-size:.86em;">(grafikte <b style="color:#2e7d32;">0</b> = ay değerlendirildi, iade yok · <b>–</b> = sevkiyat yok)</span>';
                 const ctx = document.getElementById('locPpmChart').getContext('2d');
                 if (_locPpmChart) _locPpmChart.destroy();
                 const selM = ay === 'all' ? -1 : parseInt(ay, 10) - 1;
                 const bg = ppmM.map((_, m) => (selM === -1 || m === selM) ? (isMust ? '#c62828' : '#1e88e5') : '#cfd8dc');
+                // Sevkiyatı olan ay DEĞERLENDİRİLMİŞTİR: iade gelmediyse PPM 0'dır ve "0" yazılır.
+                // Sevkiyatın hiç olmadığı ay değerlendirme dışıdır → "–".
+                const degerlendirildi = sevkM.map(s => s > 0);
                 _locPpmChart = new Chart(ctx, {
                     type: 'bar',
                     data: { labels: AYK, datasets: [{ label: 'Aylık PPM', data: ppmM, backgroundColor: bg }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: locLbl + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + ' Aylık PPM' } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'PPM' } } } }
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        layout: { padding: { top: 18 } },   // etiketler üstte kesilmesin
+                        plugins: {
+                            legend: { display: false },
+                            title: { display: true, text: locLbl + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') + ' Aylık PPM' },
+                            tooltip: { callbacks: { label: c => degerlendirildi[c.dataIndex]
+                                ? 'PPM: ' + c.parsed.y.toLocaleString('tr-TR') + '  (sevk: ' + Math.round(sevkM[c.dataIndex]).toLocaleString('tr-TR') + ' · iade: ' + iadeM[c.dataIndex].toLocaleString('tr-TR') + ')'
+                                : 'Sevkiyat yok — değerlendirme dışı' } }
+                        },
+                        scales: { y: { beginAtZero: true, title: { display: true, text: 'PPM' } } }
+                    },
+                    plugins: [{
+                        id: 'ppmEtiket',
+                        afterDatasetsDraw(ch) {
+                            const c = ch.ctx, meta = ch.getDatasetMeta(0);
+                            c.save();
+                            c.font = '600 11px system-ui, sans-serif';
+                            c.textAlign = 'center'; c.textBaseline = 'bottom';
+                            meta.data.forEach((bar, m) => {
+                                const va = degerlendirildi[m];
+                                c.fillStyle = va ? (ppmM[m] > 0 ? '#263238' : '#2e7d32') : '#b0bec5';
+                                c.fillText(va ? ppmM[m].toLocaleString('tr-TR') : '–', bar.x, bar.y - 3);
+                            });
+                            c.restore();
+                        }
+                    }]
                 });
                 const firmRows = rows.map(r => {
                     const sv = r.monthlySevk || [], iv = iadeArrOf(r); let s = 0, i = 0;
