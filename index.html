@@ -2513,8 +2513,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 </div>
                 <div id="locPpmSummary" style="padding: 8px 12px; background: #e0f2f1; border-radius: 6px; margin-bottom: 12px; font-size: .92em;"></div>
                 <div style="height: 320px;"><canvas id="locPpmChart"></canvas></div>
-                <h4 style="margin: 16px 0 6px;">Firma Bazlı (PPM'e göre, ilk 15)</h4>
-                <div style="max-height: 260px; overflow: auto; border: 1px solid #eee; border-radius: 6px;"><table style="width: 100%; border-collapse: collapse; font-size: .85em;" id="locPpmTable"></table></div>
+                <h4 style="margin: 16px 0 6px;" id="locPpmTableTitle">Firma Bazlı (PPM'e göre)</h4>
+                <div style="max-height: 320px; overflow: auto; border: 1px solid #eee; border-radius: 6px;"><table style="width: 100%; border-collapse: collapse; font-size: .85em;" id="locPpmTable"></table></div>
             </div>
             <div class="modal-footer"><button class="btn btn-secondary" onclick="closeLocationPpmModal()">Kapat</button></div>
         </div>
@@ -12774,8 +12774,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     months.forEach(m => { s += (+sv[m] || 0); i += (+iv[m] || 0); });
                     return { name: r.name, sevk: s, iade: i, ppm: s > 0 ? Math.round(i / s * 1e6) : 0 };
                 }).filter(x => x.sevk > 0 || x.iade > 0).sort((a, b) => b.ppm - a.ppm);
-                const tb = firmRows.slice(0, 15).map(x => '<tr><td style="padding:3px 6px;">' + x.name + '</td><td style="text-align:right;padding:3px 6px;">' + x.sevk.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;color:#c62828;">' + x.iade.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;font-weight:600;">' + x.ppm.toLocaleString('tr-TR') + '</td></tr>').join('');
-                document.getElementById('locPpmTable').innerHTML = '<tr style="background:#37474f;color:white;"><th style="text-align:left;padding:4px 6px;">Firma</th><th style="padding:4px 6px;">Sevk</th><th style="padding:4px 6px;">İade</th><th style="padding:4px 6px;">PPM</th></tr>' + (tb || '<tr><td colspan="4" style="padding:8px;text-align:center;color:#888;">Veri yok</td></tr>');
+                const _bslk = document.getElementById('locPpmTableTitle');
+                if (_bslk) _bslk.textContent = "Firma Bazlı (PPM'e göre · " + firmRows.length + " firma)";
+                const tb = firmRows.map(x => '<tr><td style="padding:3px 6px;">' + x.name + '</td><td style="text-align:right;padding:3px 6px;">' + x.sevk.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;color:#c62828;">' + x.iade.toLocaleString('tr-TR') + '</td><td style="text-align:right;padding:3px 6px;font-weight:600;">' + x.ppm.toLocaleString('tr-TR') + '</td></tr>').join('');
+                document.getElementById('locPpmTable').innerHTML = '<tr style="background:#37474f;color:white;position:sticky;top:0;"><th style="text-align:left;padding:4px 6px;">Firma</th><th style="padding:4px 6px;">Sevk</th><th style="padding:4px 6px;">İade</th><th style="padding:4px 6px;">PPM</th></tr>' + (tb || '<tr><td colspan="4" style="padding:8px;text-align:center;color:#888;">Veri yok</td></tr>');
             } catch (e) { console.warn('renderLocationPpm', e); }
         }
 
