@@ -1703,6 +1703,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                     <button class="btn" onclick="showSupplierAnalysis()" style="background: #673ab7; color: white; border-color: #673ab7;">🔍 Tedarikçi Analizi</button>
                     <button class="btn" onclick="openLocationPpmModal()" style="background: #00695c; color: white; border-color: #00695c;">📍 Lokasyon PPM Analizi</button>
+                    <button class="btn" onclick="openParetoModal()" style="background: #5e35b1; color: white; border-color: #5e35b1;">📊 Pareto Analizi</button>
                     <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4ff;border:2px solid #1e3c72;border-radius:8px;">
                         <span style="font-weight:700;color:#1e3c72;font-size:0.82em;white-space:nowrap;">🏢 Firma:</span>
                         <select id="companyBrandSelect" onchange="setCompanyBrand(this.value)" style="padding:4px 8px;border:1px solid #1e3c72;border-radius:5px;font-weight:700;background:#1e3c72;color:white;cursor:pointer;font-size:0.88em;">
@@ -2511,6 +2512,56 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     </div>
 
     <!-- Document Matrix Modal -->
+    <!-- ════ PARETO ANALİZİ ════ -->
+    <div id="paretoModal" class="modal-overlay" style="display: none;">
+        <div class="modal-dialog modal-dialog-large" style="max-width: 1100px;">
+            <div class="modal-header" style="background: linear-gradient(135deg,#4527a0,#7e57c2);">
+                <h3>📊 Pareto Analizi</h3>
+                <button class="modal-close" onclick="closeParetoModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px;">
+                    <div><label style="font-size:.78em;color:#666;">Ölçüt</label><br>
+                        <select id="paretoOlcut" onchange="renderPareto()" style="padding:6px 10px;border:1px solid #ccc;border-radius:5px;">
+                            <option value="iade">İade miktarı (klasik Pareto)</option>
+                            <option value="ppm">PPM</option>
+                            <option value="hata">Hata sayısı</option>
+                        </select></div>
+                    <div><label style="font-size:.78em;color:#666;">Durum</label><br>
+                        <select id="paretoDurum" onchange="renderPareto()" style="padding:6px 10px;border:1px solid #ccc;border-radius:5px;">
+                            <option value="ONAYLI">Onaylı (Tedarikçi)</option><option value="MÜŞTERİ">Müşteri</option>
+                        </select></div>
+                    <div><label style="font-size:.78em;color:#666;">Lokasyon</label><br>
+                        <select id="paretoLoc" onchange="renderPareto()" style="padding:6px 10px;border:1px solid #ccc;border-radius:5px;"></select></div>
+                    <div><label style="font-size:.78em;color:#666;">Ay</label><br>
+                        <select id="paretoAy" onchange="renderPareto()" style="padding:6px 10px;border:1px solid #ccc;border-radius:5px;">
+                            <option value="all">Tüm yıl</option><option value="1">Ocak</option><option value="2">Şubat</option><option value="3">Mart</option>
+                            <option value="4">Nisan</option><option value="5">Mayıs</option><option value="6">Haziran</option><option value="7">Temmuz</option>
+                            <option value="8">Ağustos</option><option value="9">Eylül</option><option value="10">Ekim</option><option value="11">Kasım</option><option value="12">Aralık</option>
+                        </select></div>
+                    <div><label style="font-size:.78em;color:#666;">Kategori</label><br>
+                        <select id="paretoKat" onchange="renderPareto()" style="padding:6px 10px;border:1px solid #ccc;border-radius:5px;">
+                            <option value="__ALL__">Tümü</option><option value="Otomotiv">🚗 Otomotiv</option>
+                        </select></div>
+                    <div><label style="font-size:.78em;color:#666;">Gösterilecek</label><br>
+                        <select id="paretoAdet" onchange="renderPareto()" style="padding:6px 10px;border:1px solid #ccc;border-radius:5px;">
+                            <option value="15">İlk 15</option><option value="20" selected>İlk 20</option><option value="30">İlk 30</option><option value="0">Tümü</option>
+                        </select></div>
+                </div>
+                <div id="paretoSummary" style="padding:8px 12px;background:#ede7f6;border-radius:6px;margin-bottom:12px;font-size:.92em;"></div>
+                <div style="height:340px;"><canvas id="paretoChart"></canvas></div>
+                <h4 style="margin:16px 0 6px;" id="paretoTableTitle">Sıralama</h4>
+                <div style="max-height:300px;overflow:auto;border:1px solid #eee;border-radius:6px;">
+                    <table style="width:100%;border-collapse:collapse;font-size:.85em;" id="paretoTable"></table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="paretoExcel()" style="background:#1b5e20;color:#fff;border-color:#1b5e20;">📥 Excel'e aktar</button>
+                <button class="btn btn-secondary" onclick="closeParetoModal()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <div id="locPpmModal" class="modal-overlay" style="display: none;">
         <div class="modal-dialog" style="max-width: 1100px; width: 95%; max-height: 90vh; overflow: auto;">
             <div class="modal-header" style="background: linear-gradient(135deg, #00695c 0%, #004d40 100%); color: white;">
@@ -2529,7 +2580,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 <h4 style="margin: 16px 0 6px;" id="locPpmTableTitle">Firma Bazlı (PPM'e göre)</h4>
                 <div style="max-height: 320px; overflow: auto; border: 1px solid #eee; border-radius: 6px;"><table style="width: 100%; border-collapse: collapse; font-size: .85em;" id="locPpmTable"></table></div>
             </div>
-            <div class="modal-footer"><button class="btn btn-secondary" onclick="closeLocationPpmModal()">Kapat</button></div>
+            <div class="modal-footer">
+                <button class="btn" onclick="openParetoModal()" style="background:#5e35b1;color:#fff;border-color:#5e35b1;">📊 Pareto Analizi</button>
+                <button class="btn btn-secondary" onclick="closeLocationPpmModal()">Kapat</button>
+            </div>
         </div>
     </div>
 
@@ -12829,6 +12883,161 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
         function _durumMusteri(r){
             return String((r && r.status) || '').toUpperCase().includes('MÜŞTER');
+        }
+
+        // ── Pareto Analizi (tedarikçi / müşteri sıralaması) ──
+        // Klasik Pareto MİKTARA göre sıralanır; PPM bir orandır, tek iadesi olan küçük
+        // hacimli firma listeyi tepeye çıkarır. Bu yüzden varsayılan ölçüt "iade".
+        let _paretoChart = null;
+        let _paretoSonSatir = [];
+        // Saf hesap: ölçüte göre azalan sırala, pay ve kümülatif % ekle, %80'i kaç
+        // firmanın oluşturduğunu bul. (DOM'a dokunmaz — test edilebilir.)
+        function paretoHesapla(liste, olcut){
+            const veri = (liste || []).filter(x => (+x[olcut] || 0) > 0)
+                                      .sort((a, b) => (+b[olcut] || 0) - (+a[olcut] || 0));
+            const genel = veri.reduce((t, x) => t + (+x[olcut] || 0), 0);
+            let kum = 0;
+            veri.forEach(x => {
+                kum += (+x[olcut] || 0);
+                x.pay = genel > 0 ? (+x[olcut] / genel * 100) : 0;
+                x.kum = genel > 0 ? (kum / genel * 100) : 0;
+            });
+            // %80'i oluşturan firma sayısı: kümülatifi 80'e ULAŞAN ilk satırın sırası
+            const kritik = genel > 0 ? (veri.findIndex(x => x.kum >= 80) + 1) : 0;
+            return { veri, genel, kritik };
+        }
+        function openParetoModal(){
+            const m = document.getElementById('paretoModal'); if (!m) return;
+            // Lokasyon listesini mevcut veriden doldur; lokasyon modalindeki seçimleri devral
+            const canon = ['Çerkezköy', 'Veliköy', 'Ankara', 'Bursa', 'Adana', 'Eskişehir', 'Sakarya', 'İstanbul', 'Ultech1', 'Ultech2'];
+            const set = {}; canon.forEach(l => set[l] = 1);
+            (allResults || []).forEach(r => (r.lokasyon || []).forEach(l => { if (l) set[l] = 1; }));
+            const sel = document.getElementById('paretoLoc');
+            sel.innerHTML = '<option value="__ALL__">Tüm Lokasyonlar</option>' +
+                Object.keys(set).sort().map(l => '<option value="' + l + '">' + l + '</option>').join('');
+            ['Loc:locPpmLoc', 'Durum:locPpmDurum', 'Ay:locPpmAy', 'Kat:locPpmKat'].forEach(p => {
+                const [a, b] = p.split(':');
+                const src = document.getElementById(b), dst = document.getElementById('pareto' + a);
+                if (src && dst && src.value) dst.value = src.value;      // açık modaldeki filtreyi devral
+            });
+            m.style.display = 'flex';
+            renderPareto();
+        }
+        function closeParetoModal(){ const m = document.getElementById('paretoModal'); if (m) m.style.display = 'none'; }
+        function renderPareto(){
+            try {
+                if (typeof allResults === 'undefined' || !allResults) return;
+                const AYU = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+                const olcut = document.getElementById('paretoOlcut').value;
+                const durum = document.getElementById('paretoDurum').value;
+                const loc   = document.getElementById('paretoLoc').value;
+                const ay    = document.getElementById('paretoAy').value;
+                const kat   = document.getElementById('paretoKat').value;
+                const nGoster = parseInt(document.getElementById('paretoAdet').value, 10) || 0;
+                const isMust = durum === 'MÜŞTERİ';
+                const period = (localStorage.getItem('_currentPeriodName') || '').trim();
+                const yr = (period.match(/(\d{4})/) || ['', ''])[1] || '';
+                const cr = window.__custReturns;
+                const custDolu = !!(cr && cr.period === period && cr.mon && Object.keys(cr.mon).length);
+
+                const rows = (allResults || []).filter(r => {
+                    if (!r) return false;
+                    if (isMust ? !_durumMusteri(r) : !_durumOnayli(r)) return false;
+                    if (loc !== '__ALL__' && (r.lokasyon || []).indexOf(loc) < 0) return false;
+                    if (kat !== '__ALL__' && getSupplierCategory(r.name) !== kat) return false;
+                    return true;
+                });
+                const aylar = ay === 'all' ? [0,1,2,3,4,5,6,7,8,9,10,11] : [parseInt(ay, 10) - 1];
+                const iadeArr = (r) => (isMust && custDolu) ? (cr.mon[normalizeName(r.name)] || []) : (r.monthlyIade || []);
+
+                let liste = rows.map(r => {
+                    const sv = r.monthlySevk || [], iv = iadeArr(r), hv = r.monthlyHata || [];
+                    let sevk = 0, iade = 0, hata = 0;
+                    aylar.forEach(m => { sevk += (+sv[m] || 0); iade += (+iv[m] || 0); hata += (+hv[m] || 0); });
+                    return { ad: r.name, sevk, iade, hata, ppm: sevk > 0 ? Math.round(iade / sevk * 1e6) : 0 };
+                });
+                const _h = paretoHesapla(liste, olcut);
+                liste = _h.veri;
+                const genel = _h.genel, kritik = _h.kritik;
+                _paretoSonSatir = liste;
+
+                const gos = nGoster > 0 ? liste.slice(0, nGoster) : liste;
+                const OLCUT_AD = { iade: 'İade miktarı', ppm: 'PPM', hata: 'Hata sayısı' };
+                document.getElementById('paretoSummary').innerHTML =
+                    '<b>' + (loc === '__ALL__' ? 'Tüm Lokasyonlar' : loc) + ' ' + yr + ' — ' + (isMust ? 'MÜŞTERİ' : 'ONAYLI') +
+                    (kat !== '__ALL__' ? ' · ' + kat : '') + '</b> · ' + (ay === 'all' ? 'Tüm yıl' : AYU[parseInt(ay,10)-1]) +
+                    ' · Ölçüt: <b>' + OLCUT_AD[olcut] + '</b> · Firma: ' + liste.length +
+                    ' · Toplam: <b>' + (olcut === 'ppm' ? '—' : genel.toLocaleString('tr-TR')) + '</b>' +
+                    (kritik > 0 && olcut !== 'ppm'
+                        ? ' · <span style="color:#c62828;font-weight:700;">%80\'i ' + kritik + ' firma oluşturuyor</span>'
+                          + ' <span style="color:#607d8b;font-size:.86em;">(' + liste.length + ' firmanın %'
+                          + (liste.length ? Math.round(kritik / liste.length * 100) : 0) + '\'i)</span>'
+                        : '') +
+                    (olcut === 'ppm' ? ' <span style="color:#e65100;font-size:.86em;">· PPM bir orandır; kümülatif % anlamlı değildir, sıralama için kullanın</span>' : '');
+
+                const ctx = document.getElementById('paretoChart').getContext('2d');
+                if (_paretoChart) _paretoChart.destroy();
+                const kisalt = a => a.length > 22 ? a.slice(0, 21) + '…' : a;
+                _paretoChart = new Chart(ctx, {
+                    data: {
+                        labels: gos.map(x => kisalt(x.ad)),
+                        datasets: [
+                            { type: 'bar', label: OLCUT_AD[olcut], data: gos.map(x => x[olcut]), backgroundColor: isMust ? '#c62828' : '#5e35b1', yAxisID: 'y', order: 2 },
+                            { type: 'line', label: 'Kümülatif %', data: gos.map(x => Math.round(x.kum * 10) / 10, 0), borderColor: '#ef6c00',
+                              backgroundColor: '#ef6c00', borderWidth: 2, pointRadius: 3, yAxisID: 'y2', order: 1, tension: .15,
+                              hidden: olcut === 'ppm' }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'top' },
+                            title: { display: true, text: 'Pareto — ' + OLCUT_AD[olcut] + ' (' + (isMust ? 'Müşteri' : 'Tedarikçi') + ')' },
+                            tooltip: { callbacks: { afterLabel: c => c.datasetIndex === 0
+                                ? 'Pay: %' + (gos[c.dataIndex].pay || 0).toFixed(1) + ' · Kümülatif: %' + (gos[c.dataIndex].kum || 0).toFixed(1)
+                                : '' } }
+                        },
+                        scales: {
+                            x: { ticks: { autoSkip: false, maxRotation: 60, minRotation: 45, font: { size: 10 } } },
+                            y:  { beginAtZero: true, position: 'left',  title: { display: true, text: OLCUT_AD[olcut] } },
+                            y2: { beginAtZero: true, position: 'right', max: 100, grid: { drawOnChartArea: false },
+                                  title: { display: true, text: 'Kümülatif %' }, display: olcut !== 'ppm' }
+                        }
+                    }
+                });
+
+                document.getElementById('paretoTableTitle').textContent = 'Sıralama (' + liste.length + ' firma)';
+                const hd = '<tr style="background:#4527a0;color:#fff;position:sticky;top:0;">' +
+                    '<th style="padding:4px 6px;">#</th><th style="text-align:left;padding:4px 6px;">Firma</th>' +
+                    '<th style="padding:4px 6px;">Sevk</th><th style="padding:4px 6px;">İade</th><th style="padding:4px 6px;">Hata</th>' +
+                    '<th style="padding:4px 6px;">PPM</th><th style="padding:4px 6px;">Pay %</th><th style="padding:4px 6px;">Kümülatif %</th></tr>';
+                const gv = v => v.toLocaleString('tr-TR');
+                const tb = liste.map((x, i) => {
+                    const vurgu = (olcut !== 'ppm' && x.kum <= 80) ? 'background:#fff3e0;' : '';
+                    return '<tr style="' + vurgu + '">' +
+                        '<td style="text-align:center;padding:3px 6px;">' + (i + 1) + '</td>' +
+                        '<td style="padding:3px 6px;">' + x.ad + '</td>' +
+                        '<td style="text-align:right;padding:3px 6px;">' + gv(Math.round(x.sevk)) + '</td>' +
+                        '<td style="text-align:right;padding:3px 6px;color:#c62828;">' + gv(Math.round(x.iade * 100) / 100) + '</td>' +
+                        '<td style="text-align:right;padding:3px 6px;">' + gv(x.hata) + '</td>' +
+                        '<td style="text-align:right;padding:3px 6px;font-weight:600;">' + gv(x.ppm) + '</td>' +
+                        '<td style="text-align:right;padding:3px 6px;">' + (x.pay || 0).toFixed(1) + '</td>' +
+                        '<td style="text-align:right;padding:3px 6px;font-weight:600;">' + (x.kum || 0).toFixed(1) + '</td></tr>';
+                }).join('');
+                document.getElementById('paretoTable').innerHTML = hd +
+                    (tb || '<tr><td colspan="8" style="padding:8px;text-align:center;color:#888;">Veri yok</td></tr>');
+            } catch (e) { console.warn('renderPareto', e); }
+        }
+        function paretoExcel(){
+            if (!_paretoSonSatir.length) { showAlert('Aktarılacak veri yok.', 'warning'); return; }
+            const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Pareto');
+            ws.addRow(['#', 'Firma', 'Sevk', 'İade', 'Hata', 'PPM', 'Pay %', 'Kümülatif %']);
+            ws.getRow(1).font = { bold: true };
+            _paretoSonSatir.forEach((x, i) => ws.addRow([i + 1, x.ad, Math.round(x.sevk), x.iade, x.hata, x.ppm,
+                Math.round((x.pay || 0) * 10) / 10, Math.round((x.kum || 0) * 10) / 10]));
+            ws.columns = [{ width: 5 }, { width: 46 }, { width: 14 }, { width: 12 }, { width: 9 }, { width: 10 }, { width: 9 }, { width: 13 }];
+            const t = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
+            wb.xlsx.writeBuffer().then(b => saveAs(new Blob([b], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), 'Pareto_' + t + '.xlsx'));
         }
 
         // ── Lokasyon Bazlı PPM Analizi ──
