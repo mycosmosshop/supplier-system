@@ -1903,6 +1903,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         </select>
                     </div>
                     <button class="btn" onclick="openExportDialog('excel')" style="background: #28a745; color: white; border-color: #28a745;">📥 Excel İndir</button>
+            <button class="btn" onclick="buluttaYayinla()" title="Onaylı tedarikçi listesini buluta yazar; APQP/PPAP modülü PL11'i buradan üretir." style="background:#1e3c72;color:#fff;border-color:#1e3c72;">☁ Onaylı Listeyi Buluta Yaz</button>
                     <button class="btn" onclick="openExportDialog('pdf')" style="background: #dc3545; color: white; border-color: #dc3545;">📄 PDF İndir</button>
                     <button class="btn" onclick="openEvaluationProcedure()" style="background: #3f51b5; color: white; border-color: #3f51b5;">📘 Değerlendirme Prosedürü</button>
                     <button class="btn" onclick="window.open('calendar-heatmap.html','_blank')" style="background: #00897b; color: white; border-color: #00897b;">📅 Calendar Heatmap</button>
@@ -8553,6 +8554,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { localStorage.setItem('_sharedCurrentPeriodName', donem); } catch (e) {} // tüm kullanıcılar "(güncel dönem)" etiketini görsün
                 try { if (typeof updateEditsVersionButton === 'function') updateEditsVersionButton(); } catch (e) {}
                 try { if (typeof displayResults === 'function') displayResults(); } catch (e) {}
+                // ONAYLI LISTE BULUTA: tedarikçi sınıfı/otomotiv/belge bilgisi elle
+                // girilen veri ve yalnız bu tarayıcıda duruyordu; APQP modülü PL11'i
+                // üretebilsin diye buluta da yazılır (sessiz, hata uygulamayı durdurmaz).
+                try { if (allResults && allResults.length) buluttaYayinla(true); } catch (e) {}
                 // KALICI YAP + YAYINLA: açılışta veri buradan geri yükleniyor. Bu satır olmadan
                 // taze LeanSys verisi yalnız bellekte kalıyor, sayfa yenilenince eski veri dönüyordu.
                 try { if (allResults && allResults.length) localStorage.setItem('selectedSuppliers', JSON.stringify(allResults)); } catch (e) {}
@@ -12993,7 +12998,60 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // (bu durumda ancak Genel Müdür onayı ve PL33 planı ile çalışılabilir).
         // PUAN DEĞİŞMEZ — yalnızca sınıf harfi tavana çekilir.
         const _SINIF_SIRA = { A: 0, B: 1, C: 2, D: 3 };
-        function sinifTavaniSebep(s){
+        // Onaylı tedarikçi listesini Supabase'e yazar (PL11'in kaynağı).
+// sessiz=true iken kullanıcıya mesaj gösterilmez (otomatik çağrı).
+async function buluttaYayinla(sessiz){
+    try{
+        if (!allResults || !allResults.length){
+            if (!sessiz) showAlert('Önce tedarikçi listesi yüklenmeli.', 'warning');
+            return;
+        }
+        const kayitlar = allResults.map(r => {
+            const lok = Array.isArray(r.lokasyon) ? r.lokasyon
+                      : (r.lokasyon ? [String(r.lokasyon)] : []);
+            let tavan = '';
+            try { tavan = sinifTavaniSebep(r) || ''; } catch(e){}
+            let oto = false;
+            try { oto = getSupplierCategory(r.name) === 'Otomotiv'; } catch(e){}
+            return {
+                ad: String(r.name || '').trim(),
+                durum: String(r.status || ''),
+                lokasyon: lok,
+                sinif: String(r.duzeltilmisSinif || r.tedarikcisınıfı || ''),
+                puan: Number(r.tedarikciPuani || r.puan || 0) || 0,
+                ppm: Number(r.ppm || 0) || 0,
+                otomotiv: oto,
+                iatf: !!r.iatf,
+                iso9001: !!r.iso9001,
+                belgeler: Array.isArray(r.documents) ? r.documents.map(d => d && d.type || d).join(', ')
+                         : String(r.belgeler || ''),
+                tavan_not: tavan,
+                guncelleme: new Date().toISOString()
+            };
+        }).filter(x => x.ad);
+
+        const yanit = await fetch(SUPABASE_URL + '/rest/v1/onayli_tedarikci?on_conflict=ad', {
+            method: 'POST',
+            headers: {
+                apikey: SUPABASE_ANON_KEY,
+                Authorization: 'Bearer ' + SUPABASE_ANON_KEY,
+                'Content-Type': 'application/json',
+                Prefer: 'resolution=merge-duplicates,return=minimal'
+            },
+            body: JSON.stringify(kayitlar)
+        });
+        if (!yanit.ok) throw new Error('HTTP ' + yanit.status + ' ' + (await yanit.text()).slice(0,120));
+        if (!sessiz){
+            const oto = kayitlar.filter(x => x.otomotiv).length;
+            showAlert(kayitlar.length + ' tedarikçi buluta yazıldı (' + oto + ' otomotiv). '
+                    + 'APQP modülü PL11\'i artık buradan üretir.', 'success');
+        }
+    }catch(e){
+        if (!sessiz) showAlert('Buluta yazılamadı: ' + e.message, 'error');
+    }
+}
+
+function sinifTavaniSebep(s){
             try{
                 if (!s || typeof getSupplierCategory !== 'function') return '';
                 if (getSupplierCategory(s.name) !== 'Otomotiv') return '';
