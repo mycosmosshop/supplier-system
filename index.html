@@ -1390,6 +1390,45 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 padding: 8px 12px;
             }
         }
+
+        /* ── Sutun ozeti (baslik ustune gelince) ─────────────────────────
+           Ekrandaki satirlardan hesaplanan ortalama/ortanca/min/maks.
+           Sabit konumlu: tablo yatay kaydirilirken kutu kaymaz. */
+        #sutunOzetKutu {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            background: #1f2937;
+            color: #f3f4f6;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 9px 12px;
+            font-size: 12px;
+            line-height: 1.55;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, .3);
+            pointer-events: none;   /* kutu, fareyi engellemesin */
+            white-space: nowrap;
+        }
+        #sutunOzetKutu b {
+            display: block;
+            font-size: 11px;
+            letter-spacing: .4px;
+            text-transform: uppercase;
+            color: #9ca3af;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        #sutunOzetKutu span {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+        }
+        #sutunOzetKutu i {
+            font-style: normal;
+            font-weight: 700;
+            color: #fff;
+        }
+        th.sortable { position: relative; }
     </style>
 
     <!-- ════ KOYU TEMA ════════════════════════════════════════════════════════
@@ -11344,6 +11383,73 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 </tr>
             `;
         }
+
+        // ── SUTUN OZETI: baslik ustune gelince ortalama ──────────────────
+        // Kullanici "tamamlanma puaninin ustune gelince ortalamasi gorunebilir
+        // mi" diye sordu. Ozet EKRANDAKI SATIRLARDAN hesaplanir (dizilerden
+        // degil): boylece filtre/arama neyse ozet de ona uyar, kullanicinin
+        // gordugu liste ile rakam ASLA celismez.
+        function _sutunSayilari(tablo, idx) {
+            const sayilar = [];
+            tablo.querySelectorAll('tbody tr').forEach(tr => {
+                if (tr.classList.contains('separator-row')) return;
+                if (tr.offsetParent === null) return;          // gizli satir sayilmaz
+                const h = tr.cells[idx];
+                if (!h) return;
+                // Hucre duzenlenebilir olabilir (<input value="...">)
+                const girdi = h.querySelector('input');
+                let ham = girdi ? girdi.value : h.textContent;
+                ham = String(ham || '').replace('%', '').replace(/\s/g, '').replace(',', '.');
+                const n = parseFloat(ham);
+                if (isFinite(n)) sayilar.push(n);
+            });
+            return sayilar;
+        }
+
+        function _sutunOzetGoster(th) {
+            const tablo = th.closest('table');
+            if (!tablo) return;
+            const s = _sutunSayilari(tablo, th.cellIndex);
+            if (s.length < 2) return;                          // tek satirda ozet anlamsiz
+            const ort = s.reduce((a, b) => a + b, 0) / s.length;
+            const sirali = [...s].sort((a, b) => a - b);
+            const ortanca = sirali.length % 2
+                ? sirali[(sirali.length - 1) / 2]
+                : (sirali[sirali.length / 2 - 1] + sirali[sirali.length / 2]) / 2;
+            const bicim = x => (Math.round(x * 10) / 10).toLocaleString('tr-TR');
+            let k = document.getElementById('sutunOzetKutu');
+            if (!k) {
+                k = document.createElement('div');
+                k.id = 'sutunOzetKutu';
+                document.body.appendChild(k);
+            }
+            const ad = th.textContent.replace(/[▲▼↑↓]/g, '').trim();
+            k.innerHTML = '<b>' + ad + '</b>'
+                + '<span>Ortalama<i>' + bicim(ort) + '</i></span>'
+                + '<span>Ortanca<i>' + bicim(ortanca) + '</i></span>'
+                + '<span>En düşük<i>' + bicim(sirali[0]) + '</i></span>'
+                + '<span>En yüksek<i>' + bicim(sirali[sirali.length - 1]) + '</i></span>'
+                + '<span>Satır<i>' + s.length + '</i></span>';
+            const r = th.getBoundingClientRect();
+            k.style.display = 'block';
+            // Once goster, sonra olc: genislik bilinmeden ekran disina tasabiliyor
+            const g = k.getBoundingClientRect().width;
+            k.style.left = Math.max(6, Math.min(window.innerWidth - g - 6,
+                r.left + r.width / 2 - g / 2)) + 'px';
+            k.style.top = (r.bottom + 6) + 'px';
+        }
+
+        function _sutunOzetGizle() {
+            const k = document.getElementById('sutunOzetKutu');
+            if (k) k.style.display = 'none';
+        }
+
+        document.addEventListener('mouseover', e => {
+            const th = e.target && e.target.closest && e.target.closest('th.sortable');
+            if (th) _sutunOzetGoster(th); else _sutunOzetGizle();
+        });
+        document.addEventListener('mouseleave', _sutunOzetGizle, true);
+        window.addEventListener('scroll', _sutunOzetGizle, true);
 
         function sortTable(column) {
             // Scroll pozisyonunu ve yatay kaydırmayı kaydet
