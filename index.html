@@ -11389,6 +11389,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // mi" diye sordu. Ozet EKRANDAKI SATIRLARDAN hesaplanir (dizilerden
         // degil): boylece filtre/arama neyse ozet de ona uyar, kullanicinin
         // gordugu liste ile rakam ASLA celismez.
+
+        // "9.306,25" gibi tr-TR bicimli metni sayiya cevirir. Duz parseFloat
+        // noktayi ondalik sanip 9.306 okuyordu: en yuksek/ortalama yanlis cikiyordu.
+        function _trSayi(ham) {
+            let t = String(ham == null ? '' : ham).replace(/[^\d.,+-]/g, '');
+            if (!t) return NaN;
+            if (t.indexOf(',') > -1) {                 // virgul varsa o ondalik
+                t = t.replace(/\./g, '').replace(',', '.');
+            } else {
+                const p = t.split('.');                // "89.415.283" · "22.800" binlik
+                if (p.length > 2 || (p.length === 2 && p[1].length === 3)) t = p.join('');
+            }
+            return parseFloat(t);
+        }
+
         function _sutunSayilari(tablo, idx) {
             const sayilar = [];
             tablo.querySelectorAll('tbody tr').forEach(tr => {
@@ -11398,9 +11413,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 if (!h) return;
                 // Hucre duzenlenebilir olabilir (<input value="...">)
                 const girdi = h.querySelector('input');
-                let ham = girdi ? girdi.value : h.textContent;
-                ham = String(ham || '').replace('%', '').replace(/\s/g, '').replace(',', '.');
-                const n = parseFloat(ham);
+                const n = _trSayi(girdi ? girdi.value : h.textContent);
                 if (isFinite(n)) sayilar.push(n);
             });
             return sayilar;
