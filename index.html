@@ -6814,6 +6814,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             displayResults = function () {
                 const r = _eskiDisplayResults.apply(this, arguments);
                 try { belgeTakipRozetiniGuncelle(); } catch (e) {}
+                try { bulutaYazPlanla(25000); } catch (e) {}
                 return r;
             };
         }
@@ -21469,6 +21470,36 @@ function sinifTavaniSebep(s){
             showAlert('✅ Drive ayarları kaydedildi!', 'success');
         }
         // Doküman/dosya veya veri değişince OTOMATİK Drive yedeği (debounce'lu) → dosyalar Drive'a gider, herkes görür
+        // ======== ONAYLI LISTEYI OTOMATIK BULUTA YAZ ========
+        // Elle "☁ Onaylı Listeyi Buluta Yaz" dugmesine basmak gerekmesin.
+        // Ayni korumalar: paylasim linkiyle acilan sayfa ve yerel/onizleme
+        // ortami YAZMAZ (test verisi gercek listeyi ezmesin).
+        var _bulutYazTimer = null, _sonBulutYazma = 0, _bulutIlkYazma = true;
+        var BULUT_EN_AZ_ARA = 300000;   // ayni oturumda 5 dakikadan sik yazma
+        function _bulutYazilabilirMi(){
+            try {
+                if (/[?&](mode=supplier|mode=documents|storj=|drive=|d=|share=|shared|view=)/i.test(location.search)) return false;
+                if (/^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname) || location.protocol === 'file:') return false;
+                return !!(typeof allResults !== 'undefined' && allResults && allResults.length);
+            } catch(e){ return false; }
+        }
+        function bulutaYazPlanla(gecikme){
+            if (!_bulutYazilabilirMi()) return;
+            clearTimeout(_bulutYazTimer);
+            _bulutYazTimer = setTimeout(function calis(){
+                var kalan = BULUT_EN_AZ_ARA - (Date.now() - _sonBulutYazma);
+                if (_sonBulutYazma && kalan > 0) { _bulutYazTimer = setTimeout(calis, kalan); return; }
+                if (!_bulutYazilabilirMi()) return;
+                _sonBulutYazma = Date.now();
+                try {
+                    // Oturumun ILK otomatik yazmasi sessiz degil: kac tedarikci
+                    // yazildigini gorursun, dogru calistigi belli olur.
+                    buluttaYayinla(!_bulutIlkYazma);
+                    _bulutIlkYazma = false;
+                } catch(e){ console.warn('Otomatik bulut yazma hatası:', e); }
+            }, gecikme || 15000);
+        }
+
         var _autoDriveTimer = null;
         function autoDriveBackup(){
             try {
@@ -21481,6 +21512,7 @@ function sinifTavaniSebep(s){
                     clearTimeout(_autoDriveTimer);
                     _autoDriveTimer = setTimeout(function(){ try { uploadDatabaseToDrive(true); } catch(e){ console.warn('Otomatik Drive yedek hatası:', e); } }, 12000);
                 }
+                bulutaYazPlanla(20000);   // onayli liste de kendiliginden tazelensin
             } catch(e){}
         }
         function driveJsonp(params){
