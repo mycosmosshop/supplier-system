@@ -1943,6 +1943,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </div>
                     <button class="btn" onclick="openExportDialog('excel')" style="background: #28a745; color: white; border-color: #28a745;">📥 Excel İndir</button>
             <button class="btn" onclick="buluttaYayinla()" title="Onaylı tedarikçi listesini buluta yazar; APQP/PPAP modülü PL11'i buradan üretir." style="background:#1e3c72;color:#fff;border-color:#1e3c72;">☁ Onaylı Listeyi Buluta Yaz</button>
+            <button class="btn" onclick="belgeTakipPaneli()" title="Geçerlilik süresi dolan / dolmak üzere olan belgeler" style="background:#f57f17;color:#fff;border-color:#f57f17;">⏰ Belge Süresi <span id="belgeTakipSayi" style="display:none;background:#fff;color:#f57f17;border-radius:10px;padding:0 7px;font-weight:700;margin-left:4px;"></span></button>
                     <button class="btn" onclick="openExportDialog('pdf')" style="background: #dc3545; color: white; border-color: #dc3545;">📄 PDF İndir</button>
                     <button class="btn" onclick="openEvaluationProcedure()" style="background: #3f51b5; color: white; border-color: #3f51b5;">📘 Değerlendirme Prosedürü</button>
                     <button class="btn" onclick="window.open('calendar-heatmap.html','_blank')" style="background: #00897b; color: white; border-color: #00897b;">📅 Calendar Heatmap</button>
@@ -6679,6 +6680,142 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
         }
 
+        // ======== BELGE SURESI TAKIBI ========
+        // Kac gun once uyarilsin (ayarlanabilir; sertifika yenileme haftalar surer)
+        function belgeUyariGun() {
+            const v = parseInt(localStorage.getItem('belgeUyariGun') || '60', 10);
+            return (isNaN(v) || v < 1) ? 60 : v;
+        }
+        function belgeUyariGunAyarla() {
+            const v = prompt('Belge süresi kaç gün önceden uyarsın?', belgeUyariGun());
+            if (v === null) return;
+            const n = parseInt(v, 10);
+            if (isNaN(n) || n < 1) { showAlert('Geçerli bir gün sayısı girin.', 'error'); return; }
+            localStorage.setItem('belgeUyariGun', String(n));
+            showAlert('✅ Uyarı süresi ' + n + ' gün olarak ayarlandı.', 'success');
+            if (typeof displayResults === 'function') displayResults();
+            belgeTakipRozetiniGuncelle();
+        }
+        // Bir tedarikcinin suresi dolan / dolmak uzere olan belgeleri
+        function belgeVadeleri(supplier) {
+            const out = [];
+            const tarihler = supplier && supplier.certExpiryDates;
+            if (!tarihler) return out;
+            const esik = belgeUyariGun();
+            (typeof qualityCertTypes !== 'undefined' ? qualityCertTypes : []).forEach(cert => {
+                const t = tarihler[cert.key];
+                if (!t) return;
+                const kalan = Math.ceil((new Date(t) - new Date()) / 86400000);
+                if (kalan <= esik) out.push({ ad: cert.label, tarih: t, kalan: kalan });
+            });
+            return out.sort((x, y) => x.kalan - y.kalan);
+        }
+        function belgeVadeMetni(v) {
+            const g = new Date(v.tarih).toLocaleDateString('tr-TR');
+            return v.kalan < 0 ? (v.ad + ' — ' + g + ' (' + (-v.kalan) + ' gün geçti)')
+                               : (v.ad + ' — ' + g + ' (' + v.kalan + ' gün kaldı)');
+        }
+        // Satirdaki uyari rozeti
+        function belgeVadeRozeti(supplier) {
+            const v = belgeVadeleri(supplier);
+            if (!v.length) return '';
+            const gecmis = v.some(x => x.kalan < 0);
+            const baslik = v.map(belgeVadeMetni).join(' · ').replace(/"/g, '&quot;');
+            return ' <span onclick="event.stopPropagation();belgeHatirlat(' + JSON.stringify(supplier.name).replace(/"/g, '&quot;') + ')"'
+                + ' style="display:inline-block;font-size:0.7em;font-weight:700;cursor:pointer;color:#fff;border-radius:4px;padding:1px 5px;vertical-align:middle;background:'
+                + (gecmis ? '#c62828' : '#f57f17') + '" title="' + baslik + ' — tıkla: hatırlatma maili">'
+                + (gecmis ? '⛔' : '⏰') + ' ' + v.length + ' belge</span>';
+        }
+        // Ust bardaki sayac
+        function belgeTakipRozetiniGuncelle() {
+            const el = document.getElementById('belgeTakipSayi');
+            if (!el || typeof allResults === 'undefined' || !allResults) return;
+            const n = allResults.filter(s => belgeVadeleri(s).length).length;
+            el.textContent = n ? String(n) : '';
+            el.style.display = n ? 'inline-block' : 'none';
+        }
+        // Suresi yaklasan belgelerin listesi
+        function belgeTakipPaneli() {
+            if (typeof allResults === 'undefined' || !allResults || !allResults.length) {
+                showAlert('Önce tedarikçi listesi yüklenmeli.', 'warning');
+                return;
+            }
+            const liste = allResults.map(s => ({ s: s, v: belgeVadeleri(s) })).filter(x => x.v.length)
+                .sort((a, b) => a.v[0].kalan - b.v[0].kalan);
+            const p = document.createElement('div');
+            p.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20000;display:flex;'
+                + 'align-items:center;justify-content:center;padding:20px';
+            let h = '<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:88vh;'
+                + 'overflow:auto;padding:22px 24px">'
+                + '<h3 style="margin:0 0 4px">⏰ Süresi Yaklaşan / Dolan Belgeler</h3>'
+                + '<div style="font-size:.85em;color:#666;margin-bottom:14px">'
+                + belgeUyariGun() + ' gün önceden uyarılıyor · '
+                + '<a href="#" onclick="this.closest(\'div[style*=fixed]\').remove();belgeUyariGunAyarla();return false">süreyi değiştir</a></div>';
+            if (!liste.length) {
+                h += '<div style="padding:30px;text-align:center;color:#666">Yaklaşan belge süresi yok. 👍</div>';
+            } else {
+                h += '<table style="width:100%;border-collapse:collapse;font-size:.9em">'
+                   + '<tr><th style="text-align:left;padding:6px 8px;border-bottom:2px solid #eee">Tedarikçi</th>'
+                   + '<th style="text-align:left;padding:6px 8px;border-bottom:2px solid #eee">Belge / Bitiş</th>'
+                   + '<th style="padding:6px 8px;border-bottom:2px solid #eee"></th></tr>';
+                liste.forEach(x => {
+                    const A = JSON.stringify(x.s.name).replace(/"/g, '&quot;');
+                    h += '<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0;vertical-align:top">'
+                       + x.s.name + '</td><td style="padding:8px;border-bottom:1px solid #f0f0f0">'
+                       + x.v.map(v => '<div style="color:' + (v.kalan < 0 ? '#c62828' : '#f57f17') + '">'
+                           + (v.kalan < 0 ? '⛔ ' : '⏰ ') + belgeVadeMetni(v) + '</div>').join('')
+                       + '</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;white-space:nowrap">'
+                       + '<button onclick="belgeHatirlat(' + A + ')" style="padding:6px 12px;background:#9c27b0;'
+                       + 'color:#fff;border:0;border-radius:6px;cursor:pointer">📧 Hatırlat</button></td></tr>';
+                });
+                h += '</table>';
+            }
+            h += '<div style="text-align:right;margin-top:16px">'
+               + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 18px;'
+               + 'border:1px solid #ddd;background:#fff;border-radius:6px;cursor:pointer">Kapat</button></div></div>';
+            p.innerHTML = h;
+            p.addEventListener('click', e => { if (e.target === p) p.remove(); });
+            document.body.appendChild(p);
+        }
+        // Belge yenileme hatirlatma maili (kisa link ile)
+        async function belgeHatirlat(supplierName) {
+            const s = (allResults || []).find(x => x.name === supplierName);
+            if (!s) { showAlert('Tedarikçi bulunamadı.', 'error'); return; }
+            const v = belgeVadeleri(s);
+            if (!v.length) { showAlert('Bu tedarikçide süresi yaklaşan belge yok.', 'info'); return; }
+
+            let link = '';
+            try {
+                const kayit = await getSupplierDocuments(supplierName);
+                if (kayit && kayit.sharedDriveKey) {
+                    const taban = window.location.href.split('?')[0].split('#')[0];
+                    link = taban + '?d=' + encodeURIComponent(kayit.sharedDriveKey);
+                }
+            } catch (e) {}
+
+            const satirlar = v.map(x => '• ' + belgeVadeMetni(x)).join('\n');
+            const konu = 'Belge yenileme hatırlatması — ' + supplierName;
+            const govde = 'Sayın Yetkili,\n\n'
+                + 'Aşağıdaki belgelerinizin geçerlilik süresi dolmak üzere:\n\n' + satirlar + '\n\n'
+                + (link
+                    ? 'Güncel belgeleri şu sayfadan yükleyebilirsiniz (kayıt/şifre gerekmez):\n' + link + '\n\n'
+                      + 'Sayfayı açın → ilgili belge türünün altındaki alana dosyayı sürükleyin → "Gönder" düğmesine basın.\n\n'
+                    : 'Belgeleri iletmek için lütfen bizimle iletişime geçin.\n\n')
+                + 'Saygılarımızla,\nKalite Ekibi';
+            window.location.href = 'mailto:?subject=' + encodeURIComponent(konu) + '&body=' + encodeURIComponent(govde);
+        }
+
+        // Liste her cizildiginde ust bardaki belge sayaci tazelensin
+        if (typeof displayResults === 'function' && !window.__belgeSayaciBagli) {
+            window.__belgeSayaciBagli = true;
+            const _eskiDisplayResults = displayResults;
+            displayResults = function () {
+                const r = _eskiDisplayResults.apply(this, arguments);
+                try { belgeTakipRozetiniGuncelle(); } catch (e) {}
+                return r;
+            };
+        }
+
         function getExpiryStatus(expiryDate) {
             if (!expiryDate) return { status: 'none', text: '-', color: '#fff' };
             
@@ -11204,7 +11341,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </td>
                     <td class="supplier-name" style="cursor: pointer; text-decoration: underline; color: #1e3c72; font-weight: 500;" 
                         onclick="openPerformanceDialog('${result.name.replace(/'/g, "\\'")}')"
-                        title="Performans verisini görmek için tıklayın">${result.name}${getSupplierCategory(result.name) === 'Otomotiv' ? ' <span style="display:inline-block;font-size:0.7em;font-weight:700;color:#fff;background:#00695c;border-radius:4px;padding:1px 5px;vertical-align:middle;" title="Otomotiv kategorisi">🚗 Otomotiv</span>' : ''}
+                        title="Performans verisini görmek için tıklayın">${result.name}${getSupplierCategory(result.name) === 'Otomotiv' ? ' <span style="display:inline-block;font-size:0.7em;font-weight:700;color:#fff;background:#00695c;border-radius:4px;padding:1px 5px;vertical-align:middle;" title="Otomotiv kategorisi">🚗 Otomotiv</span>' : ''}${belgeVadeRozeti(result)}
                         <button style="margin-left: 6px; padding: 2px 6px; font-size: 0.75em; cursor: pointer; border: 1px solid #1e3c72; border-radius: 4px; background: white; color: #1e3c72;"
                                 onclick="event.stopPropagation(); openPerformanceCharts('${safeRowKey.replace(/"/g, '&quot;')}')"
                                 title="Aylık grafikler">📊</button>
@@ -29165,7 +29302,48 @@ Devam etmek istiyor musunuz?`;
             `;
             
             // Tüm doküman türlerini göster (DOCUMENT_TYPES + custom types)
-            const allDocTypes = [...new Set([...getDocumentTypes(), ...(shareData.customTypes || [])])];
+            let allDocTypes = [...new Set([...getDocumentTypes(), ...(shareData.customTypes || [])])];
+
+            // ── NE İSTENİYOR? ─────────────────────────────────────────────
+            // Tedarikçi sayfayı açtığında önce "benden ne bekleniyor" görsün:
+            // eksik ve reddedilmiş türler başa alınır, üstte sayaç durur.
+            const _muaf = (shareData.exemptDocTypes || []);
+            const _durum = t => {
+                if (_muaf.includes(t)) return 'muaf';
+                const d = shareData.documents[t] || [];
+                if (!d.length) return 'eksik';
+                if (d.some(f => f.status === 'rejected')) return 'red';
+                if (d.every(f => f.status === 'approved')) return 'kabul';
+                return 'beklemede';
+            };
+            const _sira = { red: 0, eksik: 1, beklemede: 2, kabul: 3, muaf: 4 };
+            allDocTypes = allDocTypes.slice().sort((x, y) => (_sira[_durum(x)] - _sira[_durum(y)])
+                || x.localeCompare(y, 'tr'));
+            const _say = { red: 0, eksik: 0, beklemede: 0, kabul: 0, muaf: 0 };
+            allDocTypes.forEach(t => _say[_durum(t)]++);
+            const _istenen = allDocTypes.length - _say.muaf;
+            const _tamam = _say.kabul + _say.beklemede;
+            const _yuzde = _istenen ? Math.round(_tamam * 100 / _istenen) : 100;
+            html += `
+                <div style="background:#f8fbff;border:1px solid #cfe3f7;border-radius:10px;padding:16px 18px;margin-bottom:22px">
+                    <div style="font-size:1.05em;font-weight:700;color:#1976D2;margin-bottom:8px">Sizden ne bekleniyor?</div>
+                    <div style="background:#e3eefb;border-radius:8px;height:12px;overflow:hidden;margin-bottom:10px">
+                        <div style="height:100%;width:${_yuzde}%;background:linear-gradient(90deg,#4CAF50,#2e7d32)"></div>
+                    </div>
+                    <div style="font-size:.92em;color:#333;line-height:1.7">
+                        <b>${_tamam} / ${_istenen}</b> doküman yüklendi
+                        ${_say.eksik ? ` · <span style="color:#c62828;font-weight:700">${_say.eksik} eksik</span>` : ''}
+                        ${_say.red ? ` · <span style="color:#c62828;font-weight:700">${_say.red} reddedildi — yenisini yükleyin</span>` : ''}
+                        ${_say.muaf ? ` · <span style="color:#888">${_say.muaf} zorunlu değil</span>` : ''}
+                    </div>
+                    <div style="font-size:.86em;color:#555;margin-top:10px;background:#fff;border-radius:8px;padding:10px 12px">
+                        <b>3 adımda:</b> 1) İlgili başlığın altındaki alana dosyayı <b>sürükleyin</b>
+                        (ya da "Dosya Seç"e basın) · 2) Gerekirse yorum yazın ·
+                        3) Sayfanın altındaki <b>📤 Dokümanları Gönder</b> düğmesine basın.
+                        <div style="color:#c62828;margin-top:6px">Göndermeden sayfayı kapatırsanız yüklediğiniz dosyalar kaydedilmez.</div>
+                    </div>
+                </div>
+            `;
             
             if (allDocTypes.length === 0) {
                 html += '<p style="text-align: center; color: #999; padding: 40px;">Doküman türü bulunamadı</p>';
@@ -29186,12 +29364,21 @@ Devam etmek istiyor musunuz?`;
                                     <div>
                                         <input type="file" id="supplierDocInput_${typeIdx}" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.png,.txt" style="display: none;" multiple onchange="handleSupplierDocUpload('${docType.replace(/'/g, "\\'")}', this.files, ${typeIdx})">
                                         <button onclick="document.getElementById('supplierDocInput_${typeIdx}').click()" style="padding: 10px 20px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
-                                            <span>📁</span> Dosya Yükle
+                                            <span>📁</span> Dosya Seç
                                         </button>
                                     </div>
                                 </div>
                             </div>
-                            <div style="padding: 15px;" id="docList_${docType.replace(/[^a-zA-Z0-9]/g, '_')}">>
+                            <div style="padding: 15px;" id="docList_${docType.replace(/[^a-zA-Z0-9]/g, '_')}">
+                                <div ondragover="event.preventDefault();this.style.background='#e3f2fd';this.style.borderColor='#1976D2'"
+                                     ondragleave="this.style.background='#fafcff';this.style.borderColor='#b3d4f5'"
+                                     ondrop="event.preventDefault();this.style.background='#fafcff';this.style.borderColor='#b3d4f5';handleSupplierDocUpload('${docType.replace(/'/g, "\\'")}', event.dataTransfer.files, ${typeIdx})"
+                                     onclick="document.getElementById('supplierDocInput_${typeIdx}').click()"
+                                     style="border:2px dashed #b3d4f5;background:#fafcff;border-radius:8px;padding:16px;text-align:center;
+                                            color:#5b7fa6;font-size:.9em;cursor:pointer;margin-bottom:12px">
+                                    ⬆️ Dosyayı buraya sürükleyin <span style="color:#9bb3cb">veya tıklayıp seçin</span>
+                                    <div style="font-size:.85em;color:#9bb3cb;margin-top:3px">PDF, Word, Excel, resim</div>
+                                </div>
                     `;
                     
                     docs.forEach((file, idx) => {
@@ -31610,34 +31797,19 @@ Devam etmek istiyor musunuz?`;
                 const emailBodyTR = `
 Sayın Yetkili,
 
-${reportData.customer || current8DSupplier} tedarikçimiz ile ilgili 8D raporu aşağıdaki bilgilerle oluşturulmuştur:
+${supplierName} için doküman portalınız hazır. Aşağıdaki bağlantıdan
+belgelerinizi yükleyebilirsiniz — kayıt olmanıza ya da şifreye gerek yok:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 RAPOR BİLGİLERİ
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📄 Rapor No: ${reportData.reportNumber || 'Belirtilmemiş'}
-📅 Tarih: ${reportData.currentDate}
-🏢 Tedarikçi: ${reportData.customer || current8DSupplier}
-📦 Parça No: ${reportData.partNumber || 'Belirtilmemiş'}
-🔧 Parça Adı: ${reportData.partName || 'Belirtilmemiş'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ HATA TANIMI
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${reportData.defectDescription || 'Detaylı açıklama raporda mevcuttur.'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Lütfen aşağıdaki bağlantıyı kullanarak 8D raporunu görüntüleyin ve gerekli bilgileri doldurun:
-
-🔗 8D Rapor Linki:
 ${shareUrl}
 
-Not: Bu link ile rapora erişebilir ve düzenleyebilirsiniz.
+Nasıl yüklenir (3 adım):
+1) Bağlantıyı açın — sizden hangi belgelerin beklendiği en üstte listelenir.
+2) İlgili başlığın altındaki alana dosyayı sürükleyin (veya "Dosya Seç").
+3) Sayfanın altındaki "📤 Dokümanları Gönder" düğmesine basın.
 
-Sorularınız için lütfen bizimle iletişime geçin.
+Not: Göndermeden sayfayı kapatırsanız yüklediğiniz dosyalar kaydedilmez.
+Belgelerin durumunu (kabul / red / inceleniyor) ve yorumlarımızı aynı
+sayfadan takip edebilirsiniz.
 
 Saygılarımızla,
 Kalite Ekibi
@@ -31647,34 +31819,19 @@ Kalite Ekibi
                 const emailBodyEN = `
 Dear Sir/Madam,
 
-An 8D report has been created regarding ${reportData.customer || current8DSupplier} with the following information:
+Your document portal for ${supplierName} is ready. You can upload your
+certificates via the link below — no account or password required:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📋 REPORT INFORMATION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📄 Report No: ${reportData.reportNumber || 'Not specified'}
-📅 Date: ${reportData.currentDate}
-🏢 Supplier: ${reportData.customer || current8DSupplier}
-📦 Part No: ${reportData.partNumber || 'Not specified'}
-🔧 Part Name: ${reportData.partName || 'Not specified'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ DEFECT DESCRIPTION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-${reportData.defectDescription || 'Detailed description is available in the report.'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Please use the link below to view and complete the 8D report:
-
-🔗 8D Report Link:
 ${shareUrl}
 
-Note: You can access and edit the report using this link.
+How to upload (3 steps):
+1) Open the link — the documents we expect from you are listed at the top.
+2) Drag the file onto the area under the relevant heading (or "Choose File").
+3) Press the "📤 Send Documents" button at the bottom of the page.
 
-For any questions, please contact us.
+Please note: files are not saved unless you press Send.
+You can follow each document's status (approved / rejected / under review)
+and our comments on the same page.
 
 Best regards,
 Quality Team
