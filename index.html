@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|mode=documents|storj=|drive=|share=|shared|view=)/i.test(location.search);};</script>
+<script>/* d= : kisaltilmis dokuman paylasim linki. Izin listesinde olmayinca
+   tedarikci ERP giris ekranina dusuyordu. */
+window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|mode=documents|storj=|drive=|d=|share=|shared|view=)/i.test(location.search);};</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
 <script>/* supplier-sync.js'i sayfanın ?v= sürümüyle yükle → index.html ile AYNI anda tazelensin (ayrı önbelleğe takılıp eski admin/senkron kodu kalmasın) */
