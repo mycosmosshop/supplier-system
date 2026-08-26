@@ -4954,13 +4954,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Upload alan event listenerları ayarla
             setupDocumentUploadHandlers(supplierName);
             
-            // Buton görünürlüğünü sharedStorjKey'e göre ayarla
+            // Buton görünürlüğünü paylaşım anahtarına göre ayarla.
+            // ÖNCEDEN yalnız sharedStorjKey'e bakıyordu; Drive'a geçildikten
+            // sonra paylaşım sharedDriveKey yazdığı için koşul hep yanlış
+            // çıkıyor, modal her açılışta "İlk Paylaşım Yap"ta kalıyordu.
             const saveChangesBtn = document.getElementById('saveChangesBtn');
             const initialShareBtn = document.getElementById('initialShareBtn');
             const syncBtn = document.getElementById('syncDocumentsBtn');
             const sendMailBtn = document.getElementById('sendDocMailBtn');
+            const paylasimAnahtari = record && (record.sharedDriveKey || record.sharedStorjKey);
             
-            if (record && record.sharedStorjKey) {
+            if (paylasimAnahtari) {
                 // Zaten paylaşılmış - kaydet, senkronize ve mail butonlarını göster
                 if (saveChangesBtn) saveChangesBtn.style.display = 'inline-flex';
                 if (initialShareBtn) initialShareBtn.style.display = 'none';
@@ -4971,9 +4975,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 if (sendMailBtn) {
                     sendMailBtn.style.display = 'inline-flex';
                     sendMailBtn.setAttribute('data-supplier', supplierName);
-                    sendMailBtn.setAttribute('data-storj-key', record.sharedStorjKey);
+                    sendMailBtn.setAttribute('data-storj-key', paylasimAnahtari);
                 }
-                console.log('🔄 Kaydet, Senkronize ve Mail butonları gösterildi (shared key: ' + record.sharedStorjKey + ')');
+                currentDocShareSupplier = supplierName;
+                console.log('🔄 Kaydet, Senkronize ve Mail butonları gösterildi (paylaşım anahtarı: ' + paylasimAnahtari + ')');
             } else {
                 // Henüz paylaşılmamış - sadece ilk paylaşım butonunu göster
                 if (saveChangesBtn) saveChangesBtn.style.display = 'none';
@@ -5349,42 +5354,64 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 console.log('📤 Dokümanlar Google Drive\'a yükleniyor... Key:', shareKey);
                 console.log('📊 Veri boyutu:', JSON.stringify(shareData).length, 'byte');
 
-                // Drive'a yükle (Apps Script)
-                await fetch(ds.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'save', secret: ds.secret, name: shareKey, content: JSON.stringify(shareData) }) });
+                // Drive'a yükle (Apps Script) — ASIL paylaşım adımı.
+                // no-cors olduğu için yanıt okunamaz; yalnız ağ hatası yakalanır.
+                try {
+                    await fetch(ds.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'save', secret: ds.secret, name: shareKey, content: JSON.stringify(shareData) }) });
+                } catch (agHatasi) {
+                    console.error('❌ Drive yazma hatası:', agHatasi);
+                    showAlert('❌ Paylaşım Hatası!\n\nDrive\'a yazılamadı: ' + (agHatasi && agHatasi.message ? agHatasi.message : agHatasi) + '\n\n🔍 Kontrol edin:\n1. İnternet bağlantısı var mı?\n2. Ayarlar → Drive: Apps Script URL doğru mu?\n3. Apps Script "Herkes" erişimiyle yayınlandı mı?', 'error');
+                    return;
+                }
                 // Yazmanın tamamlanması için kısa bekle
                 await new Promise(r => setTimeout(r, 1800));
 
-                // Drive key'i sakla
+                // ── BURADAN SONRASI PAYLAŞIM SONRASI ADIMLAR ────────────────
+                // Önceden hepsi tek try içindeydi: panoya kopyalama gibi TALİ
+                // bir adım patlayınca, dosya Drive'a yazılmış olmasına rağmen
+                // "Paylaşım Hatası" görünüyor ve butonlar İlk Paylaşım'da
+                // kalıyordu — kullanıcı Senkronize Et'e hiç geçemiyordu.
                 docRecord.sharedDriveKey = shareKey;
-                await saveSupplierDocuments(supplierName, docRecord);
+                try {
+                    await saveSupplierDocuments(supplierName, docRecord);
+                } catch (kayitHatasi) {
+                    console.error('⚠️ Paylaşım kaydı saklanamadı:', kayitHatasi);
+                }
 
-                // Tedarikçi URL'i oluştur (Apps Script url + secret + key encode)
+                // Tedarikçi URL'i oluştur (Apps Script url + secret + key encode).
+                // href'ten türetiliyor: dosya file:// ile açıldığında
+                // location.origin "null" oluyor ve link bozuk çıkıyordu.
                 const encodedCreds = btoa(JSON.stringify({ url: ds.url, secret: ds.secret, key: shareKey }));
-                const shareUrl = `${window.location.origin}${window.location.pathname}?mode=documents&drive=${encodedCreds}`;
+                const linkTabani = window.location.href.split('?')[0].split('#')[0];
+                const shareUrl = `${linkTabani}?mode=documents&drive=${encodedCreds}`;
 
-                // Linki kopyala
-                await navigator.clipboard.writeText(shareUrl);
-
-                // Link göster
-                showShareLinkDialog(shareUrl, 'Google Drive - Dokümanlar');
-                
                 // Butonları güncelle: İlk paylaşım gizle, kaydet ve senkronize göster
                 const saveChangesBtn = document.getElementById('saveChangesBtn');
                 const initialShareBtn = document.getElementById('initialShareBtn');
                 const syncBtn = document.getElementById('syncDocumentsBtn');
-                
+
                 if (initialShareBtn) initialShareBtn.style.display = 'none';
                 if (saveChangesBtn) saveChangesBtn.style.display = 'inline-flex';
                 if (syncBtn) {
                     syncBtn.style.display = 'inline-flex';
                     syncBtn.setAttribute('data-supplier', supplierName);
                 }
-                
+
                 console.log('✅ Butonlar güncellendi: İlk Paylaşım gizlendi, Kaydet ve Senkronize gösterildi');
+
+                // Link göster — kopyalama başarısız olsa da link ekranda kalır
+                showShareLinkDialog(shareUrl, 'Google Drive - Dokümanlar');
+                try {
+                    await navigator.clipboard.writeText(shareUrl);
+                } catch (panoHatasi) {
+                    console.warn('📋 Panoya kopyalanamadı (penceredeki Kopyala düğmesini kullanın):', panoHatasi);
+                }
 
             } catch (error) {
                 console.error('❌ Doküman paylaşım hatası:', error);
-                showAlert('❌ Paylaşım Hatası!\n\n' + error.message + '\n\n🔍 Kontrol edin:\n1. Storj ayarları doğru mu?\n2. Bucket var mı?\n3. Access Key/Secret Key geçerli mi?', 'error');
+                showAlert('❌ Paylaşım Hatası!\n\n' + (error && error.name ? error.name + ': ' : '')
+                    + (error && error.message ? error.message : error)
+                    + '\n\n🔍 Kontrol edin:\n1. İnternet bağlantısı var mı?\n2. Ayarlar → Drive (Apps Script URL / secret) doğru mu?\n3. F12 konsolunda kırmızı satır ne diyor?', 'error');
             }
         }
 
@@ -31818,7 +31845,27 @@ Quality Team
                     return;
                 }
                 
-                // Storj ayarlarını al
+                // Link tabanı href'ten: file:// açılışında location.origin "null" oluyor
+                const linkTabani = window.location.href.split('?')[0].split('#')[0];
+                
+                // DRIVE modu: paylaşım Drive'da ise mail linki de Drive kimlikleriyle
+                // kurulmalı. Önceden bu fonksiyon yalnız Storj biliyordu; Drive'a
+                // geçtikten sonra "Storj ayarları bulunamadı" diyip duruyordu.
+                const kayit = await getSupplierDocuments(supplierName);
+                if (kayit && kayit.sharedDriveKey) {
+                    const ds = getDriveSettings();
+                    if (!ds) {
+                        showAlert('⚠️ Drive ayarları bulunamadı!', 'error');
+                        return;
+                    }
+                    const driveCreds = btoa(JSON.stringify({ url: ds.url, secret: ds.secret, key: kayit.sharedDriveKey }));
+                    const driveUrl = `${linkTabani}?mode=documents&drive=${driveCreds}`;
+                    console.log('📧 Mail (Drive) gönderiliyor:', supplierName);
+                    await sendDocumentShareEmail(driveUrl, kayit.sharedDriveKey, supplierName);
+                    return;
+                }
+                
+                // Storj ayarlarını al (eski paylaşımlar)
                 const settings = await getStorjSettings();
                 if (!settings) {
                     showAlert('⚠️ Storj ayarları bulunamadı!', 'error');
