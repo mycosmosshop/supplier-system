@@ -5381,9 +5381,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // Tedarikçi URL'i oluştur (Apps Script url + secret + key encode).
                 // href'ten türetiliyor: dosya file:// ile açıldığında
                 // location.origin "null" oluyor ve link bozuk çıkıyordu.
-                const encodedCreds = btoa(JSON.stringify({ url: ds.url, secret: ds.secret, key: shareKey }));
                 const linkTabani = window.location.href.split('?')[0].split('#')[0];
-                const shareUrl = `${linkTabani}?mode=documents&drive=${encodedCreds}`;
+                const shareUrl = `${linkTabani}?d=${encodeURIComponent(shareKey)}`;
 
                 // Butonları güncelle: İlk paylaşım gizle, kaydet ve senkronize göster
                 const saveChangesBtn = document.getElementById('saveChangesBtn');
@@ -13146,6 +13145,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         const _SINIF_SIRA = { A: 0, B: 1, C: 2, D: 3 };
         // Onaylı tedarikçi listesini Supabase'e yazar (PL11'in kaynağı).
 // sessiz=true iken kullanıcıya mesaj gösterilmez (otomatik çağrı).
+// NOT: Bu iki sabit TANIMSIZDI — fonksiyon her çağrıda ReferenceError
+// veriyor, sessiz çağrıda hata yutuluyordu. Bu yüzden bulut listesi
+// 22.08'de yazılan 9 satırda donup kaldı (liste 12'ye çıkmıyordu).
+// Tablo PT_SUPA projesinde duruyor; aynı bağlantı kullanılır.
+const SUPABASE_URL = PT_SUPA;
+const SUPABASE_ANON_KEY = PT_ANON;
 async function buluttaYayinla(sessiz){
     try{
         if (!allResults || !allResults.length){
@@ -13164,7 +13169,11 @@ async function buluttaYayinla(sessiz){
                 durum: String(r.status || ''),
                 lokasyon: lok,
                 sinif: String(r.duzeltilmisSinif || r.tedarikcisınıfı || ''),
-                puan: Number(r.tedarikciPuani || r.puan || 0) || 0,
+                // Alan adi 'duzeltilmisPuan' (100'luk); 'tedarikcipuani' 0-1
+                // oranidir. Once yazilan 'tedarikciPuani' diye bir alan YOK,
+                // herkese 0 yazilacakti.
+                puan: Number(r.duzeltilmisPuan != null ? r.duzeltilmisPuan
+                           : (r.tedarikcipuani != null ? r.tedarikcipuani * 100 : 0)) || 0,
                 ppm: Number(r.ppm || 0) || 0,
                 otomotiv: oto,
                 iatf: !!r.iatf,
@@ -28795,7 +28804,18 @@ Devam etmek istiyor musunuz?`;
             const binId = urlParams.get('8d');
             const gistId = urlParams.get('gist');
             const storjEncoded = urlParams.get('storj');
-            const driveEncoded = urlParams.get('drive');
+            let driveEncoded = urlParams.get('drive');
+
+            // KISA LINK: ?d=DOCS_....json  — kimlik bilgisi tasimaz, Drive
+            // ayarlari zaten uygulamada varsayili. Eski ?drive=<base64>
+            // linkleri de calismaya devam eder.
+            const kisaAnahtar = urlParams.get('d');
+            if (!driveEncoded && kisaAnahtar) {
+                try {
+                    const ds0 = getDriveSettings();
+                    if (ds0) driveEncoded = btoa(JSON.stringify({ url: ds0.url, secret: ds0.secret, key: kisaAnahtar }));
+                } catch (e) { console.error('Kısa link çözülemedi:', e); }
+            }
 
             if (driveEncoded) {
                 try {
@@ -31858,8 +31878,7 @@ Quality Team
                         showAlert('⚠️ Drive ayarları bulunamadı!', 'error');
                         return;
                     }
-                    const driveCreds = btoa(JSON.stringify({ url: ds.url, secret: ds.secret, key: kayit.sharedDriveKey }));
-                    const driveUrl = `${linkTabani}?mode=documents&drive=${driveCreds}`;
+                    const driveUrl = `${linkTabani}?d=${encodeURIComponent(kayit.sharedDriveKey)}`;
                     console.log('📧 Mail (Drive) gönderiliyor:', supplierName);
                     await sendDocumentShareEmail(driveUrl, kayit.sharedDriveKey, supplierName);
                     return;
