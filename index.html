@@ -3689,6 +3689,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
         }
 
+        // PPAP portali ayri modul: tedarikci adi ile acilir, proje orada
+        // olusturulur. Onayli listeden secmek sureci baslatan yoldur.
+        const PPAP_PORTAL = 'https://mycosmosshop.github.io/ppap-portal/';
+        function ppapAc(name) {
+            window.open(PPAP_PORTAL + '?ted=' + encodeURIComponent(name), '_blank', 'noopener');
+        }
+
         function getSupplierInfo(name) {
             const key = normalizeName(name);
             return supplierInfoMap.get(key) || null;
@@ -11575,6 +11582,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         <button style="padding: 5px 10px; font-size: 0.75em; cursor: pointer; border: 1px solid ${infoExists ? '#4CAF50' : '#9e9e9e'}; border-radius: 4px; background: ${infoExists ? '#e8f5e9' : 'white'}; color: ${infoExists ? '#2e7d32' : '#616161'};" 
                                 onclick="openSupplierInfoModal('${result.name.replace(/'/g, "\\'")}')" 
                                 title="Tedarikçi bilgilerini düzenle">🧾 Bilgi</button>
+                        <button style="padding: 5px 10px; font-size: 0.75em; cursor: pointer; border: 1px solid #6d4aa8; border-radius: 4px; background: white; color: #6d4aa8; margin-left: 4px;"
+                                onclick="ppapAc(this.dataset.ted)" data-ted="${result.name}"
+                                title="Bu tedarikçi için PPAP / VDA 2 süreci başlat">🧪 PPAP</button>
                     </td>
                     <td class="text-right">
                         <span contenteditable="${isErpAdmin()?'true':'false'}"
