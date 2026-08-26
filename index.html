@@ -13322,7 +13322,12 @@ async function buluttaYayinla(sessiz){
                 tavan_not: tavan,
                 guncelleme: new Date().toISOString()
             };
-        }).filter(x => x.ad);
+        // TABLO "ONAYLI TEDARIKCI" LISTESI. Fonksiyon tum kayitlari
+        // yaziyordu; listenin yarisi MÜŞTERİ (bizim urunumuzun iadesi gelen
+        // firmalar) ve onlarin onayli tedarikci listesinde isi yok.
+        // Otomotiv/iatf/iso alanlari satirda duruyor, tuketen modul
+        // (APQP/PL11) kendi suzmesini yapabilir.
+        }).filter(x => x.ad && String(x.durum).toLocaleUpperCase('tr') === 'ONAYLI');
 
         const yanit = await fetch(SUPABASE_URL + '/rest/v1/onayli_tedarikci?on_conflict=ad', {
             method: 'POST',
@@ -13337,7 +13342,7 @@ async function buluttaYayinla(sessiz){
         if (!yanit.ok) throw new Error('HTTP ' + yanit.status + ' ' + (await yanit.text()).slice(0,120));
         if (!sessiz){
             const oto = kayitlar.filter(x => x.otomotiv).length;
-            showAlert(kayitlar.length + ' tedarikçi buluta yazıldı (' + oto + ' otomotiv). '
+            showAlert(kayitlar.length + ' ONAYLI tedarikçi buluta yazıldı (' + oto + ' otomotiv). '
                     + 'APQP modülü PL11\'i artık buradan üretir.', 'success');
         }
     }catch(e){
