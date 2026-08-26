@@ -6683,20 +6683,111 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         // ======== BELGE SURESI TAKIBI ========
-        // Kac gun once uyarilsin (ayarlanabilir; sertifika yenileme haftalar surer)
-        function belgeUyariGun() {
-            const v = parseInt(localStorage.getItem('belgeUyariGun') || '60', 10);
-            return (isNaN(v) || v < 1) ? 60 : v;
+        // ---- Ayarlar (tek yerde, tarayicida kalici) ----
+        const BELGE_AYAR_VARSAYILAN = {
+            gun: 15,            // kac gun once uyar / hatirlat
+            mod: 'taslak',      // 'kapali' | 'taslak' (onaydan sonra taslak acilir)
+            kime: 'sorumlu',    // 'sorumlu' = tedarikcinin yetkilisi | 'sabit'
+            sabit: '',          // sabit alici (ornegin kendi kalite ekibin)
+            kopya: ''           // bilgi (CC)
+        };
+        function belgeAyar() {
+            try {
+                const a = Object.assign({}, BELGE_AYAR_VARSAYILAN,
+                    JSON.parse(localStorage.getItem('belgeTakipAyar') || '{}'));
+                a.gun = parseInt(a.gun, 10) > 0 ? parseInt(a.gun, 10) : 15;
+                return a;
+            } catch (e) { return Object.assign({}, BELGE_AYAR_VARSAYILAN); }
         }
-        function belgeUyariGunAyarla() {
-            const v = prompt('Belge süresi kaç gün önceden uyarsın?', belgeUyariGun());
-            if (v === null) return;
-            const n = parseInt(v, 10);
-            if (isNaN(n) || n < 1) { showAlert('Geçerli bir gün sayısı girin.', 'error'); return; }
-            localStorage.setItem('belgeUyariGun', String(n));
-            showAlert('✅ Uyarı süresi ' + n + ' gün olarak ayarlandı.', 'success');
+        function belgeAyarYaz(a) {
+            localStorage.setItem('belgeTakipAyar', JSON.stringify(a));
             if (typeof displayResults === 'function') displayResults();
             belgeTakipRozetiniGuncelle();
+        }
+        function belgeUyariGun() { return belgeAyar().gun; }
+
+        // Hangi adrese gidecek: tedarikcinin yetkilisi ya da sabit adres
+        function belgeAlici(supplierName) {
+            const a = belgeAyar();
+            if (a.kime === 'sabit') return a.sabit.trim();
+            const i = (typeof getSupplierInfo === 'function' && getSupplierInfo(supplierName)) || {};
+            return String(i.primaryEmail || i.backupEmail || '').trim();
+        }
+
+        // Ayni belge, ayni bitis tarihi icin tekrar tekrar mail atilmasin
+        function belgeHatirlatmaKaydi() {
+            try { return JSON.parse(localStorage.getItem('belgeHatirlatmaKaydi') || '{}'); }
+            catch (e) { return {}; }
+        }
+        function belgeHatirlatmaAnahtari(ad, v) {
+            return normalizeName(ad) + '|' + v.ad + '|' + String(v.tarih).slice(0, 10);
+        }
+        function belgeHatirlatildiMi(ad, v) {
+            return belgeHatirlatmaKaydi()[belgeHatirlatmaAnahtari(ad, v)] || '';
+        }
+        function belgeHatirlatmaIsaretle(ad, liste) {
+            const k = belgeHatirlatmaKaydi(), bugun = new Date().toISOString().slice(0, 10);
+            liste.forEach(v => { k[belgeHatirlatmaAnahtari(ad, v)] = bugun; });
+            localStorage.setItem('belgeHatirlatmaKaydi', JSON.stringify(k));
+        }
+
+        function belgeAyarPenceresi() {
+            const a = belgeAyar();
+            const p = document.createElement('div');
+            p.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20050;'
+                + 'display:flex;align-items:center;justify-content:center;padding:20px';
+            p.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;'
+                + 'padding:22px 24px;max-height:88vh;overflow:auto">'
+                + '<h3 style="margin:0 0 4px">⏰ Belge süresi takibi</h3>'
+                + '<div style="font-size:.85em;color:#666;margin-bottom:16px">ISO / IATF ve eklediğin '
+                + 'diğer belge türleri için geçerlilik takibi.</div>'
+                + '<label style="display:block;font-size:.85em;font-weight:600;margin-bottom:4px">'
+                + 'Kaç gün önce uyarılsın</label>'
+                + '<input id="bt_gun" type="number" min="1" value="' + a.gun + '" '
+                + 'style="width:120px;padding:7px 9px;border:1px solid #ddd;border-radius:6px">'
+                + '<div style="font-size:.8em;color:#888;margin:4px 0 14px">Sertifika yenileme '
+                + 'haftalar sürebilir; 15–60 gün arası önerilir.</div>'
+                + '<label style="display:block;font-size:.85em;font-weight:600;margin-bottom:4px">'
+                + 'Hatırlatma maili</label>'
+                + '<select id="bt_mod" style="width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px">'
+                + '<option value="kapali"' + (a.mod === 'kapali' ? ' selected' : '') + '>Kapalı — yalnız ekranda uyar</option>'
+                + '<option value="taslak"' + (a.mod === 'taslak' ? ' selected' : '') + '>Açık — onayımla mail taslağı hazırla</option>'
+                + '</select>'
+                + '<div style="font-size:.8em;color:#888;margin:4px 0 14px">Uygulama kendi başına mail '
+                + '<b>göndermez</b>; taslağı açar, göndermeden önce sen görürsün.</div>'
+                + '<label style="display:block;font-size:.85em;font-weight:600;margin-bottom:4px">Kime</label>'
+                + '<select id="bt_kime" style="width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px">'
+                + '<option value="sorumlu"' + (a.kime === 'sorumlu' ? ' selected' : '') + '>Tedarikçinin yetkilisi (Bilgi kartındaki e-posta)</option>'
+                + '<option value="sabit"' + (a.kime === 'sabit' ? ' selected' : '') + '>Sabit bir adres</option>'
+                + '</select>'
+                + '<input id="bt_sabit" placeholder="sabit alıcı — ornek@firma.com" value="'
+                + String(a.sabit || '').replace(/"/g, '&quot;') + '" '
+                + 'style="width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px;margin-top:8px">'
+                + '<input id="bt_kopya" placeholder="bilgi (CC) — isteğe bağlı" value="'
+                + String(a.kopya || '').replace(/"/g, '&quot;') + '" '
+                + 'style="width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px;margin-top:8px">'
+                + '<div style="display:flex;gap:8px;margin-top:20px">'
+                + '<button id="bt_kaydet" style="flex:1;padding:9px;background:#1e3c72;color:#fff;'
+                + 'border:0;border-radius:7px;cursor:pointer;font-weight:600">Kaydet</button>'
+                + '<button id="bt_kapat" style="padding:9px 16px;background:#fff;border:1px solid #ddd;'
+                + 'border-radius:7px;cursor:pointer">Vazgeç</button></div></div>';
+            document.body.appendChild(p);
+            const kapat = () => p.remove();
+            p.addEventListener('click', e => { if (e.target === p) kapat(); });
+            p.querySelector('#bt_kapat').onclick = kapat;
+            p.querySelector('#bt_kaydet').onclick = () => {
+                const n = parseInt(p.querySelector('#bt_gun').value, 10);
+                if (isNaN(n) || n < 1) { showAlert('Geçerli bir gün sayısı girin.', 'error'); return; }
+                belgeAyarYaz({
+                    gun: n,
+                    mod: p.querySelector('#bt_mod').value,
+                    kime: p.querySelector('#bt_kime').value,
+                    sabit: p.querySelector('#bt_sabit').value.trim(),
+                    kopya: p.querySelector('#bt_kopya').value.trim()
+                });
+                kapat();
+                showAlert('✅ Belge takip ayarları kaydedildi (' + n + ' gün).', 'success');
+            };
         }
         // Bir tedarikcinin suresi dolan / dolmak uzere olan belgeleri
         function belgeVadeleri(supplier) {
@@ -6751,8 +6842,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 + 'overflow:auto;padding:22px 24px">'
                 + '<h3 style="margin:0 0 4px">⏰ Süresi Yaklaşan / Dolan Belgeler</h3>'
                 + '<div style="font-size:.85em;color:#666;margin-bottom:14px">'
-                + belgeUyariGun() + ' gün önceden uyarılıyor · '
-                + '<a href="#" onclick="this.closest(\'div[style*=fixed]\').remove();belgeUyariGunAyarla();return false">süreyi değiştir</a></div>';
+                + belgeUyariGun() + ' gün önceden uyarılıyor · alıcı: '
+                + (belgeAyar().kime === 'sabit' ? (belgeAyar().sabit || 'sabit adres girilmemiş')
+                                                : 'tedarikçinin yetkilisi')
+                + ' · <a href="#" onclick="this.closest(\'div[style*=fixed]\').remove();belgeAyarPenceresi();return false">ayarlar</a></div>';
             if (!liste.length) {
                 h += '<div style="padding:30px;text-align:center;color:#666">Yaklaşan belge süresi yok. 👍</div>';
             } else {
@@ -6762,13 +6855,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                    + '<th style="padding:6px 8px;border-bottom:2px solid #eee"></th></tr>';
                 liste.forEach(x => {
                     const A = JSON.stringify(x.s.name).replace(/"/g, '&quot;');
+                    const mail = belgeAlici(x.s.name);
+                    const gecen = x.v.map(v => belgeHatirlatildiMi(x.s.name, v)).filter(Boolean)[0];
                     h += '<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0;vertical-align:top">'
-                       + x.s.name + '</td><td style="padding:8px;border-bottom:1px solid #f0f0f0">'
+                       + x.s.name
+                       + '<div style="font-size:.85em;color:' + (mail ? '#666' : '#c62828') + '">'
+                       + (mail || 'e-posta yok — Bilgi kartına ekleyin') + '</div>'
+                       + (gecen ? '<div style="font-size:.8em;color:#2e7d32">✔ ' + gecen
+                                  + ' tarihinde hatırlatıldı</div>' : '')
+                       + '</td><td style="padding:8px;border-bottom:1px solid #f0f0f0">'
                        + x.v.map(v => '<div style="color:' + (v.kalan < 0 ? '#c62828' : '#f57f17') + '">'
                            + (v.kalan < 0 ? '⛔ ' : '⏰ ') + belgeVadeMetni(v) + '</div>').join('')
                        + '</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;white-space:nowrap">'
                        + '<button onclick="belgeHatirlat(' + A + ')" style="padding:6px 12px;background:#9c27b0;'
-                       + 'color:#fff;border:0;border-radius:6px;cursor:pointer">📧 Hatırlat</button></td></tr>';
+                       + 'color:#fff;border:0;border-radius:6px;cursor:pointer">📧 '
+                       + (gecen ? 'Yeniden hatırlat' : 'Hatırlat') + '</button></td></tr>';
                 });
                 h += '</table>';
             }
@@ -6796,6 +6897,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             } catch (e) {}
 
             const satirlar = v.map(x => '• ' + belgeVadeMetni(x)).join('\n');
+            const alici = belgeAlici(supplierName);
+            const kopya = belgeAyar().kopya;
             const konu = 'Belge yenileme hatırlatması — ' + supplierName;
             const govde = 'Sayın Yetkili,\n\n'
                 + 'Aşağıdaki belgelerinizin geçerlilik süresi dolmak üzere:\n\n' + satirlar + '\n\n'
@@ -6804,7 +6907,70 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                       + 'Sayfayı açın → ilgili belge türünün altındaki alana dosyayı sürükleyin → "Gönder" düğmesine basın.\n\n'
                     : 'Belgeleri iletmek için lütfen bizimle iletişime geçin.\n\n')
                 + 'Saygılarımızla,\nKalite Ekibi';
-            window.location.href = 'mailto:?subject=' + encodeURIComponent(konu) + '&body=' + encodeURIComponent(govde);
+            // Adres HAM birakilir: encodeURIComponent '@' isaretini de kacirir ve
+            // bazi mail istemcileri alici alanini bos aciyor.
+            const bas = 'mailto:' + alici
+                + '?subject=' + encodeURIComponent(konu)
+                + (kopya ? '&cc=' + encodeURIComponent(kopya) : '')
+                + '&body=' + encodeURIComponent(govde);
+            belgeHatirlatmaIsaretle(supplierName, v);
+            // location.href yerine gizli baglanti: arka arkaya birden fazla
+            // taslak acilirken location.href atamalari birbirini eziyor.
+            const ba = document.createElement('a');
+            ba.href = bas; ba.style.display = 'none';
+            document.body.appendChild(ba); ba.click();
+            setTimeout(() => ba.remove(), 1000);
+            if (!alici) showAlert('ℹ️ ' + supplierName + ' için kayıtlı e-posta yok — '
+                + 'Bilgi kartına ekleyebilir ya da ayarlardan sabit adres verebilirsin.', 'info');
+        }
+
+        // Acilista BIZE uyari: suresi yaklasan varsa bir kez bildir.
+        function belgeAcilisUyarisi() {
+            if (window.__belgeUyarisiVerildi) return;
+            if (typeof allResults === 'undefined' || !allResults || !allResults.length) return;
+            window.__belgeUyarisiVerildi = true;
+            const a = belgeAyar();
+            const liste = allResults.map(s => ({ s: s, v: belgeVadeleri(s) })).filter(x => x.v.length);
+            if (!liste.length) return;
+            const belge = liste.reduce((n, x) => n + x.v.length, 0);
+            const gecmis = liste.filter(x => x.v.some(y => y.kalan < 0)).length;
+            // showAlert 4-5 saniyede kayboluyor; bu uyari onemli, kullanici
+            // kapatana kadar dursun.
+            const k = document.getElementById('alertContainer');
+            if (k) {
+                const kutu = document.createElement('div');
+                kutu.style.cssText = 'background:' + (gecmis ? '#fdecea' : '#fff8e1')
+                    + ';border:1px solid ' + (gecmis ? '#f5c6c2' : '#ffe08a')
+                    + ';border-left:5px solid ' + (gecmis ? '#c62828' : '#f57f17')
+                    + ';border-radius:8px;padding:11px 14px;margin-bottom:10px;font-size:.92em;'
+                    + 'display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+                kutu.innerHTML = '<span>' + (gecmis ? '⛔' : '⏰') + '</span>'
+                    + '<span><b>' + liste.length + ' tedarikçide ' + belge + ' belgenin</b> '
+                    + 'geçerlilik süresi yaklaşıyor'
+                    + (gecmis ? ' — <b style="color:#c62828">' + gecmis + ' tedarikçide süre geçmiş</b>' : '')
+                    + '</span>'
+                    + '<button style="margin-left:auto;padding:6px 12px;background:#1e3c72;color:#fff;'
+                    + 'border:0;border-radius:6px;cursor:pointer;font-weight:600">Listeyi aç</button>'
+                    + '<button style="padding:6px 10px;background:#fff;border:1px solid #ddd;'
+                    + 'border-radius:6px;cursor:pointer">Kapat</button>';
+                const dg = kutu.querySelectorAll('button');
+                dg[0].onclick = () => belgeTakipPaneli();
+                dg[1].onclick = () => kutu.remove();
+                k.appendChild(kutu);
+            }
+            // Mod "taslak" ise: daha once hatirlatilmamis olanlar icin tek onay
+            if (a.mod !== 'taslak') return;
+            const yeni = liste.map(x => ({
+                s: x.s, v: x.v.filter(y => !belgeHatirlatildiMi(x.s.name, y))
+            })).filter(x => x.v.length);
+            if (!yeni.length) return;
+            setTimeout(() => {
+                if (!confirm(yeni.length + ' tedarikçi için hatırlatma maili hazırlanacak.\n\n'
+                    + yeni.slice(0, 8).map(x => '• ' + x.s.name + ' — ' + x.v.length + ' belge').join('\n')
+                    + (yeni.length > 8 ? '\n• … (' + (yeni.length - 8) + ' tedarikçi daha)' : '')
+                    + '\n\nTaslaklar sırayla açılacak; göndermeden önce hepsini görürsün.')) return;
+                yeni.forEach((x, i) => setTimeout(() => belgeHatirlat(x.s.name), i * 1200));
+            }, 1200);
         }
 
         // Liste her cizildiginde ust bardaki belge sayaci tazelensin
@@ -6814,6 +6980,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             displayResults = function () {
                 const r = _eskiDisplayResults.apply(this, arguments);
                 try { belgeTakipRozetiniGuncelle(); } catch (e) {}
+                try { setTimeout(belgeAcilisUyarisi, 2500); } catch (e) {}
                 try { bulutaYazPlanla(25000); } catch (e) {}
                 return r;
             };
