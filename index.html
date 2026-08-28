@@ -7091,14 +7091,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const gecmis = liste.filter(x => x.v.some(y => y.kalan < 0)).length;
             // showAlert 4-5 saniyede kayboluyor; bu uyari onemli, kullanici
             // kapatana kadar dursun.
-            const k = document.getElementById('alertContainer');
+            // Bant gecici bildirim konteynerine KONULMAZ: orada
+            // pointer-events:none var (dugmeler tiklanmiyordu) ve showAlert
+            // konteyneri periyodik olarak bosaltiyor (bant siliniyordu).
+            const k = document.querySelector('.container')
+                   || document.getElementById('alertContainer');
             if (k) {
                 const kutu = document.createElement('div');
                 kutu.style.cssText = 'background:' + (gecmis ? '#fdecea' : '#fff8e1')
                     + ';border:1px solid ' + (gecmis ? '#f5c6c2' : '#ffe08a')
                     + ';border-left:5px solid ' + (gecmis ? '#c62828' : '#f57f17')
                     + ';border-radius:8px;padding:11px 14px;margin-bottom:10px;font-size:.92em;'
-                    + 'display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+                    + 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;pointer-events:auto';
                 kutu.innerHTML = '<span>' + (gecmis ? '⛔' : '⏰') + '</span>'
                     + '<span><b>' + liste.length + ' tedarikçide ' + belge + ' belgenin</b> '
                     + 'geçerlilik süresi yaklaşıyor'
@@ -7111,7 +7115,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const dg = kutu.querySelectorAll('button');
                 dg[0].onclick = () => belgeTakipPaneli();
                 dg[1].onclick = () => kutu.remove();
-                k.appendChild(kutu);
+                // Sayfanin en ustunde dursun (bildirim konteynerinde degil)
+                if (k.firstChild) k.insertBefore(kutu, k.firstChild);
+                else k.appendChild(kutu);
             }
             // Mod "taslak" ise: daha once hatirlatilmamis olanlar icin tek onay
             if (a.mod !== 'taslak') return;
