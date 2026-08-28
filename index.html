@@ -4,6 +4,28 @@
 <script>/* d= : kisaltilmis dokuman paylasim linki. Izin listesinde olmayinca
    tedarikci ERP giris ekranina dusuyordu. */
 window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|mode=documents|storj=|drive=|d=|share=|shared|view=)/i.test(location.search);};</script>
+<script>/* Tedarikci linkinde ic sistem HIC gorunmesin: govde cizilmeden
+   her sey gizlenir; yalniz bekleme perdesi, tedarikci gorunumu ve
+   bildirimler kalir. Perdeyi showSharedDocumentsView kaldirir. */
+window.__misafirMi = /[?&](d|share|storj|drive)=/i.test(location.search);
+if (window.__misafirMi) {
+  var __mp = document.createElement('style');
+  __mp.id = 'misafirGizleStil';
+  __mp.textContent = 'body > *:not(#sharedDocumentViewer):not(#misafirBekleme):not(#alertContainer){display:none !important}';
+  document.documentElement.appendChild(__mp);
+  document.addEventListener('DOMContentLoaded', function () {
+    var b = document.createElement('div');
+    b.id = 'misafirBekleme';
+    b.style.cssText = 'position:fixed;inset:0;background:#f5f7fb;z-index:9998;display:flex;'
+      + 'align-items:center;justify-content:center;flex-direction:column;'
+      + 'font-family:Segoe UI,system-ui,sans-serif;color:#1e3c72;text-align:center;padding:20px';
+    b.innerHTML = '<div style="font-size:3em">📄</div>'
+      + '<h2 style="margin:10px 0 4px">Dokümanlar yükleniyor…</h2>'
+      + '<div style="color:#667">Lütfen bekleyin, birkaç saniye sürebilir.</div>';
+    document.body.appendChild(b);
+  });
+}
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
 <script>/* supplier-sync.js'i sayfanın ?v= sürümüyle yükle → index.html ile AYNI anda tazelensin (ayrı önbelleğe takılıp eski admin/senkron kodu kalmasın) */
@@ -29641,12 +29663,19 @@ Devam etmek istiyor musunuz?`;
                 showSharedDocumentsView(shareData);
             } catch (error) {
                 console.error('Load shared documents (Drive) error:', error);
+                const perde = document.getElementById('misafirBekleme');
+                if (perde) perde.innerHTML = '<div style="font-size:3em">⚠️</div>'
+                    + '<h2 style="margin:10px 0 4px">Dokümanlar yüklenemedi</h2>'
+                    + '<div style="color:#667">' + (error && error.message ? error.message : '')
+                    + '<br>Sayfayı yenileyip tekrar deneyin; sorun sürerse linki gönderen kişiye bildirin.</div>';
                 showAlert('❌ Drive\'dan dokümanlar yüklenemedi!\n\n' + error.message, 'error');
             }
         }
 
         // Paylaşılan dokümanları görüntüle
         function showSharedDocumentsView(shareData) {
+            const perde = document.getElementById('misafirBekleme');
+            if (perde) perde.remove();
             // Ana sayfayı gizle
             console.log('📋 Tedarikçi paneli açılıyor...');
             console.log('📊 Toplam doküman türü:', Object.keys(shareData.documents || {}).length);
