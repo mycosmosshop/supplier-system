@@ -4955,6 +4955,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                             <div style="display: flex; gap: 5px;">
                                                 <button onclick="previewDocument('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', '${file.id}', '${file.name.replace(/'/g, "\\'")}');" style="padding: 4px 8px; background: #2196f3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em;" title="Önizle">👁️</button>
                                                 <button onclick="downloadDocument('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', '${file.id}', '${file.name.replace(/'/g, "\\'")}');" style="padding: 4px 8px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em;" title="İndir">⬇️</button>
+                                                <button onclick="dosyaTuruTasi('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', ${idx})" title="Bu dosyayı başka bir doküman türüne taşı" style="padding: 4px 8px; background: #607d8b; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em;">↔</button>
                                                 <button onclick="deleteDocumentFromModal('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', '${file.id}', '${file.name.replace(/'/g, "\\'")}')" style="padding: 4px 8px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em;" title="Sil">🗑️</button>
                                             </div>
                                         </div>
@@ -5671,6 +5672,50 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 console.error('❌ Senkronizasyon hatası:', error);
                 showAlert('❌ Senkronizasyon Hatası!\n\n' + error.message, 'error');
             }
+        }
+
+        // Dosyayi baska bir dokuman turune tasir (yanlis ture yuklenmis
+        // olabiliyor; silip yeniden yuklemeye gerek kalmasin).
+        async function dosyaTuruTasi(supplierName, docType, idx) {
+            const record = await getSupplierDocuments(supplierName);
+            if (!record || !record.documents || !record.documents[docType]) return;
+            const dosya = record.documents[docType][idx];
+            if (!dosya) return;
+
+            const turler = [...new Set([...getDocumentTypes(), ...(record.customTypes || [])])]
+                .filter(t => t !== docType);
+            const p = document.createElement('div');
+            p.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20200;'
+                + 'display:flex;align-items:center;justify-content:center;padding:20px';
+            p.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:460px;width:100%;padding:22px 24px">'
+                + '<h3 style="margin:0 0 4px;font-size:1.05em">↔ Dosyayı başka türe taşı</h3>'
+                + '<div style="font-size:.85em;color:#666;margin-bottom:14px">📄 ' + dosya.name
+                + '<br>şu an: <b>' + docType + '</b></div>'
+                + '<label style="display:block;font-size:.85em;font-weight:600;margin-bottom:4px">Yeni doküman türü</label>'
+                + '<select id="dtt_tur" style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px">'
+                + turler.map(t => '<option>' + t + '</option>').join('') + '</select>'
+                + '<div style="display:flex;gap:8px;margin-top:18px">'
+                + '<button id="dtt_tasi" style="flex:1;padding:9px;background:#1e3c72;color:#fff;'
+                + 'border:0;border-radius:7px;cursor:pointer;font-weight:600">Taşı</button>'
+                + '<button id="dtt_kapat" style="padding:9px 14px;background:#fff;border:1px solid #ddd;'
+                + 'border-radius:7px;cursor:pointer">Vazgeç</button></div></div>';
+            document.body.appendChild(p);
+            const kapat = () => p.remove();
+            p.addEventListener('click', e => { if (e.target === p) kapat(); });
+            p.querySelector('#dtt_kapat').onclick = kapat;
+            p.querySelector('#dtt_tasi').onclick = async () => {
+                const yeni = p.querySelector('#dtt_tur').value;
+                if (!yeni) return;
+                record.documents[docType].splice(idx, 1);
+                if (!record.documents[yeni]) record.documents[yeni] = [];
+                record.documents[yeni].push(dosya);
+                await saveSupplierDocuments(supplierName, record);
+                kapat();
+                window.__otoSenkronAtla = supplierName;   // tasima yerelde; senkron ezmesin
+                await openDocumentModal(supplierName);
+                showAlert('↔ ' + dosya.name + ' → ' + yeni + ' türüne taşındı. '
+                    + 'Tedarikçinin de görmesi için "Değişiklikleri Kaydet ve Paylaş" deyin.', 'success');
+            };
         }
 
         // Doküman durumunu güncelle
