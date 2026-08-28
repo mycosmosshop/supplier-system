@@ -5065,8 +5065,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try {
                     const kayit = await getSupplierDocuments(supplierName);
                     if (kayit && (kayit.sharedDriveKey || kayit.sharedStorjKey)) {
-                        syncSupplierDocumentsFromStorj(supplierName, true)
-                            .catch(e => console.warn('Oto-senkron hatası:', e && e.message));
+                        // Modal acilisinda ERP'nin kendi dokuman senkronu da
+                        // ayni kaydi yaziyor; once onun bitmesini bekle ki
+                        // biri digerini ezmesin.
+                        setTimeout(() => {
+                            syncSupplierDocumentsFromStorj(supplierName, true)
+                                .catch(e => console.warn('Oto-senkron hatası:', e && e.message));
+                        }, 2500);
                     }
                 } catch (e) {}
             }
@@ -5547,8 +5552,25 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 console.log('✅ Remote data alındı');
                 console.log('📊 Remote doküman sayısı:', Object.keys(remoteData.documents || {}).length);
                 
-                // Tedarikçi tarafından güncelleme yapılmışsa mutlaka senkronize et
-                const hasSupplierUpdate = remoteData.lastUpdatedBySupplier !== undefined;
+                // Tedarikçi tarafından güncelleme yapılmışsa mutlaka senkronize et.
+                // Damga YERELDE saklandigi icin ayni guncelleme tekrar tekrar
+                // indirilmez; uzak veriye dokunmuyoruz.
+                const uzakDamga = remoteData.lastUpdatedBySupplier || null;
+                const hasSupplierUpdate = !!uzakDamga
+                    && uzakDamga !== (docRecord.sonTedarikciDamgasi || null);
+
+                // BAYRAKTAN BAGIMSIZ KONTROL: uzakta olup yerelde olmayan
+                // dosya var mi? Bayragi silinmis eski kayitlar da boylece
+                // kendiliginden duzelir (kor nokta kalmasin).
+                const _yerelAdlar = new Set();
+                Object.values(docRecord.documents || {}).forEach(liste =>
+                    (liste || []).forEach(f => _yerelAdlar.add(String(f && f.name))));
+                let eksikDosyaVar = false;
+                Object.values(remoteData.documents || {}).forEach(liste =>
+                    (liste || []).forEach(f => {
+                        if (f && f.name && !_yerelAdlar.has(String(f.name))) eksikDosyaVar = true;
+                    }));
+                if (eksikDosyaVar) console.log('📥 Uzakta yerelde olmayan dosya var → senkron');
                 
                 // Remote ve local timestamp'leri karşılaştır
                 const remoteTimestamp = new Date(remoteData.lastUpdatedBySupplier || remoteData.sharedAt);
@@ -5559,7 +5581,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 console.log('🔄 Tedarikçi güncellemesi var mı:', hasSupplierUpdate);
                 
                 // Eğer tedarikçi güncellemesi varsa veya remote daha yeniyse senkronize et
-                if (hasSupplierUpdate || remoteTimestamp > localTimestamp) {
+                if (hasSupplierUpdate || eksikDosyaVar || remoteTimestamp > localTimestamp) {
                     console.log('🆕 Remote daha yeni, güncelleme yapılıyor...');
                     
                     // Remote'dan gelen dokümanları dönüştür (data -> blob)
@@ -5620,6 +5642,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     console.log(`📦 ${Object.keys(convertedDocuments).length} doküman türü dönüştürüldü`);
                     
                     docRecord.documents = convertedDocuments;
+                    // Gorulen tedarikci damgasi YERELDE: uzak dosyaya
+                    // dokunmuyoruz (once bayragi silmek icin uzaga
+                    // yaziliyordu; yaris ve veri kaybi cikariyordu).
+                    if (uzakDamga) docRecord.sonTedarikciDamgasi = uzakDamga;
                     // Tedarikci sayfasinin actigi yeni turler (ornegin vade
                     // bandinin olusturdugu "ISO 9001") kalite modalinda da
                     // gorunsun — dokuman sozlugu zaten butunuyle geliyor ama
@@ -5631,31 +5657,6 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     docRecord.lastSyncedAt = new Date().toISOString();
                     
                     await saveSupplierDocuments(supplierName, docRecord);
-                    
-                    // Eğer tedarikçi güncellemesi varsa, remote'daki flag'i temizle
-                    if (hasSupplierUpdate) {
-                        console.log('🧹 Remote lastUpdatedBySupplier temizleniyor...');
-                        try {
-                            // Remote data'yı güncelle (lastUpdatedBySupplier'ı kaldır)
-                            delete remoteData.lastUpdatedBySupplier;
-                            if (docRecord.sharedDriveKey) {
-                                // Drive paylasiminda bayrak simdiye dek HIC
-                                // temizlenmiyordu (yalniz Storj'a yaziliyordu);
-                                // otomatik senkron dongusune girmesin.
-                                const ds2 = getDriveSettings();
-                                if (ds2) await fetch(ds2.url, { method: 'POST', mode: 'no-cors',
-                                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                                    body: JSON.stringify({ action: 'save', secret: ds2.secret,
-                                        name: docRecord.sharedDriveKey,
-                                        content: JSON.stringify(remoteData) }) });
-                            } else {
-                                await uploadToStorj(docRecord.sharedStorjKey, JSON.stringify(remoteData, null, 2), settings);
-                            }
-                            console.log('✅ Remote güncelleme flag\'i temizlendi');
-                        } catch (err) {
-                            console.warn('⚠️ Remote flag temizlenemedi:', err.message);
-                        }
-                    }
                     
                     // Modali yeniden yükle (yeniden acilis oto-senkronu
                     // tekrar tetiklemesin — bayrakla bir kez atlanir)
