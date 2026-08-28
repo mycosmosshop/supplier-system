@@ -9301,7 +9301,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
               '<td class="text-center" data-iatf="iatfDuzeltme">'+disp(s.iatfDuzeltme)+'</td>'+
               '<td class="text-center" data-iatf="duzeltilmisPuan"><b>'+_puanTxt(s.duzeltilmisPuan)+'%</b></td>'+
               '<td class="text-center" data-iatf="duzeltilmisSinif">'+sinifHucresiHtml(s, s.duzeltilmisSinif, 'supplier-class-badge')+'</td>'+
-              '<td class="text-center" data-iatf="riskAnalizi">'+disp(s.riskAnalizi)+'</td>';
+              // Riskli tedarikcide hucre TIKLANABILIR: o tedarikcinin gelisim
+              // plani acilir (aranmasin, bir tik yeter).
+              '<td class="text-center" data-iatf="riskAnalizi"'
+                + (/HIGH|MEDIUM/.test(String(s.riskAnalizi||''))
+                    ? ' style="cursor:pointer;text-decoration:underline dotted"'
+                      + ' title="Tıkla: bu tedarikçinin gelişim planı"'
+                      + ' onclick="gelisimPlaniPaneli(' + JSON.stringify(s.name).replace(/"/g,'&quot;') + ')"'
+                    : '')
+                + '>'+disp(s.riskAnalizi)+'</td>';
         }
         function iatfHeaderHtml(){ return IATF_HEADERS.map(function(h){ return '<th class="text-center" style="min-width:90px;background:#0f4c81;">'+h+'</th>'; }).join(''); }
         // Excel: IATF durum/risk/bildirim hücre rengi (içeriğe göre)
