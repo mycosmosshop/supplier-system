@@ -1974,6 +1974,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </div>
                     <button class="btn" onclick="openExportDialog('excel')" style="background: #28a745; color: white; border-color: #28a745;">📥 Excel İndir</button>
             <!-- "☁ Onaylı Listeyi Buluta Yaz" dugmesi kaldirildi: liste veri degisince KENDILIGINDEN yaziliyor (bulutaYazPlanla). Islev duruyor, otomatik yazma onu cagiriyor. -->
+            <button class="btn" onclick="gelisimPlaniPaneli()" title="Riskli tedarikçiler için iyileştirme ve eğitim planı (IATF 8.4.2.5)" style="background:#6a1b9a;color:#fff;border-color:#6a1b9a;">🎯 Gelişim Planı <span id="gelisimSayi" style="display:none;background:#fff;color:#6a1b9a;border-radius:10px;padding:0 7px;font-weight:700;margin-left:4px;"></span></button>
             <button class="btn" onclick="belgeTakipPaneli()" title="Geçerlilik süresi dolan / dolmak üzere olan belgeler" style="background:#f57f17;color:#fff;border-color:#f57f17;">⏰ Belge Süresi <span id="belgeTakipSayi" style="display:none;background:#fff;color:#f57f17;border-radius:10px;padding:0 7px;font-weight:700;margin-left:4px;"></span></button>
                     <button class="btn" onclick="openExportDialog('pdf')" style="background: #dc3545; color: white; border-color: #dc3545;">📄 PDF İndir</button>
                     <button class="btn" onclick="openEvaluationProcedure()" style="background: #3f51b5; color: white; border-color: #3f51b5;">📘 Değerlendirme Prosedürü</button>
@@ -6835,6 +6836,323 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
         }
 
+        // ======== TEDARIKCI GELISIM PLANI (IATF 8.4.2.5) ========
+        // Puan bilesenleri: vdaPuan %20 · kalitePuan %5 · ppmPuan %30-40 ·
+        // donusOrani8D %5-10 · terminPuan %20 · tamamlanmaPuan %10 ·
+        // hataPuan %10-15. Hangisi zayifsa gelisim ekseni odur.
+        const GELISIM_EKSENLERI = [
+            {
+                kod: 'saha',
+                ad: 'Saha problemi (0 km / garanti)',
+                agirlik: 1,          // en kritik
+                bul: s => (+s.sahaProblemSayisi || 0) > 0 && s.sahaProblemSorumlu === 'Tedarikçi',
+                bulgu: s => (+s.sahaProblemSayisi || 0) + ' adet saha problemi — tedarikçi kaynaklı',
+                sorular: ['Parça sahaya nasıl ulaştı: kontrol planında bu hata yakalanmalı mıydı?',
+                          'Aynı parti/lot başka müşterilere gitti mi? İzlenebilirlik ne diyor?',
+                          'Hata önleme (poka-yoke) neden devrede değildi?'],
+                aksiyonlar: ['8D açılsın; D3 muhafaza (containment) 24 saat içinde',
+                             'Kontrol planı ve PFMEA gözden geçirilsin; tespit puanı düşürülsün',
+                             'Hata önleme düzeneği kurulsun, doğrulama sıklığı yazılsın',
+                             'Şüpheli lotlarda %100 kontrol; sonuçları raporla'],
+                egitim: ['8D problem çözme (kök neden — 5 Neden / Balık Kılçığı)',
+                         'Hata önleme (Poka-Yoke) uygulamaları',
+                         'İzlenebilirlik ve lot yönetimi'],
+                dogrulama: 'Üç ay saha problemi tekrarı yok + 8D D7 doğrulaması kapalı',
+                gun: 30
+            },
+            {
+                kod: 'musteri',
+                ad: 'Müşteri hattında aksaklık',
+                agirlik: 2,
+                bul: s => (+s.musteriAksaklikSayisi || 0) > 0 && s.musteriAksaklikSorumlu === 'Tedarikçi',
+                bulgu: s => (+s.musteriAksaklikSayisi || 0) + ' adet müşteri aksaklığı — tedarikçi kaynaklı',
+                sorular: ['Hat durdu mu, sıralama mı bozuldu? Etkisi kaç adet?',
+                          'Giriş kalite kontrolünde neden yakalanmadı?',
+                          'Uygunsuz ürün nasıl ayrıldı, kim onayladı?'],
+                aksiyonlar: ['8D ile kök neden ve kalıcı aksiyon',
+                             'Sevkiyat öncesi son kontrol kriteri güncellensin',
+                             'Güçlendirilmiş kontrol (safe launch) dönemi uygulansın'],
+                egitim: ['Uygunsuz ürün kontrolü ve muhafaza',
+                         'Son kontrol / sevkiyat serbest bırakma kriterleri',
+                         '8D raporlama disiplini'],
+                dogrulama: 'İki ay aksaklık yok + güçlendirilmiş kontrol kayıtları',
+                gun: 30
+            },
+            {
+                kod: 'ppm',
+                ad: 'PPM (kalite hata oranı)',
+                agirlik: 3,
+                bul: s => { const h = +s.ppmTarget || 0, p = +s.ppm || +s.currentPPM || 0;
+                            return h > 0 && p > h; },
+                bulgu: s => 'PPM ' + Math.round(+s.ppm || +s.currentPPM || 0)
+                            + ' — hedef ' + Math.round(+s.ppmTarget || 0) + ' (aşım var)',
+                sorular: ['Hatalar hangi operasyonda ve hangi hata türünde yoğunlaşıyor (Pareto)?',
+                          'Süreç yeterliliği ölçüldü mü — Cpk kaç?',
+                          'Ölçüm sistemi güvenilir mi (Gage R&R yapıldı mı)?'],
+                aksiyonlar: ['İlk 3 hata türü için Pareto + kök neden çalışması',
+                             'Kritik karakteristiklerde Cp/Cpk çalışması (hedef Cpk ≥ 1,67)',
+                             'Ölçüm sistemi analizi (MSA) — %GRR < %10',
+                             'Aylık PPM takip grafiği ve düşüş hedefi'],
+                egitim: ['İstatistiksel proses kontrol (SPC) ve Cp/Cpk yorumu',
+                         'Ölçüm sistemi analizi (MSA / Gage R&R)',
+                         'Pareto ve kök neden analizi'],
+                dogrulama: 'Üç ay üst üste PPM hedefin altında',
+                gun: 60
+            },
+            {
+                kod: 'termin',
+                ad: 'Termin / teslimat performansı',
+                agirlik: 4,
+                bul: s => (+s.terminPuan || 100) < 90,
+                bulgu: s => 'Termin puanı %' + Math.round(+s.terminPuan || 0) + ' (hedef %100)',
+                sorular: ['Gecikmeler hangi üründe ve hangi aylarda yoğunlaşıyor?',
+                          'Kapasite mi, hammadde tedariki mi, planlama mı darboğaz?',
+                          'Emniyet stoğu ve tampon anlaşması var mı?'],
+                aksiyonlar: ['Kapasite analizi ve darboğaz operasyonun belirlenmesi',
+                             'Emniyet stoğu seviyesi anlaşması',
+                             'Haftalık teslimat taahhüdü ve sapma raporu',
+                             'Kritik hammaddede alternatif tedarikçi'],
+                egitim: ['Üretim planlama ve kapasite yönetimi',
+                         'Stok/tampon yönetimi ve termin taahhüdü',
+                         'Lojistik anlaşmaları (ambalaj, sevkiyat sıklığı)'],
+                dogrulama: 'Üç ay termin performansı ≥ %98',
+                gun: 60
+            },
+            {
+                kod: '8d',
+                ad: '8D dönüş süresi / problem çözme',
+                agirlik: 5,
+                bul: s => (+s.donusOrani8D || 100) < 90,
+                bulgu: s => '8D dönüş oranı %' + Math.round(+s.donusOrani8D || 0) + ' (hedef %100)',
+                sorular: ['8D için sorumlu ve ekip tanımlı mı?',
+                          'D3 muhafaza 24 saatte veriliyor mu?',
+                          'Kök neden gerçekten bulunuyor mu, yoksa belirti mi düzeltiliyor?'],
+                aksiyonlar: ['8D sorumlusu ve yedeği yazılı atansın',
+                             'D3 muhafaza 24 saat, tam 8D 10 gün taahhüdü',
+                             'Kapalı 8D’lerde etkinlik doğrulaması (D7) yapılsın'],
+                egitim: ['8D metodolojisi (D1–D8) ve raporlama',
+                         '5 Neden / Balık Kılçığı ile kök neden',
+                         'Düzeltici faaliyet etkinlik doğrulaması'],
+                dogrulama: 'Sonraki 3 şikâyette 8D süresine uyum',
+                gun: 45
+            },
+            {
+                kod: 'hata',
+                ad: 'Uygunsuzluk / hata adedi',
+                agirlik: 6,
+                bul: s => (+s.hataPuan || 1) < 0.9,
+                bulgu: s => 'Hata puanı düşük (' + Math.round((+s.hataPuan || 0) * 100) + '/100)',
+                sorular: ['Tekrarlayan hata var mı? Aynı hata kaç kez geldi?',
+                          'Operatör eğitimi ve yetkinlik matrisi güncel mi?',
+                          'İş talimatları sahada kullanılıyor mu?'],
+                aksiyonlar: ['Tekrarlayan hatalar için kalıcı aksiyon planı',
+                             'Operatör yetkinlik matrisi ve eğitim kayıtları',
+                             'Sınır numune / görsel standart panosu'],
+                egitim: ['Operatör kalite bilinci ve görsel kontrol',
+                         'İş talimatı ve standart iş uygulaması',
+                         'Öznitelik (attribute) MSA — gözle kontrol güvenilirliği'],
+                dogrulama: 'İki ay tekrarlayan hata yok',
+                gun: 45
+            },
+            {
+                kod: 'vda',
+                ad: 'Sistem denetimi (VDA 6.3) eksik/düşük',
+                agirlik: 7,
+                bul: s => !(+s.vdaPuan) || (+s.vdaPuan) < 80,
+                bulgu: s => (+s.vdaPuan) ? ('VDA puanı ' + Math.round(+s.vdaPuan) + ' (hedef ≥ 80)')
+                                         : 'VDA 6.3 denetimi yapılmamış',
+                sorular: ['Son sistem denetimi ne zaman yapıldı?',
+                          'Önceki denetim bulguları kapandı mı?'],
+                aksiyonlar: ['VDA 6.3 proses denetimi planlansın',
+                             'Açık bulgular için termin planı',
+                             'Kendi kendine değerlendirme (self-assessment) gönderilsin'],
+                egitim: ['VDA 6.3 proses denetimi farkındalığı',
+                         'IATF 16949 temel şartlar'],
+                dogrulama: 'Denetim yapıldı ve puan ≥ 80',
+                gun: 90
+            },
+            {
+                kod: 'navlun',
+                ad: 'Ekstra navlun / lojistik maliyet',
+                agirlik: 8,
+                bul: s => (+s.ekstraNavlunSayisi || 0) > 0 && s.ekstraNavlunSorumlu === 'Tedarikçi',
+                bulgu: s => (+s.ekstraNavlunSayisi || 0) + ' kez ekstra navlun — tedarikçi kaynaklı',
+                sorular: ['Acil sevkiyat neden gerekti: üretim mi, planlama mı?',
+                          'Sipariş bilgisi zamanında iletildi mi?'],
+                aksiyonlar: ['Acil sevkiyat kök nedeni ve önleyici aksiyon',
+                             'Sevkiyat planı ve ambalaj standardı gözden geçirilsin'],
+                egitim: ['Lojistik planlama ve ambalaj standardı',
+                         'Sipariş yönetimi ve iletişim akışı'],
+                dogrulama: 'Üç ay ekstra navlun yok',
+                gun: 45
+            },
+            {
+                kod: 'ppap',
+                ad: 'Değişiklik bildirimi / PPAP onayı bekliyor',
+                agirlik: 9,
+                bul: s => s.ozelDurum === 'Evet' && s.ppapOnay === 'Hayır',
+                bulgu: s => 'Özel durum bildirildi, PPAP/onay tamamlanmadı',
+                sorular: ['Değişiklik müşteriye zamanında bildirildi mi?',
+                          'PPAP seviyesi ve kapsam netleşti mi?'],
+                aksiyonlar: ['PPAP dosyası tamamlanıp sunulsun (Tedarikçi PPAP Portalı)',
+                             'Değişiklik yönetimi prosedürü gözden geçirilsin'],
+                egitim: ['PPAP / VDA 2 üretim süreci onayı',
+                         'Değişiklik yönetimi (ECN) ve müşteri bildirimi'],
+                dogrulama: 'PPAP onaylandı',
+                gun: 30
+            }
+        ];
+
+        function gelisimPlaniUret(s) {
+            const eksenler = GELISIM_EKSENLERI.filter(e => { try { return e.bul(s); } catch (x) { return false; } })
+                .sort((a, b) => a.agirlik - b.agirlik);
+            return eksenler.map(e => ({
+                kod: e.kod, ad: e.ad, bulgu: (() => { try { return e.bulgu(s); } catch (x) { return ''; } })(),
+                sorular: e.sorular, aksiyonlar: e.aksiyonlar, egitim: e.egitim,
+                dogrulama: e.dogrulama, gun: e.gun
+            }));
+        }
+
+        function gelisimRiskliler() {
+            if (typeof allResults === 'undefined' || !allResults) return [];
+            return allResults
+                .filter(s => /HIGH|MEDIUM/.test(String(s.riskAnalizi || '')))
+                .map(s => ({ s: s, plan: gelisimPlaniUret(s) }))
+                .filter(x => x.plan.length)
+                .sort((a, b) => (/HIGH/.test(a.s.riskAnalizi) ? 0 : 1) - (/HIGH/.test(b.s.riskAnalizi) ? 0 : 1)
+                              || a.plan[0].gun - b.plan[0].gun);
+        }
+
+        function gelisimRozetiniGuncelle() {
+            const el = document.getElementById('gelisimSayi');
+            if (!el) return;
+            const n = gelisimRiskliler().length;
+            el.textContent = n ? String(n) : '';
+            el.style.display = n ? 'inline-block' : 'none';
+        }
+
+        function gelisimPlaniPaneli(tekAd) {
+            if (typeof allResults === 'undefined' || !allResults || !allResults.length) {
+                showAlert('Önce tedarikçi listesi yüklenmeli.', 'warning');
+                return;
+            }
+            let liste = gelisimRiskliler();
+            if (tekAd) liste = liste.filter(x => x.s.name === tekAd);
+            const p = document.createElement('div');
+            p.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20000;display:flex;'
+                + 'align-items:center;justify-content:center;padding:20px';
+            let h = '<div style="background:#fff;border-radius:12px;max-width:860px;width:100%;max-height:88vh;'
+                + 'overflow:auto;padding:22px 24px">'
+                + '<h3 style="margin:0 0 4px">🎯 Tedarikçi Gelişim Planı</h3>'
+                + '<div style="font-size:.85em;color:#666;margin-bottom:16px">'
+                + 'Riski <b>MEDIUM/HIGH</b> olan tedarikçiler için, <b>zayıf olan performans eksenine göre</b> '
+                + 'iyileştirme ve eğitim önerisi (IATF 16949 md. 8.4.2.5). Plan verideki bulgulardan üretilir; '
+                + 'göndermeden önce gözden geçirin.</div>';
+            if (!liste.length) {
+                h += '<div style="padding:30px;text-align:center;color:#666">Gelişim planı gerektiren tedarikçi yok. 👍</div>';
+            } else {
+                liste.forEach(x => {
+                    const A = JSON.stringify(x.s.name).replace(/"/g, '&quot;');
+                    const yuksek = /HIGH/.test(String(x.s.riskAnalizi || ''));
+                    h += '<div style="border:1px solid #eee;border-left:5px solid ' + (yuksek ? '#c62828' : '#f57f17')
+                       + ';border-radius:10px;padding:14px 16px;margin-bottom:14px">'
+                       + '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">'
+                       + '<div style="flex:1;min-width:240px">'
+                       + '<div style="font-weight:700">' + x.s.name + '</div>'
+                       + '<div style="font-size:.85em;color:#666">' + (x.s.riskAnalizi || '')
+                       + ' · sınıf ' + (x.s.duzeltilmisSinif || '-')
+                       + ' · puan ' + Math.round(+x.s.duzeltilmisPuan || 0) + '</div></div>'
+                       + '<button onclick="gelisimMaili(' + A + ')" style="padding:7px 13px;background:#6a1b9a;'
+                       + 'color:#fff;border:0;border-radius:7px;cursor:pointer;font-weight:600">📧 Plan maili</button>'
+                       + '<button onclick="gelisimExcel(' + A + ')" style="padding:7px 11px;background:#fff;'
+                       + 'border:1px solid #ddd;border-radius:7px;cursor:pointer">📊 Excel</button>'
+                       + '</div>';
+                    x.plan.forEach((e, i) => {
+                        h += '<div style="margin-top:12px;padding:10px 12px;background:#faf7fd;border-radius:8px">'
+                           + '<div style="font-weight:700;color:#4a148c">' + (i + 1) + '. ' + e.ad + '</div>'
+                           + '<div style="font-size:.88em;color:#c62828;margin:2px 0 6px">📌 ' + e.bulgu + '</div>'
+                           + '<div style="font-size:.85em;margin-bottom:4px"><b>Sorulacaklar:</b><ul style="margin:3px 0 0;padding-left:18px">'
+                           + e.sorular.map(q => '<li>' + q + '</li>').join('') + '</ul></div>'
+                           + '<div style="font-size:.85em;margin-bottom:4px"><b>Aksiyonlar:</b><ul style="margin:3px 0 0;padding-left:18px">'
+                           + e.aksiyonlar.map(q => '<li>' + q + '</li>').join('') + '</ul></div>'
+                           + '<div style="font-size:.85em;margin-bottom:4px"><b>🎓 Eğitim:</b><ul style="margin:3px 0 0;padding-left:18px">'
+                           + e.egitim.map(q => '<li>' + q + '</li>').join('') + '</ul></div>'
+                           + '<div style="font-size:.85em;color:#2e7d32"><b>Kapanış:</b> ' + e.dogrulama
+                           + ' · <b>termin:</b> ' + e.gun + ' gün</div></div>';
+                    });
+                    h += '</div>';
+                });
+            }
+            h += '<div style="text-align:right;margin-top:16px">'
+               + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 18px;'
+               + 'border:1px solid #ddd;background:#fff;border-radius:6px;cursor:pointer">Kapat</button></div></div>';
+            p.innerHTML = h;
+            p.addEventListener('click', e => { if (e.target === p) p.remove(); });
+            document.body.appendChild(p);
+        }
+
+        function gelisimMetni(ad) {
+            const s = (allResults || []).find(x => x.name === ad);
+            if (!s) return '';
+            const plan = gelisimPlaniUret(s);
+            const bugun = new Date();
+            return plan.map((e, i) => {
+                const t = new Date(bugun.getTime() + e.gun * 86400000);
+                return (i + 1) + ') ' + e.ad + '\n'
+                    + '   Bulgu: ' + e.bulgu + '\n'
+                    + '   Beklenen aksiyonlar:\n'
+                    + e.aksiyonlar.map(q => '     - ' + q).join('\n') + '\n'
+                    + '   Önerilen eğitimler:\n'
+                    + e.egitim.map(q => '     - ' + q).join('\n') + '\n'
+                    + '   Kapanış kriteri: ' + e.dogrulama + '\n'
+                    + '   Termin: ' + t.toLocaleDateString('tr-TR');
+            }).join('\n\n');
+        }
+
+        function gelisimMaili(ad) {
+            const s = (allResults || []).find(x => x.name === ad);
+            if (!s) return;
+            const alici = (typeof belgeAlici === 'function' ? belgeAlici(ad) : '') || '';
+            const konu = 'Tedarikçi gelişim planı — ' + ad;
+            const govde = 'Sayın Yetkili,\n\n'
+                + 'Tedarikçi performans değerlendirmemizde firmanız '
+                + String(s.riskAnalizi || '').replace(/[🔴🟠🟢]/g, '').trim()
+                + ' seviyesinde çıkmıştır (sınıf ' + (s.duzeltilmisSinif || '-')
+                + ', puan ' + Math.round(+s.duzeltilmisPuan || 0) + ').\n\n'
+                + 'Aşağıdaki başlıklarda iyileştirme ve eğitim planı bekliyoruz:\n\n'
+                + gelisimMetni(ad) + '\n\n'
+                + 'Planınızı termin ve sorumlularıyla birlikte iletmenizi rica ederiz.\n\n'
+                + 'Saygılarımızla,\nKalite Ekibi';
+            const bas = 'mailto:' + alici + '?subject=' + encodeURIComponent(konu)
+                + '&body=' + encodeURIComponent(govde);
+            const a = document.createElement('a');
+            a.href = bas; a.style.display = 'none';
+            document.body.appendChild(a); a.click();
+            setTimeout(() => a.remove(), 1000);
+            if (!alici) showAlert('ℹ️ ' + ad + ' için kayıtlı e-posta yok — Bilgi kartına ekleyin.', 'info');
+        }
+
+        function gelisimExcel(ad) {
+            const s = (allResults || []).find(x => x.name === ad);
+            if (!s || typeof XLSX === 'undefined') { showAlert('Excel üretilemedi.', 'error'); return; }
+            const plan = gelisimPlaniUret(s);
+            const bugun = new Date();
+            const satirlar = [['Tedarikçi', 'Risk', 'Konu', 'Bulgu', 'Aksiyonlar',
+                               'Eğitim', 'Kapanış kriteri', 'Termin']];
+            plan.forEach(e => {
+                const t = new Date(bugun.getTime() + e.gun * 86400000);
+                satirlar.push([ad, String(s.riskAnalizi || ''), e.ad, e.bulgu,
+                               e.aksiyonlar.join('\n'), e.egitim.join('\n'),
+                               e.dogrulama, t.toLocaleDateString('tr-TR')]);
+            });
+            const ws = XLSX.utils.aoa_to_sheet(satirlar);
+            ws['!cols'] = [{ wch: 32 }, { wch: 26 }, { wch: 30 }, { wch: 34 },
+                           { wch: 46 }, { wch: 40 }, { wch: 32 }, { wch: 12 }];
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Gelişim Planı');
+            XLSX.writeFile(wb, 'Gelisim Plani - ' + ad.replace(/[\\/:*?"<>|]/g, '-') + '.xlsx');
+        }
+
         // ======== BELGE SURESI TAKIBI ========
         // ---- Ayarlar (tek yerde, tarayicida kalici) ----
         // Paylasim kaydina yazilacak sertifika vadeleri: tedarikci sayfasi
@@ -6996,6 +7314,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const n = allResults.filter(s => belgeVadeleri(s).length).length;
             el.textContent = n ? String(n) : '';
             el.style.display = n ? 'inline-block' : 'none';
+            try { gelisimRozetiniGuncelle(); } catch (e) {}
         }
         // Suresi yaklasan belgelerin listesi
         function belgeTakipPaneli() {
