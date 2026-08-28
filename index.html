@@ -6955,6 +6955,27 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 gun: 45
             },
             {
+                kod: 'iatf',
+                ad: 'IATF 16949 belgesi yok (sınıf tavanı)',
+                agirlik: 2.5,
+                bul: s => { try { return !!sinifTavaniSebep(s); } catch (e) { return false; } },
+                bulgu: s => s.iso9001
+                    ? 'Otomotiv tedarikçisi, geçerli IATF 16949 yok → sınıf en fazla B (PR06)'
+                    : 'Otomotiv tedarikçisi, IATF 16949 ve ISO 9001 yok → sınıf en fazla C (PR06)',
+                sorular: ['IATF 16949 belgelendirme takvimi var mı, hangi aşamada?',
+                          'Belgelendirme kuruluşu seçildi mi, denetim tarihi belli mi?',
+                          'Ara dönemde ISO 9001 kapsamı bu ürünü kapsıyor mu?'],
+                aksiyonlar: ['IATF 16949 belgelendirme yol haritası ve termin sunulsun',
+                             'Belge alınana kadar PL33 sistem geliştirme planı yürütülsün',
+                             'Genel Müdür onaylı çalışma kararı dosyada bulunsun',
+                             'Ara denetim (2nd party) ile sistem doğrulansın'],
+                egitim: ['IATF 16949 şartları ve belgelendirme süreci',
+                         'Core Tools (APQP · PPAP · FMEA · MSA · SPC) farkındalığı',
+                         'Katmanlı proses denetimi (LPA)'],
+                dogrulama: 'IATF belgesi alındı veya PL33 planı termininde ilerliyor',
+                gun: 90
+            },
+            {
                 kod: 'vda',
                 ad: 'Sistem denetimi (VDA 6.3) eksik/düşük',
                 agirlik: 7,
@@ -9294,8 +9315,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             s.duzeltilmisSinif = sinifTavaniUygula(s.duzeltilmisSinif, s);        // PR06 sınıf tavanı
             s.sinifTavaniNot = sinifTavaniSebep(s);
             var ppm=+s.ppm||+s.currentPPM||0, ppmHedef=+s.ppmTarget||0;
+            // SINIF TAVANI RISKE DE YANSIR: Otomotiv tedarikcisinde IATF yoksa
+            // (PR06) sinif zaten B/C ile sinirlaniyor. Bu, risk kuralina
+            // girmedigi icin ayni "B" harfi iki farkli risk aliyordu —
+            // puani dusuk B: MEDIUM, tavanla B'ye dusen A: LOW. Artik
+            // tavan uygulanmis her tedarikci en az MEDIUM.
+            var tavanVar = false;
+            try { tavanVar = !!sinifTavaniSebep(s); } catch(e){}
             if(ak<70 || (x>0&&y==='Tedarikçi') || (ag>0&&ah==='Tedarikçi')) s.riskAnalizi='🔴 HIGH – Kritik Tedarikçi';
-            else if(ak<90 || (ppmHedef>0&&ppm>ppmHedef) || (aa>0&&ab==='Tedarikçi') || (ad==='Evet'&&ae==='Hayır')) s.riskAnalizi='🟠 MEDIUM – İyileştirme Gerekli';
+            else if(ak<90 || tavanVar || (ppmHedef>0&&ppm>ppmHedef) || (aa>0&&ab==='Tedarikçi') || (ad==='Evet'&&ae==='Hayır')) s.riskAnalizi='🟠 MEDIUM – İyileştirme Gerekli';
             else s.riskAnalizi='🟢 LOW – Stabil Tedarikçi';
             return s;
         }
