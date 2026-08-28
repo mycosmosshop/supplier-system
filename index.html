@@ -4557,6 +4557,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         console.log(`💾 ${supplierName} dokümanları kaydedildi`);
                         // Tablodaki "📄 Doküman" butonunun yeşil dolgusu güncel kalsın
                         try { refreshDocPresence(true); } catch(e){}
+                        // BULUTA DA YAZ: bu kayit yalnizca bu tarayicinin yerel
+                        // veritabanina gidiyordu; Drive yedegi sadece dosya
+                        // yukleme/silmede cagriliyordu. Tedarikciden gelen
+                        // dosya, kabul/red karari ve tur tasima diger ERP
+                        // kullanicilarina ULASMIYORDU. Kuyruklu ve sessiz.
+                        try { if (typeof backupOneSupplierDocsToDrive === 'function')
+                            backupOneSupplierDocsToDrive(supplierName, true); } catch(e){}
                         resolve(docRecord);
                     };
                     putRequest.onerror = () => {
