@@ -5025,6 +5025,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Modali aç
             modal.style.display = 'flex';
             console.log(`📄 ${supplierName} için doküman modali açıldı`);
+
+            // OTOMATIK SENKRON: tedarikci yeni dosya yuklediyse elle
+            // "Senkronize Et"e basmadan gorunsun. Sessiz calisir; yalniz
+            // gercekten guncelleme geldiginde modal tazelenir + bildirim.
+            if (window.__otoSenkronAtla === supplierName) {
+                window.__otoSenkronAtla = null;
+            } else {
+                try {
+                    const kayit = await getSupplierDocuments(supplierName);
+                    if (kayit && (kayit.sharedDriveKey || kayit.sharedStorjKey)) {
+                        syncSupplierDocumentsFromStorj(supplierName, true)
+                            .catch(e => console.warn('Oto-senkron hatası:', e && e.message));
+                    }
+                } catch (e) {}
+            }
         }
 
         // Diğer tedarikçilerde var olan custom türleri göster
@@ -5451,12 +5466,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         // Storj'dan doküman senkronizasyonu
-        async function syncSupplierDocumentsFromStorj() {
-            console.log('🔄 Storj\'dan doküman senkronizasyonu başlıyor...');
-            
-            // Supplier name'i sync butonundan al
+        async function syncSupplierDocumentsFromStorj(adParam, sessiz) {
+            console.log('🔄 Doküman senkronizasyonu başlıyor...' + (sessiz ? ' (otomatik)' : ''));
+
+            // Supplier name: parametre > sync butonu > acik paylasim
             const syncBtn = document.getElementById('syncDocumentsBtn');
-            const supplierName = syncBtn ? syncBtn.getAttribute('data-supplier') : currentDocShareSupplier;
+            const supplierName = adParam
+                || (syncBtn ? syncBtn.getAttribute('data-supplier') : currentDocShareSupplier);
             
             if (!supplierName) {
                 showAlert('❌ Tedarikçi adı bulunamadı!', 'error');
@@ -5494,7 +5510,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     console.log('📥 Storj\'dan güncelleme çekiliyor... Key:', docRecord.sharedStorjKey);
                     remoteData = await downloadFromStorj(docRecord.sharedStorjKey, settings);
                 } else {
-                    showAlert('⚠️ Paylaşılmış key bulunamadı!', 'info');
+                    if (!sessiz) showAlert('⚠️ Paylaşılmış key bulunamadı!', 'info');
                     return;
                 }
 
@@ -5592,20 +5608,34 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         try {
                             // Remote data'yı güncelle (lastUpdatedBySupplier'ı kaldır)
                             delete remoteData.lastUpdatedBySupplier;
-                            await uploadToStorj(docRecord.sharedStorjKey, JSON.stringify(remoteData, null, 2), settings);
+                            if (docRecord.sharedDriveKey) {
+                                // Drive paylasiminda bayrak simdiye dek HIC
+                                // temizlenmiyordu (yalniz Storj'a yaziliyordu);
+                                // otomatik senkron dongusune girmesin.
+                                const ds2 = getDriveSettings();
+                                if (ds2) await fetch(ds2.url, { method: 'POST', mode: 'no-cors',
+                                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                                    body: JSON.stringify({ action: 'save', secret: ds2.secret,
+                                        name: docRecord.sharedDriveKey,
+                                        content: JSON.stringify(remoteData) }) });
+                            } else {
+                                await uploadToStorj(docRecord.sharedStorjKey, JSON.stringify(remoteData, null, 2), settings);
+                            }
                             console.log('✅ Remote güncelleme flag\'i temizlendi');
                         } catch (err) {
                             console.warn('⚠️ Remote flag temizlenemedi:', err.message);
                         }
                     }
                     
-                    // Modali yeniden yükle
+                    // Modali yeniden yükle (yeniden acilis oto-senkronu
+                    // tekrar tetiklemesin — bayrakla bir kez atlanir)
+                    window.__otoSenkronAtla = supplierName;
                     await openDocumentModal(supplierName);
                     
                     showAlert('✅ Dokümanlar güncellendi!\n\nTedarikçiden gelen yeni dokümanlar yüklendi.', 'success');
                 } else {
                     console.log('ℹ️ Local güncel, güncelleme gerek yok');
-                    showAlert('ℹ️ Zaten güncel!\n\nTedarikçiden yeni güncelleme yok.', 'info');
+                    if (!sessiz) showAlert('ℹ️ Zaten güncel!\n\nTedarikçiden yeni güncelleme yok.', 'info');
                 }
                 
             } catch (error) {
