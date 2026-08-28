@@ -7041,13 +7041,33 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const p = document.createElement('div');
             p.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20000;display:flex;'
                 + 'align-items:center;justify-content:center;padding:20px';
-            let h = '<div style="background:#fff;border-radius:12px;max-width:860px;width:100%;max-height:88vh;'
+            const _tarih = g => new Date(Date.now() + g * 86400000).toLocaleDateString('tr-TR');
+            const _eksenSay = liste.reduce((n, x) => n + x.plan.length, 0);
+            const _enYakin = liste.length
+                ? Math.min.apply(null, liste.map(x => Math.min.apply(null, x.plan.map(e => e.gun))))
+                : 0;
+            let h = '<div style="background:#fff;border-radius:12px;max-width:880px;width:100%;max-height:88vh;'
                 + 'overflow:auto;padding:22px 24px">'
                 + '<h3 style="margin:0 0 4px">🎯 Tedarikçi Gelişim Planı</h3>'
-                + '<div style="font-size:.85em;color:#666;margin-bottom:16px">'
-                + 'Riski <b>MEDIUM/HIGH</b> olan tedarikçiler için, <b>zayıf olan performans eksenine göre</b> '
-                + 'iyileştirme ve eğitim önerisi (IATF 16949 md. 8.4.2.5). Plan verideki bulgulardan üretilir; '
-                + 'göndermeden önce gözden geçirin.</div>';
+                + '<div style="font-size:.85em;color:#666;margin-bottom:12px">'
+                + 'Riski MEDIUM/HIGH olan tedarikçide <b>hangi performans ekseni zayıfsa</b> ona özel '
+                + 'iyileştirme ve eğitim önerisi (IATF 16949 md. 8.4.2.5). '
+                + 'Plan verideki bulgulardan üretilir — göndermeden önce gözden geçirin.</div>'
+                + (liste.length
+                    ? '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">'
+                      + '<div style="flex:1;min-width:140px;background:#f3e5f5;border-radius:9px;padding:10px 12px">'
+                      + '<div style="font-size:.75em;color:#6a1b9a;font-weight:700">TEDARİKÇİ</div>'
+                      + '<div style="font-size:1.4em;font-weight:700">' + liste.length + '</div></div>'
+                      + '<div style="flex:1;min-width:140px;background:#f3e5f5;border-radius:9px;padding:10px 12px">'
+                      + '<div style="font-size:.75em;color:#6a1b9a;font-weight:700">İYİLEŞTİRME KONUSU</div>'
+                      + '<div style="font-size:1.4em;font-weight:700">' + _eksenSay + '</div></div>'
+                      + '<div style="flex:1;min-width:140px;background:#fff3e0;border-radius:9px;padding:10px 12px">'
+                      + '<div style="font-size:.75em;color:#e65100;font-weight:700">EN YAKIN TERMİN</div>'
+                      + '<div style="font-size:1.4em;font-weight:700">' + _tarih(_enYakin) + '</div></div>'
+                      + '<button onclick="gelisimExcelHepsi()" style="padding:10px 16px;background:#1d6f42;'
+                      + 'color:#fff;border:0;border-radius:9px;cursor:pointer;font-weight:600">📊 Tümünü Excel</button>'
+                      + '</div>'
+                    : '');
             if (!liste.length) {
                 h += '<div style="padding:30px;text-align:center;color:#666">Gelişim planı gerektiren tedarikçi yok. 👍</div>';
             } else {
@@ -7068,17 +7088,41 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                        + 'border:1px solid #ddd;border-radius:7px;cursor:pointer">📊 Excel</button>'
                        + '</div>';
                     x.plan.forEach((e, i) => {
-                        h += '<div style="margin-top:12px;padding:10px 12px;background:#faf7fd;border-radius:8px">'
-                           + '<div style="font-weight:700;color:#4a148c">' + (i + 1) + '. ' + e.ad + '</div>'
-                           + '<div style="font-size:.88em;color:#c62828;margin:2px 0 6px">📌 ' + e.bulgu + '</div>'
-                           + '<div style="font-size:.85em;margin-bottom:4px"><b>Sorulacaklar:</b><ul style="margin:3px 0 0;padding-left:18px">'
-                           + e.sorular.map(q => '<li>' + q + '</li>').join('') + '</ul></div>'
-                           + '<div style="font-size:.85em;margin-bottom:4px"><b>Aksiyonlar:</b><ul style="margin:3px 0 0;padding-left:18px">'
+                        h += '<div style="margin-top:12px;border:1px solid #ede7f6;border-radius:9px;overflow:hidden">'
+                           // baslik seridi: konu + termin tarihi
+                           + '<div style="background:#f3e5f5;padding:8px 12px;display:flex;gap:8px;'
+                           + 'align-items:center;flex-wrap:wrap">'
+                           + '<span style="font-weight:700;color:#4a148c">' + (i + 1) + '. ' + e.ad + '</span>'
+                           + '<span style="margin-left:auto;font-size:.78em;background:#fff;border:1px solid #ce93d8;'
+                           + 'color:#6a1b9a;border-radius:12px;padding:2px 10px;font-weight:700;white-space:nowrap">'
+                           + '📅 ' + _tarih(e.gun) + '</span></div>'
+                           + '<div style="padding:10px 12px">'
+                           // bulgu: neden bu planda oldugu
+                           + '<div style="background:#fdecea;border-left:4px solid #c62828;border-radius:0 6px 6px 0;'
+                           + 'padding:7px 10px;font-size:.88em;color:#8c2019;margin-bottom:10px">'
+                           + '<b>Bulgu:</b> ' + e.bulgu + '</div>'
+                           // iki sutun: aksiyon | egitim
+                           + '<div style="display:flex;gap:12px;flex-wrap:wrap">'
+                           + '<div style="flex:1;min-width:230px">'
+                           + '<div style="font-size:.76em;font-weight:700;color:#1565c0;letter-spacing:.3px;'
+                           + 'margin-bottom:3px">TEDARİKÇİDEN İSTENEN</div>'
+                           + '<ul style="margin:0;padding-left:17px;font-size:.86em;line-height:1.55">'
                            + e.aksiyonlar.map(q => '<li>' + q + '</li>').join('') + '</ul></div>'
-                           + '<div style="font-size:.85em;margin-bottom:4px"><b>🎓 Eğitim:</b><ul style="margin:3px 0 0;padding-left:18px">'
-                           + e.egitim.map(q => '<li>' + q + '</li>').join('') + '</ul></div>'
-                           + '<div style="font-size:.85em;color:#2e7d32"><b>Kapanış:</b> ' + e.dogrulama
-                           + ' · <b>termin:</b> ' + e.gun + ' gün</div></div>';
+                           + '<div style="flex:1;min-width:230px">'
+                           + '<div style="font-size:.76em;font-weight:700;color:#6a1b9a;letter-spacing:.3px;'
+                           + 'margin-bottom:3px">🎓 ÖNERİLEN EĞİTİM</div>'
+                           + '<ul style="margin:0;padding-left:17px;font-size:.86em;line-height:1.55">'
+                           + e.egitim.map(q => '<li>' + q + '</li>').join('') + '</ul></div></div>'
+                           // kok neden sorulari: katlanabilir (toplantida sorulur)
+                           + '<details style="margin-top:9px"><summary style="cursor:pointer;font-size:.82em;'
+                           + 'color:#546e7a;font-weight:600">❓ Kök neden için sorulacaklar ('
+                           + e.sorular.length + ')</summary>'
+                           + '<ul style="margin:5px 0 0;padding-left:17px;font-size:.85em;color:#455a64;'
+                           + 'line-height:1.55">'
+                           + e.sorular.map(q => '<li>' + q + '</li>').join('') + '</ul></details>'
+                           + '<div style="margin-top:9px;font-size:.83em;color:#2e7d32;background:#eef7ef;'
+                           + 'border-radius:6px;padding:6px 9px"><b>✔ Kapanış kriteri:</b> ' + e.dogrulama
+                           + '</div></div></div>';
                     });
                     h += '</div>';
                 });
@@ -7132,25 +7176,51 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (!alici) showAlert('ℹ️ ' + ad + ' için kayıtlı e-posta yok — Bilgi kartına ekleyin.', 'info');
         }
 
-        function gelisimExcel(ad) {
+        // Excel: her aksiyon/egitim AYRI SATIR — dosya dogrudan aksiyon takip
+        // listesi olur. (Once hepsi tek hucrede alt alta yaziliyordu; SheetJS
+        // hucre sarma stili yazmadigi icin metinler yapisik gorunuyordu.)
+        const GELISIM_BASLIK = ['Tedarikçi', 'Risk', 'Konu', 'Bulgu', 'Tür', 'Yapılacak / Eğitim',
+                                'Kapanış kriteri', 'Termin', 'Sorumlu', 'Durum'];
+        const GELISIM_GENIS = [{ wch: 34 }, { wch: 24 }, { wch: 30 }, { wch: 38 }, { wch: 10 },
+                               { wch: 52 }, { wch: 34 }, { wch: 12 }, { wch: 16 }, { wch: 12 }];
+
+        function gelisimSatirlari(ad) {
             const s = (allResults || []).find(x => x.name === ad);
-            if (!s || typeof XLSX === 'undefined') { showAlert('Excel üretilemedi.', 'error'); return; }
-            const plan = gelisimPlaniUret(s);
-            const bugun = new Date();
-            const satirlar = [['Tedarikçi', 'Risk', 'Konu', 'Bulgu', 'Aksiyonlar',
-                               'Eğitim', 'Kapanış kriteri', 'Termin']];
-            plan.forEach(e => {
-                const t = new Date(bugun.getTime() + e.gun * 86400000);
-                satirlar.push([ad, String(s.riskAnalizi || ''), e.ad, e.bulgu,
-                               e.aksiyonlar.join('\n'), e.egitim.join('\n'),
-                               e.dogrulama, t.toLocaleDateString('tr-TR')]);
+            if (!s) return [];
+            const risk = String(s.riskAnalizi || '').replace(/[🔴🟠🟢]/g, '').trim();
+            const out = [];
+            gelisimPlaniUret(s).forEach(e => {
+                const t = new Date(Date.now() + e.gun * 86400000).toLocaleDateString('tr-TR');
+                e.sorular.forEach(q => out.push([ad, risk, e.ad, e.bulgu, 'Soru', q, e.dogrulama, t, '', 'Görüşülecek']));
+                e.aksiyonlar.forEach(q => out.push([ad, risk, e.ad, e.bulgu, 'Aksiyon', q, e.dogrulama, t, '', 'Açık']));
+                e.egitim.forEach(q => out.push([ad, risk, e.ad, e.bulgu, 'Eğitim', q, e.dogrulama, t, '', 'Planlanacak']));
             });
-            const ws = XLSX.utils.aoa_to_sheet(satirlar);
-            ws['!cols'] = [{ wch: 32 }, { wch: 26 }, { wch: 30 }, { wch: 34 },
-                           { wch: 46 }, { wch: 40 }, { wch: 32 }, { wch: 12 }];
+            return out;
+        }
+
+        function _gelisimYaz(satirlar, dosyaAdi) {
+            if (typeof XLSX === 'undefined') { showAlert('Excel üretilemedi (XLSX yok).', 'error'); return; }
+            if (!satirlar.length) { showAlert('Aktarılacak plan yok.', 'info'); return; }
+            const ws = XLSX.utils.aoa_to_sheet([GELISIM_BASLIK].concat(satirlar));
+            ws['!cols'] = GELISIM_GENIS;
+            ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { c: 0, r: 0 },
+                                   e: { c: GELISIM_BASLIK.length - 1, r: satirlar.length } }) };
+            ws['!freeze'] = { xSplit: 0, ySplit: 1 };
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Gelişim Planı');
-            XLSX.writeFile(wb, 'Gelisim Plani - ' + ad.replace(/[\\/:*?"<>|]/g, '-') + '.xlsx');
+            XLSX.writeFile(wb, dosyaAdi);
+        }
+
+        function gelisimExcel(ad) {
+            _gelisimYaz(gelisimSatirlari(ad),
+                'Gelisim Plani - ' + String(ad).replace(/[\\/:*?"<>|]/g, '-') + '.xlsx');
+        }
+
+        function gelisimExcelHepsi() {
+            const hepsi = [];
+            gelisimRiskliler().forEach(x => { hepsi.push.apply(hepsi, gelisimSatirlari(x.s.name)); });
+            _gelisimYaz(hepsi, 'Tedarikci Gelisim Planlari - '
+                + new Date().toISOString().slice(0, 10) + '.xlsx');
         }
 
         // ======== BELGE SURESI TAKIBI ========
