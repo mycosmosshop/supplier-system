@@ -3772,6 +3772,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function hasSupplierDocs(name){
             try { return _dokumanVar.has(normalizeName(name)); } catch(e){ return false; }
         }
+        // Tedarikcinin yukledigi, henuz incelenmemis dosya sayilari
+        let _bekleyenOnay = {};
+        function bekleyenOnayRozeti(supplier) {
+            try {
+                const n = _bekleyenOnay[normalizeName(supplier.name)] || 0;
+                if (!n) return '';
+                const A = JSON.stringify(supplier.name).replace(/"/g, '&quot;');
+                return ' <span onclick="event.stopPropagation();openDocumentModal(' + A + ')"'
+                    + ' style="display:inline-block;font-size:0.7em;font-weight:700;cursor:pointer;'
+                    + 'color:#fff;background:#e65100;border-radius:4px;padding:1px 6px;vertical-align:middle"'
+                    + ' title="Tedarikçi ' + n + ' belge yükledi, incelenmedi — tıkla: dokümanları aç">'
+                    + '🔔 ' + n + '</span>';
+            } catch (e) { return ''; }
+        }
+
         function refreshDocPresence(yenidenCiz){
             return new Promise(function(ok){
                 if (!db) { ok(false); return; }
@@ -3781,14 +3796,27 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     const rq = tx.objectStore(DOC_STORE_NAME).getAll();
                     rq.onsuccess = function(){
                         const yeni = new Set();
+                        const bekleyen = {};      // normalizedName -> incelenmemis tedarikci yuklemesi
                         (rq.result || []).forEach(function(rec){
                             if (!rec || !rec.normalizedName || !rec.documents) return;
                             const dolu = Object.keys(rec.documents).some(function(t){
                                 return Array.isArray(rec.documents[t]) && rec.documents[t].length > 0;
                             });
                             if (dolu) yeni.add(rec.normalizedName);
+                            // ZIL: tedarikcinin yukledigi ve HENUZ karara
+                            // baglanmamis dosyalar. Kabul/red verilince dusér.
+                            var n = 0;
+                            Object.keys(rec.documents).forEach(function(t){
+                                (rec.documents[t] || []).forEach(function(f){
+                                    if (f && f.uploadedBySupplier
+                                        && f.status !== 'approved' && f.status !== 'rejected') n++;
+                                });
+                            });
+                            if (n) bekleyen[rec.normalizedName] = n;
                         });
-                        const degisti = yeni.size !== _dokumanVar.size ||
+                        const zilDegisti = JSON.stringify(bekleyen) !== JSON.stringify(_bekleyenOnay);
+                        _bekleyenOnay = bekleyen;
+                        const degisti = zilDegisti || yeni.size !== _dokumanVar.size ||
                                         Array.from(yeni).some(function(k){ return !_dokumanVar.has(k); });
                         _dokumanVar = yeni;
                         if (degisti && yenidenCiz && typeof displayResults === 'function') { try { displayResults(); } catch(e){} }
@@ -5738,6 +5766,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     doc.status = newStatus;
                     doc.reviewedAt = new Date().toISOString();
                     await saveSupplierDocuments(supplierName, record);
+                    // Zil rozetini hemen dusur (kayit sonrasi tazeleme
+                    // zaten var; burada listeyi de yeniden ciziyoruz)
+                    try { refreshDocPresence(true); } catch (e) {}
                     console.log(`✅ ${fileId} durumu güncellendi: ${newStatus}`);
                 }
             } catch (error) {
@@ -12164,7 +12195,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </td>
                     <td class="supplier-name" style="cursor: pointer; text-decoration: underline; color: #1e3c72; font-weight: 500;" 
                         onclick="openPerformanceDialog('${result.name.replace(/'/g, "\\'")}')"
-                        title="Performans verisini görmek için tıklayın">${result.name}${getSupplierCategory(result.name) === 'Otomotiv' ? ' <span style="display:inline-block;font-size:0.7em;font-weight:700;color:#fff;background:#00695c;border-radius:4px;padding:1px 5px;vertical-align:middle;" title="Otomotiv kategorisi">🚗 Otomotiv</span>' : ''}${belgeVadeRozeti(result)}
+                        title="Performans verisini görmek için tıklayın">${result.name}${getSupplierCategory(result.name) === 'Otomotiv' ? ' <span style="display:inline-block;font-size:0.7em;font-weight:700;color:#fff;background:#00695c;border-radius:4px;padding:1px 5px;vertical-align:middle;" title="Otomotiv kategorisi">🚗 Otomotiv</span>' : ''}${bekleyenOnayRozeti(result)}${belgeVadeRozeti(result)}
                         <button style="margin-left: 6px; padding: 2px 6px; font-size: 0.75em; cursor: pointer; border: 1px solid #1e3c72; border-radius: 4px; background: white; color: #1e3c72;"
                                 onclick="event.stopPropagation(); openPerformanceCharts('${safeRowKey.replace(/"/g, '&quot;')}')"
                                 title="Aylık grafikler">📊</button>
