@@ -6896,7 +6896,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const p = document.createElement('div');
             p.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20000;display:flex;'
                 + 'align-items:center;justify-content:center;padding:20px';
-            let h = '<div style="background:#fff;border-radius:12px;max-width:900px;width:100%;max-height:88vh;'
+            let h = '<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;max-height:88vh;'
                 + 'overflow:auto;padding:22px 24px">'
                 + '<h3 style="margin:0 0 4px">⏰ Süresi Yaklaşan / Dolan Belgeler</h3>'
                 + '<div style="font-size:.85em;color:#666;margin-bottom:14px">'
@@ -6907,33 +6907,36 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (!liste.length) {
                 h += '<div style="padding:30px;text-align:center;color:#666">Yaklaşan belge süresi yok. 👍</div>';
             } else {
-                h += '<table style="width:100%;border-collapse:collapse;font-size:.9em">'
-                   + '<tr><th style="text-align:left;padding:6px 8px;border-bottom:2px solid #eee">Tedarikçi</th>'
-                   + '<th style="text-align:left;padding:6px 8px;border-bottom:2px solid #eee">Belge / Bitiş</th>'
-                   + '<th style="padding:6px 8px;border-bottom:2px solid #eee"></th></tr>';
+                // Tablo DEGIL kart listesi: sayfanin genel tablo stilleri bu
+                // gecici tabloya sizip kolonlari ekran disina esnetiyordu.
                 liste.forEach(x => {
                     const A = JSON.stringify(x.s.name).replace(/"/g, '&quot;');
                     const mail = belgeAlici(x.s.name);
                     const gecen = x.v.map(v => belgeHatirlatildiMi(x.s.name, v)).filter(Boolean)[0];
-                    h += '<tr><td style="padding:8px;border-bottom:1px solid #f0f0f0;vertical-align:top">'
-                       + x.s.name
-                       + '<div style="font-size:.85em;color:' + (mail ? '#666' : '#c62828') + '">'
-                       + (mail || 'e-posta yok — Bilgi kartına ekleyin') + '</div>'
-                       + (gecen ? '<div style="font-size:.8em;color:#2e7d32">✔ ' + gecen
-                                  + ' tarihinde hatırlatıldı</div>' : '')
-                       + '</td><td style="padding:8px;border-bottom:1px solid #f0f0f0">'
-                       + x.v.map(v => '<div style="color:' + (v.kalan < 0 ? '#c62828' : '#f57f17') + '">'
+                    const gecmis = x.v.some(v => v.kalan < 0);
+                    h += '<div style="border:1px solid #eee;border-left:5px solid '
+                       + (gecmis ? '#c62828' : '#f57f17') + ';border-radius:10px;'
+                       + 'padding:12px 14px;margin-bottom:10px;display:flex;gap:12px;'
+                       + 'align-items:flex-start;flex-wrap:wrap">'
+                       + '<div style="flex:1;min-width:240px">'
+                       + '<div style="font-weight:700;margin-bottom:2px">' + x.s.name + '</div>'
+                       + '<div style="font-size:.83em;color:' + (mail ? '#666' : '#c62828') + ';margin-bottom:6px">'
+                       + '✉ ' + (mail || 'e-posta yok — Bilgi kartına ekleyin') + '</div>'
+                       + x.v.map(v => '<div style="font-size:.9em;color:'
+                           + (v.kalan < 0 ? '#c62828' : '#b45309') + ';margin:2px 0">'
                            + (v.kalan < 0 ? '⛔ ' : '⏰ ') + belgeVadeMetni(v) + '</div>').join('')
-                       + '</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;white-space:nowrap">'
-                       + '<button onclick="belgeHatirlat(' + A + ')" style="padding:6px 12px;background:#9c27b0;'
-                       + 'color:#fff;border:0;border-radius:6px;cursor:pointer">📧 '
-                       + (gecen ? 'Yeniden hatırlat' : 'Hatırlat') + '</button> '
+                       + (gecen ? '<div style="font-size:.8em;color:#2e7d32;margin-top:4px">✔ '
+                                  + gecen + ' tarihinde hatırlatıldı</div>' : '')
+                       + '</div>'
+                       + '<div style="display:flex;gap:6px;align-items:center">'
+                       + '<button onclick="belgeHatirlat(' + A + ')" style="padding:8px 14px;background:#9c27b0;'
+                       + 'color:#fff;border:0;border-radius:7px;cursor:pointer;font-weight:600;white-space:nowrap">📧 '
+                       + (gecen ? 'Yeniden hatırlat' : 'Hatırlat') + '</button>'
                        + '<button onclick="openDocumentModal(' + A + ')" title="Yüklenen belgelere bak; '
                        + 'yeni sertifika geldiyse tarihi Kalite Belge Matrisi\'nden güncelleyin" '
-                       + 'style="padding:6px 10px;background:#fff;border:1px solid #ddd;border-radius:6px;'
-                       + 'cursor:pointer">📄</button></td></tr>';
+                       + 'style="padding:8px 11px;background:#fff;border:1px solid #ddd;border-radius:7px;'
+                       + 'cursor:pointer">📄</button></div></div>';
                 });
-                h += '</table>';
             }
             // KOR NOKTA: sertifika isaretli ama bitis tarihi girilmemis
             // tedarikci hicbir uyari uretmez. Burada gorunur kilip tarih
