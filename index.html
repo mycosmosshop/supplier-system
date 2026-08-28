@@ -5205,7 +5205,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             return file;
                         }));
                     }
-                    const shareData = { supplierName: supplierName, documents: convDocs, exemptDocTypes: docRecord.exemptDocTypes||[], customTypes: docRecord.customTypes||[], sharedAt: new Date().toISOString(), mode: 'supplier-upload' };
+                    const shareData = { supplierName: supplierName, documents: convDocs, exemptDocTypes: docRecord.exemptDocTypes||[], customTypes: docRecord.customTypes||[], certAlerts: belgeUyariOzeti(supplierName), sharedAt: new Date().toISOString(), mode: 'supplier-upload' };
                     await fetch(ds.url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({ action:'save', secret: ds.secret, name: docRecord.sharedDriveKey, content: JSON.stringify(shareData) }) });
                     await new Promise(r => setTimeout(r, 1500));
                     showAlert('✅ Değişiklikler Drive\'a kaydedildi! Karşı taraf linki açınca güncel hâli görür.', 'success');
@@ -5261,6 +5261,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     documents: convertedDocuments,
                     exemptDocTypes: docRecord.exemptDocTypes || [],
                     customTypes: docRecord.customTypes || [],
+                    certAlerts: belgeUyariOzeti(supplierName),
                     sharedAt: new Date().toISOString(),
                     mode: 'supplier-upload'
                 };
@@ -5378,6 +5379,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     documents: convertedDocuments,
                     exemptDocTypes: docRecord.exemptDocTypes || [],
                     customTypes: docRecord.customTypes || [],
+                    certAlerts: belgeUyariOzeti(supplierName),
                     sharedAt: new Date().toISOString(),
                     mode: 'supplier-upload'
                 };
@@ -6715,8 +6717,25 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
         // ======== BELGE SURESI TAKIBI ========
         // ---- Ayarlar (tek yerde, tarayicida kalici) ----
+        // Paylasim kaydina yazilacak sertifika vadeleri: tedarikci sayfasi
+        // "suresi dolan belgenizi yukleyin" diyebilsin. Tarih giden veridir;
+        // kalan gun tedarikci tarafinda acilis aninda hesaplanir.
+        function belgeUyariOzeti(supplierName) {
+            try {
+                const su = (allResults || []).find(x => x.name === supplierName);
+                const tarihler = su && su.certExpiryDates;
+                if (!tarihler) return [];
+                const out = [];
+                (typeof qualityCertTypes !== 'undefined' ? qualityCertTypes : []).forEach(cert => {
+                    const t = tarihler[cert.key];
+                    if (t) out.push({ ad: cert.label, tarih: String(t).slice(0, 10) });
+                });
+                return out;
+            } catch (e) { return []; }
+        }
+
         const BELGE_AYAR_VARSAYILAN = {
-            gun: 15,            // kac gun once uyar / hatirlat
+            gun: 14,            // kac gun once uyar / hatirlat (2 hafta)
             mod: 'taslak',      // 'kapali' | 'taslak' (onaydan sonra taslak acilir)
             kime: 'sorumlu',    // 'sorumlu' = tedarikcinin yetkilisi | 'sabit'
             sabit: '',          // sabit alici (ornegin kendi kalite ekibin)
@@ -6726,7 +6745,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             try {
                 const a = Object.assign({}, BELGE_AYAR_VARSAYILAN,
                     JSON.parse(localStorage.getItem('belgeTakipAyar') || '{}'));
-                a.gun = parseInt(a.gun, 10) > 0 ? parseInt(a.gun, 10) : 15;
+                a.gun = parseInt(a.gun, 10) > 0 ? parseInt(a.gun, 10) : 14;
                 return a;
             } catch (e) { return Object.assign({}, BELGE_AYAR_VARSAYILAN); }
         }
@@ -6777,7 +6796,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 + '<input id="bt_gun" type="number" min="1" value="' + a.gun + '" '
                 + 'style="width:120px;padding:7px 9px;border:1px solid #ddd;border-radius:6px">'
                 + '<div style="font-size:.8em;color:#888;margin:4px 0 14px">Sertifika yenileme '
-                + 'haftalar sürebilir; 15–60 gün arası önerilir.</div>'
+                + 'haftalar sürebilir; 14–60 gün arası önerilir.</div>'
                 + '<label style="display:block;font-size:.85em;font-weight:600;margin-bottom:4px">'
                 + 'Hatırlatma maili</label>'
                 + '<select id="bt_mod" style="width:100%;padding:7px 9px;border:1px solid #ddd;border-radius:6px">'
@@ -6900,9 +6919,31 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                        + '</td><td style="padding:8px;border-bottom:1px solid #f0f0f0;white-space:nowrap">'
                        + '<button onclick="belgeHatirlat(' + A + ')" style="padding:6px 12px;background:#9c27b0;'
                        + 'color:#fff;border:0;border-radius:6px;cursor:pointer">📧 '
-                       + (gecen ? 'Yeniden hatırlat' : 'Hatırlat') + '</button></td></tr>';
+                       + (gecen ? 'Yeniden hatırlat' : 'Hatırlat') + '</button> '
+                       + '<button onclick="openDocumentModal(' + A + ')" title="Yüklenen belgelere bak; '
+                       + 'yeni sertifika geldiyse tarihi Kalite Belge Matrisi\'nden güncelleyin" '
+                       + 'style="padding:6px 10px;background:#fff;border:1px solid #ddd;border-radius:6px;'
+                       + 'cursor:pointer">📄</button></td></tr>';
                 });
                 h += '</table>';
+            }
+            // KOR NOKTA: sertifika isaretli ama bitis tarihi girilmemis
+            // tedarikci hicbir uyari uretmez. Burada gorunur kilip tarih
+            // girisine yonlendiriyoruz — takip ancak tarihle calisir.
+            const tarihsiz = allResults.filter(su =>
+                (typeof qualityCertTypes !== 'undefined' ? qualityCertTypes : []).some(c =>
+                    su[c.key] && !(su.certExpiryDates && su.certExpiryDates[c.key])));
+            if (tarihsiz.length) {
+                h += '<div style="margin-top:14px;padding:11px 14px;background:#e8eaf6;'
+                   + 'border-left:5px solid #3949ab;border-radius:8px;font-size:.9em">'
+                   + '📋 <b>' + tarihsiz.length + ' tedarikçide</b> sertifika işaretli ama '
+                   + '<b>bitiş tarihi girilmemiş</b> — bu belgeler takip edilemiyor. '
+                   + '<a href="#" onclick="this.closest(\'div[style*=fixed]\').remove();'
+                   + 'showQualityCertMatrixModal();return false" style="font-weight:700">'
+                   + 'Kalite Belge Matrisi\'nde tarihleri girin</a>'
+                   + '<div style="color:#666;margin-top:4px">'
+                   + tarihsiz.slice(0, 8).map(su => su.name).join(' · ')
+                   + (tarihsiz.length > 8 ? ' · …' : '') + '</div></div>';
             }
             h += '<div style="text-align:right;margin-top:16px">'
                + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="padding:8px 18px;'
@@ -6927,6 +6968,19 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 }
             } catch (e) {}
 
+            // Yukleme linki yoksa mail "bizimle iletisime gecin"e dusuyor —
+            // kullanissiz. Once sor: vazgecerse Dokuman penceresini ac,
+            // Ilk Paylasim Yap oradadir.
+            if (!link) {
+                const devam = confirm(supplierName + ' için paylaşım linki yok.\n\n'
+                    + 'Tamam  → mail YÜKLEME LİNKSİZ hazırlanır\n'
+                    + 'İptal  → Doküman penceresi açılır; "İlk Paylaşım Yap" ile '
+                    + 'link oluşturup tekrar deneyin.');
+                if (!devam) {
+                    try { openDocumentModal(supplierName); } catch (e) {}
+                    return;
+                }
+            }
             const satirlar = v.map(x => '• ' + belgeVadeMetni(x)).join('\n');
             const alici = belgeAlici(supplierName);
             const kopya = belgeAyar().kopya;
@@ -29541,6 +29595,37 @@ Devam etmek istiyor musunuz?`;
                     <div style="padding: 30px;">
             `;
             
+            // ── SERTIFIKA VADE BANDI ──────────────────────────────────
+            // Kalite tarafi tarihleri girdiyse tedarikci burada gorur:
+            // hangi belge, hangi tarihte doluyor / dolmus. Kalan gun
+            // ACILIS ANINDA hesaplanir (paylasim eski olabilir).
+            (function () {
+                const uyariGun = 60;    // tedarikciye erken gorunsun; mail esigi ayri
+                const vadeler = (shareData.certAlerts || []).map(c => ({
+                    ad: c.ad, tarih: c.tarih,
+                    kalan: Math.ceil((new Date(c.tarih) - new Date()) / 86400000)
+                })).filter(c => isFinite(c.kalan) && c.kalan <= uyariGun)
+                  .sort((x, y) => x.kalan - y.kalan);
+                if (!vadeler.length) return;
+                const gecmis = vadeler.some(c => c.kalan < 0);
+                html += '<div style="margin:0 0 22px;padding:14px 18px;border-radius:10px;'
+                    + 'border:1px solid ' + (gecmis ? '#f5c6c2' : '#ffe08a') + ';'
+                    + 'border-left:6px solid ' + (gecmis ? '#c62828' : '#f57f17') + ';'
+                    + 'background:' + (gecmis ? '#fdecea' : '#fff8e1') + '">'
+                    + '<div style="font-weight:700;font-size:1.05em;margin-bottom:6px">'
+                    + (gecmis ? '⛔ Süresi dolan belgeleriniz var' : '⏰ Belge yenileme zamanı yaklaşıyor')
+                    + '</div>'
+                    + vadeler.map(c => '<div style="margin:3px 0">• <b>' + c.ad + '</b> — '
+                        + new Date(c.tarih).toLocaleDateString('tr-TR')
+                        + (c.kalan < 0
+                            ? ' <span style="color:#c62828;font-weight:700">(' + (-c.kalan) + ' gün geçti)</span>'
+                            : ' (' + c.kalan + ' gün kaldı)')
+                        + '</div>').join('')
+                    + '<div style="margin-top:8px;font-size:.9em;color:#555">Güncel belgeyi '
+                    + 'aşağıda ilgili türün altındaki alana yükleyip <b>değişiklikleri gönderin</b>; '
+                    + 'onaylandığında takvim güncellenir.</div></div>';
+            })();
+
             // Tüm doküman türlerini göster (DOCUMENT_TYPES + custom types)
             let allDocTypes = [...new Set([...getDocumentTypes(), ...(shareData.customTypes || [])])];
 
