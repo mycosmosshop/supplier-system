@@ -1973,7 +1973,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         </select>
                     </div>
                     <button class="btn" onclick="openExportDialog('excel')" style="background: #28a745; color: white; border-color: #28a745;">📥 Excel İndir</button>
-            <button class="btn" onclick="buluttaYayinla()" title="Onaylı tedarikçi listesini buluta yazar; APQP/PPAP modülü PL11'i buradan üretir." style="background:#1e3c72;color:#fff;border-color:#1e3c72;">☁ Onaylı Listeyi Buluta Yaz</button>
+            <!-- "☁ Onaylı Listeyi Buluta Yaz" dugmesi kaldirildi: liste veri degisince KENDILIGINDEN yaziliyor (bulutaYazPlanla). Islev duruyor, otomatik yazma onu cagiriyor. -->
             <button class="btn" onclick="belgeTakipPaneli()" title="Geçerlilik süresi dolan / dolmak üzere olan belgeler" style="background:#f57f17;color:#fff;border-color:#f57f17;">⏰ Belge Süresi <span id="belgeTakipSayi" style="display:none;background:#fff;color:#f57f17;border-radius:10px;padding:0 7px;font-weight:700;margin-left:4px;"></span></button>
                     <button class="btn" onclick="openExportDialog('pdf')" style="background: #dc3545; color: white; border-color: #dc3545;">📄 PDF İndir</button>
                     <button class="btn" onclick="openEvaluationProcedure()" style="background: #3f51b5; color: white; border-color: #3f51b5;">📘 Değerlendirme Prosedürü</button>
