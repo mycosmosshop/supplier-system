@@ -7216,7 +7216,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                 <td style="min-width: ${colWidth}px; max-width: ${colWidth}px; padding: 8px;
                                            border-bottom: 1px solid #e0e0e0; border-right: 1px solid #e0e0e0;
                                            background: ${bgColor}; color: ${textColor}; font-size: 0.8em; 
-                                           text-align: center; font-weight: 500;">
+                                           text-align: center; font-weight: 500; cursor: pointer;"
+                                    onclick="matrisTarihGir('${String(supplierName).replace(/'/g, "\'")}', '${cert.key}')"
+                                    title="Tıkla: bitiş tarihi gir / düzelt">
                                     ${cellContent}
                                 </td>`;
                 }
@@ -13372,6 +13374,63 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             window.certExpiryCallback = callback;
         }
         
+        // Matristen tarih girisi: 'Var' yazan hucreye sonradan tarih
+        // eklemenin YOLU YOKTU (tarih yalniz sertifika ilk isaretlenirken
+        // soruluyordu). Hucre tiklaninca bu pencere acilir; ayni kayit
+        // yolu kullanilir (certExpiryDates + saveSupplierCertData).
+        function matrisTarihGir(supplierName, certKey) {
+            const supplier = allResults.find(r => r.name === supplierName);
+            if (!supplier) return;
+            const cert = (qualityCertTypes || []).find(c => c.key === certKey);
+            const mevcut = (supplier.certExpiryDates && supplier.certExpiryDates[certKey]) || '';
+            const p = document.createElement('div');
+            p.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:20100;'
+                + 'display:flex;align-items:center;justify-content:center;padding:20px';
+            p.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:420px;width:100%;padding:22px 24px">'
+                + '<h3 style="margin:0 0 4px;font-size:1.05em">📅 ' + (cert ? cert.label : certKey) + '</h3>'
+                + '<div style="font-size:.85em;color:#666;margin-bottom:14px">' + supplierName + '</div>'
+                + '<label style="display:block;font-size:.85em;font-weight:600;margin-bottom:4px">Bitiş tarihi</label>'
+                + '<input id="mtg_tarih" type="date" value="' + String(mevcut).slice(0, 10) + '" '
+                + 'style="width:100%;padding:8px 10px;border:1px solid #ddd;border-radius:6px">'
+                + '<div style="display:flex;gap:8px;margin-top:18px">'
+                + '<button id="mtg_kaydet" style="flex:1;padding:9px;background:#1e3c72;color:#fff;'
+                + 'border:0;border-radius:7px;cursor:pointer;font-weight:600">Kaydet</button>'
+                + (mevcut ? '<button id="mtg_sil" style="padding:9px 14px;background:#fff;'
+                    + 'border:1px solid #e57373;color:#c62828;border-radius:7px;cursor:pointer">Tarihi sil</button>' : '')
+                + '<button id="mtg_kapat" style="padding:9px 14px;background:#fff;border:1px solid #ddd;'
+                + 'border-radius:7px;cursor:pointer">Vazgeç</button></div></div>';
+            document.body.appendChild(p);
+            const kapat = () => p.remove();
+            const yenile = () => {
+                // Matris KALICI bir div (display toggle) — remove edilmez,
+                // yeniden cizilir; acik degilse dokunulmaz.
+                const m = document.getElementById('qualityCertMatrixModal');
+                if (m && m.style.display !== 'none') showQualityCertMatrixModal();
+                if (typeof belgeTakipRozetiniGuncelle === 'function') belgeTakipRozetiniGuncelle();
+                if (typeof displayResults === 'function') displayResults();
+            };
+            p.addEventListener('click', e => { if (e.target === p) kapat(); });
+            p.querySelector('#mtg_kapat').onclick = kapat;
+            p.querySelector('#mtg_kaydet').onclick = () => {
+                const t = p.querySelector('#mtg_tarih').value;
+                if (!t) { showAlert('Tarih seçin.', 'warning'); return; }
+                if (!supplier.certExpiryDates) supplier.certExpiryDates = {};
+                supplier.certExpiryDates[certKey] = t;
+                supplier[certKey] = true;
+                saveSupplierCertData();
+                kapat(); yenile();
+                showAlert('✅ ' + (cert ? cert.label : certKey) + ' bitiş tarihi kaydedildi: '
+                    + new Date(t).toLocaleDateString('tr-TR'), 'success');
+            };
+            const sil = p.querySelector('#mtg_sil');
+            if (sil) sil.onclick = () => {
+                delete supplier.certExpiryDates[certKey];
+                saveSupplierCertData();
+                kapat(); yenile();
+                showAlert('Tarih silindi — belge artık takip edilmiyor.', 'info');
+            };
+        }
+
         // Sertifika tarih modal iptal
         function cancelCertExpiryModal(supplierName, index, belge) {
             // Checkbox'ı geri al
