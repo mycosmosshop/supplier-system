@@ -5008,7 +5008,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                             <div style="padding: 4px 12px; background: ${statusBg}; color: ${statusColor}; border-radius: 4px; font-size: 0.85em; font-weight: 600; white-space: nowrap;">
                                                 ${statusText}
                                             </div>
-                                            <input type="date" id="docDate_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85em;" title="Tarih seçin (boş bırakırsanız bugün)" />
+                                            <input type="date" id="docDate_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85em;" title="ISO/IATF gibi sertifikalarda: belgenin GEÇERLİLİK BİTİŞ tarihi — Kabul işaretlendiğinde Kalite Belge Matrisi'ne yazılır." />
                                             <select onchange="updateDocumentStatus('${supplierName.replace(/'/g, "\\'")}', '${docType.replace(/'/g, "\\'")}', ${idx}, this.value, document.getElementById('docDate_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}').value); setTimeout(() => openDocumentModal('${supplierName.replace(/'/g, "\\'")}'), 300);" style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85em; cursor: pointer; flex: 1;">
                                                 <option value="">Durum Seç</option>
                                                 <option value="approved" ${selectedStatus === 'approved' ? 'selected' : ''}>✓ Kabul</option>
@@ -5334,7 +5334,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                     reviewedAt: file.reviewedAt || null,
                                     supplierComment: file.supplierComment || '',
                                     supplierCommentDate: file.supplierCommentDate || null,
-                                    uploadedBySupplier: file.uploadedBySupplier || false
+                                    uploadedBySupplier: file.uploadedBySupplier || false,
+                                    expiryDate: file.expiryDate || ''
                                 };
                             }
                             return file;
@@ -5452,7 +5453,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                     reviewedAt: file.reviewedAt || null,
                                     supplierComment: file.supplierComment || '',
                                     supplierCommentDate: file.supplierCommentDate || null,
-                                    uploadedBySupplier: file.uploadedBySupplier || false
+                                    uploadedBySupplier: file.uploadedBySupplier || false,
+                                    expiryDate: file.expiryDate || ''
                                 };
                             }
                             return file;
@@ -5664,7 +5666,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                         reviewedAt: file.reviewedAt || null,
                                         supplierComment: file.supplierComment || '',
                                         supplierCommentDate: file.supplierCommentDate || null,
-                                        uploadedBySupplier: file.uploadedBySupplier || false
+                                        uploadedBySupplier: file.uploadedBySupplier || false,
+                                        expiryDate: file.expiryDate || ''
                                     };
                                 } catch (e) {
                                     console.error('Blob dönüştürme hatası:', e, file.name);
@@ -5755,22 +5758,69 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             };
         }
 
+        // Dokuman turu (serbest metin) -> Kalite Belge Matrisi anahtari.
+        // 'ISO9001', 'ISO 9001 Belgesi', 'IATF 16949' hepsi eslesir.
+        function _turAnahtari(t) {
+            const d = x => String(x || '').toLowerCase().replace(/[\s.\-\/_]/g, '');
+            const tur = d(t);
+            if (!tur) return null;
+            const liste = (typeof qualityCertTypes !== 'undefined' ? qualityCertTypes : []);
+            let bul = liste.find(c => d(c.label) === tur || d(c.key) === tur);
+            if (!bul) bul = liste.find(c => tur.indexOf(d(c.label)) >= 0 || tur.indexOf(d(c.key)) >= 0);
+            if (!bul && tur.indexOf('iatf') >= 0) bul = liste.find(c => c.key === 'iatf');
+            return bul || null;
+        }
+
         // Doküman durumunu güncelle
-        async function updateDocumentStatus(supplierName, docType, fileId, newStatus) {
+        // NOT: cagri INDEKS gonderiyor (id degil) — eskiden imza fileId
+        // bekledigi icin find() hicbir zaman eslesmiyordu ve kabul/red
+        // KAYDEDILMIYORDU (Drive'da her dosya 'pending' kaliyordu).
+        // Artik indeks de id de destekleniyor.
+        async function updateDocumentStatus(supplierName, docType, idxVeyaId, newStatus, tarih) {
             try {
                 const record = await getSupplierDocuments(supplierName);
                 if (!record || !record.documents[docType]) return;
-                
-                const doc = record.documents[docType].find(d => d.id === fileId);
-                if (doc) {
-                    doc.status = newStatus;
-                    doc.reviewedAt = new Date().toISOString();
-                    await saveSupplierDocuments(supplierName, record);
-                    // Zil rozetini hemen dusur (kayit sonrasi tazeleme
-                    // zaten var; burada listeyi de yeniden ciziyoruz)
-                    try { refreshDocPresence(true); } catch (e) {}
-                    console.log(`✅ ${fileId} durumu güncellendi: ${newStatus}`);
+
+                const liste = record.documents[docType];
+                const doc = /^\d+$/.test(String(idxVeyaId))
+                    ? liste[+idxVeyaId]
+                    : liste.find(d => d.id === idxVeyaId);
+                if (!doc) { console.warn('Doküman bulunamadı:', docType, idxVeyaId); return; }
+
+                doc.status = newStatus;
+                doc.reviewedAt = new Date().toISOString();
+
+                // SERTIFIKA ONAYI: gecerlilik bitis tarihi istenir ve Kalite
+                // Belge Matrisi'ne yazilir. Once tarih kutusu, sonra
+                // tedarikcinin bildirdigi tarih, o da yoksa sorulur.
+                const cert = (newStatus === 'approved') ? _turAnahtari(docType) : null;
+                if (cert) {
+                    let t = String(tarih || '').slice(0, 10);
+                    if (!t) t = String(doc.expiryDate || '').slice(0, 10);
+                    if (!t) {
+                        t = prompt(cert.label + ' geçerlilik BİTİŞ tarihi (yyyy-aa-gg):\n\n'
+                            + supplierName + '\n' + (doc.name || '')
+                            + '\n\nBoş bırakırsanız bu sertifika süre takibine girmez.', '');
+                        t = String(t || '').slice(0, 10);
+                    }
+                    if (t && !isNaN(new Date(t))) {
+                        doc.expiryDate = t;
+                        const su = (allResults || []).find(x => x.name === supplierName);
+                        if (su) {
+                            if (!su.certExpiryDates) su.certExpiryDates = {};
+                            su.certExpiryDates[cert.key] = t;
+                            su[cert.key] = true;
+                            try { saveSupplierCertData(); } catch (e) {}
+                            showAlert('📅 ' + cert.label + ' bitiş tarihi kaydedildi: '
+                                + new Date(t).toLocaleDateString('tr-TR'), 'success');
+                        }
+                    }
                 }
+
+                await saveSupplierDocuments(supplierName, record);
+                try { refreshDocPresence(true); } catch (e) {}
+                try { belgeTakipRozetiniGuncelle(); } catch (e) {}
+                console.log('✅ ' + (doc.name || idxVeyaId) + ' durumu güncellendi: ' + newStatus);
             } catch (error) {
                 console.error('Durum güncelleme hatası:', error);
             }
@@ -30421,7 +30471,7 @@ Devam etmek istiyor musunuz?`;
                                     <div style="flex: 1;">
                                         <div style="font-weight: 600; color: #333; margin-bottom: 5px;">📎 ${file.name} ${file.uploadedBySupplier ? '<span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7em; margin-left: 5px;">TEDARİKÇİ</span>' : '<span style="background: #2196f3; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.7em; margin-left: 5px;">ANA PC</span>'}</div>
                                         <div style="font-size: 0.85em; color: #666;">
-                                            ${new Date(file.timestamp).toLocaleDateString('tr-TR')} • ${(file.size / 1024).toFixed(1)} KB
+                                            ${new Date(file.timestamp).toLocaleDateString('tr-TR')} • ${(file.size / 1024).toFixed(1)} KB${file.expiryDate ? ` • 📅 geçerlilik: ${new Date(file.expiryDate).toLocaleDateString('tr-TR')}` : ''}
                                         </div>
                                         ${!file.uploadedBySupplier && file.description ? `
                                         <div style="margin-top: 6px; padding: 6px 8px; background: #e3f2fd; border-radius: 4px; border-left: 3px solid #2196f3;">
@@ -30787,7 +30837,8 @@ Devam etmek istiyor musunuz?`;
                             supplierComment: file.supplierComment || '',
                             supplierCommentDate: file.supplierCommentDate || null,
                             reviewedAt: file.reviewedAt || null,
-                            uploadedBySupplier: file.uploadedBySupplier || false
+                            uploadedBySupplier: file.uploadedBySupplier || false,
+                            expiryDate: file.expiryDate || ''
                         };
                     });
                 }
