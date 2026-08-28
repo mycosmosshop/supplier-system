@@ -29369,6 +29369,11 @@ Devam etmek istiyor musunuz?`;
                     if (ds0) driveEncoded = btoa(JSON.stringify({ url: ds0.url, secret: ds0.secret, key: kisaAnahtar }));
                 } catch (e) { console.error('Kısa link çözülemedi:', e); }
             }
+            // Gonderim de ayni kimligi kullansin: kisa linkte URL'de
+            // 'drive=' YOK, gonderme fonksiyonu onu arayip bulamayinca
+            // sessizce cikiyordu (tedarikci gonderdi saniyor, karsiya
+            // hicbir sey gitmiyordu).
+            if (driveEncoded) window.__paylasimDrive = driveEncoded;
 
             if (driveEncoded) {
                 try {
@@ -30279,7 +30284,15 @@ Devam etmek istiyor musunuz?`;
                 
                 // Paylaşım credentials'ı URL'den al (önce Drive, yoksa eski Storj)
                 const urlParams = new URLSearchParams(window.location.search);
-                const driveEncoded = urlParams.get('drive');
+                // Sirasiyla: acik ?drive= · acilista cozulen kimlik · ?d= + ayarlar
+                let driveEncoded = urlParams.get('drive') || window.__paylasimDrive || null;
+                if (!driveEncoded && urlParams.get('d')) {
+                    try {
+                        const dsx = getDriveSettings();
+                        if (dsx) driveEncoded = btoa(JSON.stringify({
+                            url: dsx.url, secret: dsx.secret, key: urlParams.get('d') }));
+                    } catch (e) { console.error('Kısa link çözülemedi (gönderim):', e); }
+                }
                 if (driveEncoded) {
                     const dcreds = JSON.parse(atob(driveEncoded)); // {url, secret, key}
                     console.log('📤 Drive\'a (Apps Script) gönderiliyor... Key:', dcreds.key);
@@ -30290,7 +30303,13 @@ Devam etmek istiyor musunuz?`;
                     // Geriye dönük: eski Storj linkleri
                     const storjEncoded = urlParams.get('storj');
                     if (!storjEncoded) {
-                        showAlert('❌ Paylaşım anahtarı bulunamadı!', 'error');
+                        // Sessizce cikmak en kotusu: tedarikci gonderdigini
+                        // saniyordu. Net soyle.
+                        alert('❌ Gönderilemedi — paylaşım anahtarı bulunamadı.\n\n'
+                            + 'Bu sayfayı size gönderilen bağlantıdan (?d=... ile biten) '
+                            + 'açtığınızdan emin olun. Sorun sürerse bağlantıyı gönderen '
+                            + 'kişiye bildirin; dosyalarınız KAYDEDİLMEDİ.');
+                        showAlert('❌ Paylaşım anahtarı bulunamadı — dosyalar gönderilmedi!', 'error');
                         return;
                     }
                     const creds = JSON.parse(atob(storjEncoded));
