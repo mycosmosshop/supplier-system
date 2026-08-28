@@ -5574,6 +5574,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     console.log(`📦 ${Object.keys(convertedDocuments).length} doküman türü dönüştürüldü`);
                     
                     docRecord.documents = convertedDocuments;
+                    // Tedarikci sayfasinin actigi yeni turler (ornegin vade
+                    // bandinin olusturdugu "ISO 9001") kalite modalinda da
+                    // gorunsun — dokuman sozlugu zaten butunuyle geliyor ama
+                    // tur listesi birlesmiyordu, dosya gorunmez kaliyordu.
+                    (remoteData.customTypes || []).forEach(ct => {
+                        if (!docRecord.customTypes) docRecord.customTypes = [];
+                        if (!docRecord.customTypes.includes(ct)) docRecord.customTypes.push(ct);
+                    });
                     docRecord.lastSyncedAt = new Date().toISOString();
                     
                     await saveSupplierDocuments(supplierName, docRecord);
@@ -29655,17 +29663,39 @@ Devam etmek istiyor musunuz?`;
             `;
             
             // ── SERTIFIKA VADE BANDI ──────────────────────────────────
-            // Kalite tarafi tarihleri girdiyse tedarikci burada gorur:
-            // hangi belge, hangi tarihte doluyor / dolmus. Kalan gun
-            // ACILIS ANINDA hesaplanir (paylasim eski olabilir).
-            (function () {
-                const uyariGun = 60;    // tedarikciye erken gorunsun; mail esigi ayri
-                const vadeler = (shareData.certAlerts || []).map(c => ({
-                    ad: c.ad, tarih: c.tarih,
-                    kalan: Math.ceil((new Date(c.tarih) - new Date()) / 86400000)
-                })).filter(c => isFinite(c.kalan) && c.kalan <= uyariGun)
-                  .sort((x, y) => x.kalan - y.kalan);
-                if (!vadeler.length) return;
+            // Kalan gun ACILIS ANINDA hesaplanir (paylasim eski olabilir).
+            const uyariGun = 60;    // tedarikciye erken gorunsun; mail esigi ayri
+            const vadeler = (shareData.certAlerts || []).map(c => ({
+                ad: c.ad, tarih: c.tarih,
+                kalan: Math.ceil((new Date(c.tarih) - new Date()) / 86400000)
+            })).filter(c => isFinite(c.kalan) && c.kalan <= uyariGun)
+              .sort((x, y) => x.kalan - y.kalan);
+
+            // Tüm doküman türlerini göster (DOCUMENT_TYPES + custom types)
+            let allDocTypes = [...new Set([...getDocumentTypes(), ...(shareData.customTypes || [])])];
+
+            // Vadesi gelen sertifikayi YUKLEME ALANINA bagla: ad eslesirse o
+            // alan, eslesmezse sertifika adiyla YENI alan (ISO 9001 gibi
+            // sertifikalarin sayfada alani yoktu — tedarikci nereye
+            // yukleyecegini bilemiyordu). Yeni tur customTypes'a da girer;
+            // gonderimde geri tasinir, senkron kalite tarafina birlestirir.
+            const _duz = t => String(t).toLowerCase().replace(/[\s.\-\/]/g, '');
+            const vadeAlanlari = {};             // docType -> vade kaydi
+            vadeler.forEach(c => {
+                let tur = allDocTypes.find(t => _duz(t).includes(_duz(c.ad))
+                                             || _duz(c.ad).includes(_duz(t)));
+                if (!tur) {
+                    tur = c.ad;
+                    allDocTypes.push(tur);
+                    shareData.customTypes = shareData.customTypes || [];
+                    if (!shareData.customTypes.includes(tur)) shareData.customTypes.push(tur);
+                }
+                if (!vadeAlanlari[tur] || c.kalan < vadeAlanlari[tur].kalan) vadeAlanlari[tur] = c;
+                c.tur = tur;
+            });
+            const _alanKimlik = t => 'vadeAlan_' + String(t).replace(/[^a-zA-Z0-9]/g, '_');
+
+            if (vadeler.length) {
                 const gecmis = vadeler.some(c => c.kalan < 0);
                 html += '<div style="margin:0 0 22px;padding:14px 18px;border-radius:10px;'
                     + 'border:1px solid ' + (gecmis ? '#f5c6c2' : '#ffe08a') + ';'
@@ -29679,14 +29709,15 @@ Devam etmek istiyor musunuz?`;
                         + (c.kalan < 0
                             ? ' <span style="color:#c62828;font-weight:700">(' + (-c.kalan) + ' gün geçti)</span>'
                             : ' (' + c.kalan + ' gün kaldı)')
+                        + ' — <a href="#" onclick="var e=document.getElementById(\'' + _alanKimlik(c.tur)
+                        + '\');if(e)e.scrollIntoView({behavior:\'smooth\',block:\'center\'});return false"'
+                        + ' style="font-weight:700">yükleme alanına git ↓</a>'
                         + '</div>').join('')
-                    + '<div style="margin-top:8px;font-size:.9em;color:#555">Güncel belgeyi '
-                    + 'aşağıda ilgili türün altındaki alana yükleyip <b>değişiklikleri gönderin</b>; '
-                    + 'onaylandığında takvim güncellenir.</div></div>';
-            })();
-
-            // Tüm doküman türlerini göster (DOCUMENT_TYPES + custom types)
-            let allDocTypes = [...new Set([...getDocumentTypes(), ...(shareData.customTypes || [])])];
+                    + '<div style="margin-top:8px;font-size:.9em;color:#555">Güncel belgeyi işaretli '
+                    + 'alana yükleyip sayfanın altındaki <b>📤 Dokümanları Gönder</b> düğmesine basın. '
+                    + 'Eski belgeyi <b>silmenize gerek yok</b> — yenisi de yanına eklenir, '
+                    + 'inceleme sonrası hangisinin geçerli olduğu tarihten görülür.</div></div>';
+            }
 
             // ── NE İSTENİYOR? ─────────────────────────────────────────────
             // Tedarikçi sayfayı açtığında önce "benden ne bekleniyor" görsün:
@@ -29701,7 +29732,9 @@ Devam etmek istiyor musunuz?`;
                 return 'beklemede';
             };
             const _sira = { red: 0, eksik: 1, beklemede: 2, kabul: 3, muaf: 4 };
-            allDocTypes = allDocTypes.slice().sort((x, y) => (_sira[_durum(x)] - _sira[_durum(y)])
+            allDocTypes = allDocTypes.slice().sort((x, y) =>
+                ((vadeAlanlari[x] ? -1 : 0) - (vadeAlanlari[y] ? -1 : 0))
+                || (_sira[_durum(x)] - _sira[_durum(y)])
                 || x.localeCompare(y, 'tr'));
             const _say = { red: 0, eksik: 0, beklemede: 0, kabul: 0, muaf: 0 };
             allDocTypes.forEach(t => _say[_durum(t)]++);
@@ -29737,12 +29770,22 @@ Devam etmek istiyor musunuz?`;
                     const hasDoc = docs.length > 0;
                     const isExempt = (shareData.exemptDocTypes || []).includes(docType);
                     
+                    const vadesi = vadeAlanlari[docType];
+                    const vadeRozet = vadesi
+                        ? `<span style="display:inline-block;margin-left:10px;padding:2px 10px;border-radius:12px;
+                                        font-size:.7em;font-weight:700;vertical-align:middle;color:#fff;
+                                        background:${vadesi.kalan < 0 ? '#c62828' : '#f57f17'}">
+                               ${vadesi.kalan < 0 ? '⛔ SÜRESİ DOLDU' : '⏰ SÜRESİ DOLUYOR'} — güncelini yükleyin
+                           </span>` : '';
                     html += `
-                        <div style="margin-bottom: 30px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-                            <div style="background: ${hasDoc ? '#e8f5e9' : isExempt ? '#fffde7' : '#f5f5f5'}; padding: 15px; border-bottom: 2px solid ${hasDoc ? '#4CAF50' : isExempt ? '#ff9800' : '#ddd'};">
+                        <div id="${_alanKimlik(docType)}" style="margin-bottom: 30px; border: ${vadesi
+                            ? '2px solid ' + (vadesi.kalan < 0 ? '#c62828' : '#f57f17')
+                            : '1px solid #ddd'}; border-radius: 8px; overflow: hidden;">
+                            <div style="background: ${vadesi ? (vadesi.kalan < 0 ? '#fdecea' : '#fff8e1')
+                                : hasDoc ? '#e8f5e9' : isExempt ? '#fffde7' : '#f5f5f5'}; padding: 15px; border-bottom: 2px solid ${hasDoc ? '#4CAF50' : isExempt ? '#ff9800' : '#ddd'};">
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <div>
-                                        <h3 style="margin: 0; color: #333; font-size: 1.2em;">${docType}</h3>
+                                        <h3 style="margin: 0; color: #333; font-size: 1.2em;">${docType}${vadeRozet}</h3>
                                         <p style="margin: 5px 0 0 0; font-size: 0.85em; color: #666;">${hasDoc ? `✓ ${docs.length} dosya yüklü` : isExempt ? '− Zorunlu Değil' : 'Dosya yok'}</p>
                                     </div>
                                     <div>
