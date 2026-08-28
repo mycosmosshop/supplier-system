@@ -6960,15 +6960,23 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 agirlik: 2.5,
                 bul: s => { try { return !!sinifTavaniSebep(s); } catch (e) { return false; } },
                 bulgu: s => s.iso9001
-                    ? 'Otomotiv tedarikçisi, geçerli IATF 16949 yok → sınıf en fazla B (PR06)'
+                    ? 'Otomotiv tedarikçisi, sistemde geçerli IATF 16949 işaretli değil → sınıf en fazla B (PR06)'
                     : 'Otomotiv tedarikçisi, IATF 16949 ve ISO 9001 yok → sınıf en fazla C (PR06)',
-                sorular: ['IATF 16949 belgelendirme takvimi var mı, hangi aşamada?',
-                          'Belgelendirme kuruluşu seçildi mi, denetim tarihi belli mi?',
+                sorular: ['Belge gerçekten yok mu, yoksa sistemde mi işaretlenmemiş? (Kalite Belge Matrisi)',
+                          'IATF 16949 belgelendirme takvimi var mı, hangi aşamada?',
                           'Ara dönemde ISO 9001 kapsamı bu ürünü kapsıyor mu?'],
-                aksiyonlar: ['IATF 16949 belgelendirme yol haritası ve termin sunulsun',
-                             'Belge alınana kadar PL33 sistem geliştirme planı yürütülsün',
-                             'Genel Müdür onaylı çalışma kararı dosyada bulunsun',
-                             'Ara denetim (2nd party) ile sistem doğrulansın'],
+                // PR06: PL33 YALNIZ hicbir KYS belgesi olmayan firmada
+                // ("Herhangi bir kalite yonetim sistemi belgesine sahip olmayan
+                // firmalar icin ... PL33"). GMY onayi ise D sinifinda
+                // ("yalnizca GMY onayi ile calisilabilecek tedarikci grubu").
+                // B tavaninda ikisi de gerekmez.
+                aksiyonlar: s => (s && s.iso9001)
+                    ? ['Sistemdeki belge kaydı doğrulansın (varsa Kalite Belge Matrisi\'ne işlensin)',
+                       'IATF 16949 belgelendirme yol haritası ve termin sunulsun',
+                       'Ara denetim (2nd party) ile sistem doğrulansın']
+                    : ['IATF 16949 belgelendirme yol haritası ve termin sunulsun',
+                       'PL33 Tedarikçi Sistem Geliştirme Planı hazırlansın (PR06 — hiç KYS belgesi yok)',
+                       'Ara denetim (2nd party) ile sistem doğrulansın'],
                 egitim: ['IATF 16949 şartları ve belgelendirme süreci',
                          'Core Tools (APQP · PPAP · FMEA · MSA · SPC) farkındalığı',
                          'Katmanlı proses denetimi (LPA)'],
@@ -7027,9 +7035,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function gelisimPlaniUret(s) {
             const eksenler = GELISIM_EKSENLERI.filter(e => { try { return e.bul(s); } catch (x) { return false; } })
                 .sort((a, b) => a.agirlik - b.agirlik);
+            // aksiyonlar/egitim tedarikciye gore degisebilsin (islev de olabilir)
+            const coz = (v, varsayilan) => {
+                try { return typeof v === 'function' ? v(s) : v; } catch (x) { return varsayilan || []; }
+            };
             return eksenler.map(e => ({
                 kod: e.kod, ad: e.ad, bulgu: (() => { try { return e.bulgu(s); } catch (x) { return ''; } })(),
-                sorular: e.sorular, aksiyonlar: e.aksiyonlar, egitim: e.egitim,
+                sorular: coz(e.sorular), aksiyonlar: coz(e.aksiyonlar), egitim: coz(e.egitim),
                 dogrulama: e.dogrulama, gun: e.gun
             }));
         }
