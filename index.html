@@ -11,9 +11,16 @@ window.__misafirMi = /[?&](d|share|storj|drive)=/i.test(location.search);
 if (window.__misafirMi) {
   var __mp = document.createElement('style');
   __mp.id = 'misafirGizleStil';
-  __mp.textContent = 'body > *:not(#sharedDocumentViewer):not(#misafirBekleme):not(#alertContainer){display:none !important}';
+  /* Once govde gorunmez: statik icerik bir an bile parlamasin. */
+  __mp.textContent = 'body{visibility:hidden !important}';
   document.documentElement.appendChild(__mp);
   document.addEventListener('DOMContentLoaded', function () {
+    /* Yalniz SAYFANIN KENDI icerigi gizlenir; sonradan JS ile eklenen
+       pencereler (Basariyla Gonderildi, onizleme...) etkilenmez. */
+    Array.prototype.forEach.call(document.body.children, function (el) {
+      if (el.id !== 'alertContainer') el.setAttribute('data-misafir-gizli', '1');
+    });
+    __mp.textContent = 'body > [data-misafir-gizli]{display:none !important}';
     var b = document.createElement('div');
     b.id = 'misafirBekleme';
     b.style.cssText = 'position:fixed;inset:0;background:#f5f7fb;z-index:9998;display:flex;'
