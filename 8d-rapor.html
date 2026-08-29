@@ -1993,6 +1993,15 @@ async function refreshList() {
 // karsilastirilir. Sessiz calisir; bulursa listeyi tazeler.
 window.__yeni8D = new Map();     // id -> {damga, ne}
 async function tedarikci8DTara(raporlar) {
+    // ARTIK OLMAYAN raporlari zil haritasindan dus. Rapor silinince
+    // kimligi haritada kaliyor, rozet "1 yeni 8D cevabi" demeye devam
+    // ediyor ve tiklayinca "bulunamadi" hatasi veriyordu.
+    const mevcut = new Set((raporlar || []).map(r => r && r.id));
+    if (window.__yeni8D) {
+        [...window.__yeni8D.keys()].forEach(id => {
+            if (!mevcut.has(id)) window.__yeni8D.delete(id);
+        });
+    }
     const paylasimli = (raporlar || []).filter(r => r && r.paylasimKey);
     if (!paylasimli.length) { _zilSayaci8D(); return; }
     let degisti = false;
@@ -2028,7 +2037,17 @@ function _zilSayaci8D() {
         el.style.cssText = 'background:linear-gradient(135deg,#e65100,#f57f17);font-weight:700';
         el.onclick = () => {
             const ilk = window.__yeni8D.keys().next().value;
-            if (ilk != null) openReportForEdit(ilk);
+            if (ilk == null) { _zilSayaci8D(); return; }
+            // Rapor arada silinmis olabilir: hata vermeden rozeti dusur
+            const tx = db.transaction([STORE_8D], 'readonly');
+            const rq = tx.objectStore(STORE_8D).get(ilk);
+            rq.onsuccess = () => {
+                if (rq.result) { openReportForEdit(ilk); return; }
+                window.__yeni8D.delete(ilk);
+                _zilSayaci8D();
+                showAlert('Bu rapor silinmiş — bildirim kaldırıldı.', 'info');
+            };
+            rq.onerror = () => { window.__yeni8D.delete(ilk); _zilSayaci8D(); };
         };
         const bar = document.querySelector('.nav-btn') && document.querySelector('.nav-btn').parentNode;
         if (bar) bar.appendChild(el); else return;
