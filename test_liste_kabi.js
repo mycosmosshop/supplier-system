@@ -22,17 +22,17 @@ function govde(ad) {
     return src.slice(i, k);
 }
 
-// 1) Kabi silen her yol LeanSys bolumunu geri boyamali
+// 1) renderList tek listeyi cizdirmeli; kabi yazan yol varsa da
+//    LeanSys bolumu geri boyanmali
 {
     const rl = govde('renderList');
-    const silme = (rl.match(/container\.innerHTML\s*=/g) || []).length;
-    const geri = (rl.match(/_paintSb8d\(\)/g) || []).length;
-    assert(silme > 0, '1a: renderList kabı yazmıyor mu?');
-    assert.strictEqual(geri, silme,
-        '1b: kabı ' + silme + ' yerde yazıyor ama LeanSys ' + geri
-        + ' yerde geri boyanıyor — bir yol bölümü siler');
-    console.log('✓ 1  renderList kabı yazan her yolda LeanSys bölümü geri boyanıyor ('
-        + silme + '/' + silme + ')');
+    assert(/_paintSb8d\(\)/.test(rl), '1a: birlesik liste cizilmiyor');
+    const silme = (rl.match(/\.innerHTML\s*=/g) || []).length;
+    const bosEkran = (rl.match(/empty-state/g) || []).length;
+    assert.strictEqual(silme, bosEkran,
+        '1b: kabi ' + silme + ' yerde yaziyor ama yalniz ' + bosEkran
+        + ' tanesi bos-ekran dali (digeri listeyi siler)');
+    console.log('✓ 1  renderList tek listeyi cizdiriyor; kabi yalniz bos-ekran dalinda yaziyor');
 }
 
 // 2) Geri boyama AGA GITMEZ (_renderSb8dGroup her cagrida Supabase'e gider)

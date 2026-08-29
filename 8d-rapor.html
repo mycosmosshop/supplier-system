@@ -2056,14 +2056,6 @@ function _zilSayaci8D() {
     el.title = 'Tedarikçi(ler) 8D doldurup gönderdi — tıkla: ilkini aç';
 }
 
-// Yerel bolum gorunumu: 'row' (varsayilan) | 'card'
-let _yerelGorunum = localStorage.getItem('yerel8d_view') || 'row';
-function _setYerelGorunum(v) {
-    _yerelGorunum = v;
-    localStorage.setItem('yerel8d_view', v);
-    refreshList();
-}
-
 // Yonetici mi? index.html ile AYNI mantik: sifre kilidi kapatiyorsa
 // hayir; e-posta yoneticisi (supplier-sync sessionStorage'a yazar) ya da
 // sifreyle acilmis olmasi yeter. Bilinmiyorsa GUVENLI TARAF: hayir.
@@ -2099,75 +2091,6 @@ function _zilIsareti(r) {
         + 'margin-right:5px;">\uD83D\uDD14 YENİ</span>';
 }
 
-// Yerel raporlar icin SATIR tablosu (LeanSys bolumuyle ayni duzen)
-function _yerelSatirlar(reports) {
-    const yonetici = _yoneticiMi();     // baklava sutunu yalniz yoneticide
-    const srt = reports.slice().sort((a, b) => {
-        const da = (a.head && a.head.startDate) || a.timestamp || '';
-        const db = (b.head && b.head.startDate) || b.timestamp || '';
-        return da < db ? 1 : da > db ? -1 : 0;
-    });
-    const satir = srt.map(r => {
-        const st = (r.head && r.head.status) || 'Open';
-        const cls = st === 'Closed' ? 'status-closed' : st === 'In Progress' ? 'status-inprogress' : 'status-open';
-        const ico = st === 'Closed' ? '\u2713' : st === 'In Progress' ? '\u25D0' : '\u25CB';
-        const no = (r.head && r.head.reportNumber) || '\u2014';
-        const kaynak = (r.source && r.source !== 'Tedarikçi')
-            ? r.source : (r.supplierName || '(belirtilmemiş)');
-        const tarih = (r.head && r.head.startDate)
-            ? new Date(r.head.startDate).toLocaleDateString('tr-TR')
-            : new Date(r.timestamp).toLocaleDateString('tr-TR');
-        const baslik = (r.head && r.head.title) || r.konu || '';
-        return '<tr style="border-bottom:1px solid #eef2f7;cursor:pointer;" '
-            + 'onclick="openReportForEdit(' + r.id + ')" '
-            + 'onmouseover="this.style.background=\'#f8fafc\'" '
-            + 'onmouseout="this.style.background=\'transparent\'">'
-            + (yonetici ? '<td style="padding:8px 10px;text-align:center;">'
-                + _kaynakBaklava(r) + '</td>' : '')
-            + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap;">'
-            + _zilIsareti(r) + esc(no) + '</td>'
-            + '<td style="padding:8px 10px;">' + esc(baslik) + '</td>'
-            + '<td style="padding:8px 10px;white-space:nowrap;">' + esc(kaynak) + '</td>'
-            + '<td style="padding:8px 10px;white-space:nowrap;color:#475569;">\uD83D\uDCC5 '
-            + tarih + '</td>'
-            + '<td style="padding:8px 10px;white-space:nowrap;">'
-            + '<span class="status-badge ' + cls + '">' + ico + ' ' + esc(st) + '</span></td>'
-            + '<td style="padding:8px 10px;white-space:nowrap;" onclick="event.stopPropagation()">'
-            + '<button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" '
-            + 'onclick="openReportForEdit(' + r.id + ')">\u270F\uFE0F</button> '
-            + '<button class="card-btn" style="background:#f44336;color:#fff;" title="Sil" '
-            + 'onclick="deleteReportFromList(' + r.id + ',\'' + esc(escAttr(no)) + '\')">'
-            + '\uD83D\uDDD1\uFE0F</button></td></tr>';
-    }).join('');
-    return '<div style="padding:6px 12px 12px;overflow-x:auto;">'
-        + '<table style="width:100%;border-collapse:collapse;font-size:.9em;">'
-        + '<thead><tr style="background:#f1f5f9;text-align:left;">'
-        + (yonetici ? '<th style="padding:8px 10px;width:34px;" '
-            + 'title="◆ LeanSys · ◇ yerel kayıt">Kaynak</th>' : '')
-        + '<th style="padding:8px 10px;">No</th><th style="padding:8px 10px;">Başlık</th>'
-        + '<th style="padding:8px 10px;">Tedarikçi / Kaynak</th>'
-        + '<th style="padding:8px 10px;">Tarih</th><th style="padding:8px 10px;">Durum</th>'
-        + '<th style="padding:8px 10px;">İşlem</th></tr></thead>'
-        + '<tbody>' + satir + '</tbody></table></div>';
-}
-
-function _yerelBaslik(n) {
-    const kart = _yerelGorunum === 'card';
-    const dugme = (v, etiket, aktif) => '<button onclick="event.stopPropagation();'
-        + '_setYerelGorunum(\'' + v + '\')" style="border:none;cursor:pointer;padding:5px 11px;'
-        + 'font-size:.85em;background:' + (aktif ? '#1d4ed8' : '#fff') + ';color:'
-        + (aktif ? '#fff' : '#334155') + ';">' + etiket + '</button>';
-    return '<div class="supplier-header" style="display:flex;align-items:center;gap:10px;">'
-        + '<span>\uD83D\uDCCB Kendi 8D Raporlarımız</span>'
-        + '<span style="font-size:0.8em;opacity:0.8;">' + n + ' rapor</span>'
-        + '<span style="flex:1"></span>'
-        + (_yoneticiMi() ? '<span style="font-size:.75em;opacity:.85;font-weight:400">'
-            + '◆ LeanSys · ◇ yerel</span>' : '')
-        + '<span style="display:inline-flex;border:1px solid #cbd5e1;border-radius:8px;'
-        + 'overflow:hidden;">' + dugme('card', '\u25A6 Kart', kart)
-        + dugme('row', '\u2630 Satır', !kart) + '</span></div>';
-}
-
 function renderList(reports) {
     // Yerel (IndexedDB) sayıları sakla → paylaşımlı LeanSys 8D ile birleştirilir
     _localStat = {
@@ -2179,100 +2102,90 @@ function renderList(reports) {
     };
     _applyCombinedStats();
 
-    const container = document.getElementById('reportListContainer');
+    // TEK LISTE: kendi raporlarimiz artik ayri bir bolumde degil, LeanSys
+    // tablosunun ustunde ayni tabloda cizilir. Burada yalnizca veriyi
+    // birakiyoruz; cizimi _paintSb8dBody yapiyor.
+    _yerel8DRows = reports || [];
+    try {
+        if (typeof _paintSb8d === 'function') _paintSb8d();
+    } catch (e) { console.warn('Liste çizilemedi:', e); }
 
-    if (!reports.length) {
-        container.innerHTML = `
+    // Hicbir kayit yoksa (ne yerel ne LeanSys) bos ekran
+    const cont = document.getElementById('reportListContainer');
+    if (cont && !reports.length && !(_sb8dRows || []).length) {
+        cont.innerHTML = `
             <div class="empty-state">
                 <div class="icon">📭</div>
                 <p>Henüz 8D raporu kaydedilmemiş</p>
                 <p style="font-size:0.9em;margin-top:8px;color:#bbb;">Üstteki <strong>➕ Yeni Rapor</strong> butonuna tıklayarak başlayın</p>
             </div>`;
-    // renderList kabin icerigini KOMPLE yeniden yazar; LeanSys 8D bolumu
-    // de ayni kapta duruyor ve siliniyor. Onbellekten geri boyaniyor
-    // (_paintSb8d aga gitmez, _renderSb8dGroup gider). Zil taramasi
-    // listeyi tazeledigi icin LeanSys satirlari kayboluyordu.
-    try {
-        if (typeof _paintSb8d === 'function' && (_sb8dRows || []).length) _paintSb8d();
-    } catch (e) { console.warn('LeanSys bölümü geri boyanamadı:', e); }
-        return;
     }
+}
 
-    // SATIR gorunumu: LeanSys bolumuyle ayni duzen, kaynak baklavali
-    if (_yerelGorunum === 'row') {
-        container.innerHTML = '<div class="supplier-group">' + _yerelBaslik(reports.length)
-            + _yerelSatirlar(reports) + '</div>';
-        try {
-            if (typeof _paintSb8d === 'function' && (_sb8dRows || []).length) _paintSb8d();
-        } catch (e) { console.warn('LeanSys bölümü geri boyanamadı:', e); }
-        return;
-    }
-
-    // Kaynak ikonu
-    const srcIcon = { 'Tedarikçi':'🏭', 'Uygunsuzluk':'⚠️', 'Balık Kılçığı':'🐟', 'LeanSys':'☁️', 'Genel':'📋' };
-
-    // Group key: Tedarikçi raporları supplierName'e göre; diğerleri source'a göre
-    const groups = {};
-    reports.forEach(r => {
-        const src = r.source || 'Tedarikçi';
-        const key = src === 'Tedarikçi'
-            ? (r.supplierName || '(Tedarikçi Belirtilmemiş)')
-            : src;
-        (groups[key] = groups[key] || { source: src, items: [] }).items.push(r);
+// Yerel raporlar icin ortak satir/kart uretimi (LeanSys tablosuyla ayni
+// duzen). Lokasyon suzgecinden muaf: yerel kayitlarin lokasyonu yok.
+let _yerel8DRows = [];
+function _yerelFiltreli() {
+    return (_yerel8DRows || []).filter(r => {
+        const st = (r.head && r.head.status) || 'Open';
+        if (_sb8dStatus && st !== _sb8dStatus) return false;
+        const sd = (r.head && r.head.startDate) ? r.head.startDate.slice(0, 10)
+            : (r.timestamp || '').slice(0, 10);
+        if (_sb8dDateFrom && sd && sd < _sb8dDateFrom) return false;
+        if (_sb8dDateTo && sd && sd > _sb8dDateTo) return false;
+        return true;
+    }).sort((a, b) => {
+        const da = (a.head && a.head.startDate) || a.timestamp || '';
+        const db = (b.head && b.head.startDate) || b.timestamp || '';
+        return da < db ? 1 : da > db ? -1 : 0;
     });
-
-    let html = '';
-    Object.keys(groups).sort().forEach(groupKey => {
-        const group  = groups[groupKey];
-        const src    = group.source;
-        const icon   = srcIcon[src] || '📋';
-        const list   = group.items.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-        html += `<div class="supplier-group">
-            <div class="supplier-header">${icon} ${esc(groupKey)} &nbsp;<span style="font-size:0.8em;opacity:0.8;">${list.length} rapor</span></div>
-            <div class="supplier-cards">`;
-
-        list.forEach(r => {
-            const status    = r.head?.status || 'Open';
-            const statusCls = status === 'Closed' ? 'status-closed' : status === 'In Progress' ? 'status-inprogress' : 'status-open';
-            const statusIco = status === 'Closed' ? '✓' : status === 'In Progress' ? '◐' : '○';
-            const repNo     = r.head?.reportNumber || '—';
-            // Kart başlığı: Tedarikçi'de rapor no, diğerlerinde konu
-            const cardTitle = (r.source && r.source !== 'Tedarikçi') ? (r.konu || repNo) : repNo;
-            const hoverTitle = r.head?.title || '';
-            const dateStr   = r.head?.startDate
-                ? new Date(r.head.startDate).toLocaleDateString('tr-TR')
-                : new Date(r.timestamp).toLocaleDateString('tr-TR');
-            const monthLbl  = r.monthIndex ? `${r.monthIndex}. Ay` : '';
-            const deleteLabel = escAttr(groupKey);
-
-            html += `
-            <div class="report-card" onclick="openReportForEdit(${r.id})">
-                <div class="report-card-head">
-                    <div>
-                        <div class="report-card-title">${_zilIsareti(r)}${_kaynakBaklava(r)} ${esc(cardTitle)}</div>
-                        ${monthLbl ? `<div style="font-size:0.8em;color:#888;margin-top:2px;">${esc(monthLbl)}</div>` : ''}
-                    </div>
-                    <div class="report-card-actions" onclick="event.stopPropagation()">
-                        <button class="card-btn" style="background:#2196F3;color:white;" title="Düzenle" onclick="openReportForEdit(${r.id})">✏️</button>
-                        <button class="card-btn" style="background:#f44336;color:white;" title="Sil"     onclick="deleteReportFromList(${r.id},'${deleteLabel}')">🗑️</button>
-                    </div>
-                </div>
-                ${hoverTitle ? `<div style="font-size:0.87em;color:#555;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(hoverTitle)}">${esc(hoverTitle)}</div>` : ''}
-                <div><span class="status-badge ${statusCls}">${statusIco} ${esc(status)}</span></div>
-                <div style="font-size:0.78em;color:#aaa;border-top:1px solid #eee;padding-top:8px;margin-top:10px;">📅 ${dateStr}</div>
-            </div>`;
-        });
-        html += '</div></div>';
-    });
-
-    container.innerHTML = html;
-    // renderList kabin icerigini KOMPLE yeniden yazar; LeanSys 8D bolumu
-    // de ayni kapta duruyor ve siliniyor. Onbellekten geri boyaniyor
-    // (_paintSb8d aga gitmez, _renderSb8dGroup gider). Zil taramasi
-    // listeyi tazeledigi icin LeanSys satirlari kayboluyordu.
-    try {
-        if (typeof _paintSb8d === 'function' && (_sb8dRows || []).length) _paintSb8d();
-    } catch (e) { console.warn('LeanSys bölümü geri boyanamadı:', e); }
+}
+function _yerelSb8dSatir(r, yonetici) {
+    const st = (r.head && r.head.status) || 'Open';
+    const cls = st === 'Closed' ? 'status-closed' : st === 'In Progress' ? 'status-inprogress' : 'status-open';
+    const ico = st === 'Closed' ? '✓' : st === 'In Progress' ? '◐' : '○';
+    const no = (r.head && r.head.reportNumber) || '—';
+    const kaynak = (r.source && r.source !== 'Tedarikçi') ? r.source : (r.supplierName || '—');
+    const tarih = _isoToTrShort((r.head && r.head.startDate) || r.timestamp || '');
+    return '<tr style="border-bottom:1px solid #eef2f7;cursor:pointer;background:#fcfdff;" '
+        + 'onclick="openReportForEdit(' + r.id + ')" '
+        + 'onmouseover="this.style.background=\'#f1f5f9\'" '
+        + 'onmouseout="this.style.background=\'#fcfdff\'">'
+        + '<td style="padding:6px 8px;"></td>'
+        + (yonetici ? '<td style="padding:8px 6px;text-align:center;">' + _kaynakBaklava(r) + '</td>' : '')
+        + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap;">'
+        + _zilIsareti(r) + esc(no) + '</td>'
+        + '<td style="padding:8px 10px;">' + esc((r.head && r.head.title) || r.konu || '') + '</td>'
+        + '<td style="padding:8px 10px;white-space:nowrap;">' + esc(kaynak) + '</td>'
+        + '<td style="padding:8px 10px;white-space:nowrap;color:#475569;">📅 ' + tarih + '</td>'
+        + '<td style="padding:8px 10px;white-space:nowrap;">'
+        + '<span class="status-badge ' + cls + '">' + ico + ' ' + esc(st) + '</span></td>'
+        + '<td style="padding:8px 10px;white-space:nowrap;" onclick="event.stopPropagation()">'
+        + '<button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" '
+        + 'onclick="openReportForEdit(' + r.id + ')">✏️</button> '
+        + '<button class="card-btn" style="background:#f44336;color:#fff;" title="Sil" '
+        + 'onclick="deleteReportFromList(' + r.id + ',\'' + esc(escAttr(no)) + '\')">🗑️</button>'
+        + '</td></tr>';
+}
+function _yerelSb8dKart(r) {
+    const st = (r.head && r.head.status) || 'Open';
+    const cls = st === 'Closed' ? 'status-closed' : st === 'In Progress' ? 'status-inprogress' : 'status-open';
+    const ico = st === 'Closed' ? '✓' : st === 'In Progress' ? '◐' : '○';
+    const no = (r.head && r.head.reportNumber) || '—';
+    return '<div class="report-card" onclick="openReportForEdit(' + r.id + ')">'
+        + '<div class="report-card-head"><div>'
+        + '<div class="report-card-title">' + _zilIsareti(r) + _kaynakBaklava(r) + ' ' + esc(no) + '</div>'
+        + '<div style="font-size:.8em;color:#888;margin-top:2px;">'
+        + esc(((r.head && r.head.title) || r.konu || '').slice(0, 40)) + '</div></div>'
+        + '<div class="report-card-actions" onclick="event.stopPropagation()">'
+        + '<button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" '
+        + 'onclick="openReportForEdit(' + r.id + ')">✏️</button>'
+        + '<button class="card-btn" style="background:#f44336;color:#fff;" title="Sil" '
+        + 'onclick="deleteReportFromList(' + r.id + ',\'' + esc(escAttr(no)) + '\')">🗑️</button>'
+        + '</div></div>'
+        + '<div class="report-card-meta"><span class="status-badge ' + cls + '">' + ico + ' '
+        + esc(st) + '</span><span style="font-size:.78em;color:#475569;margin-left:6px;">'
+        + esc(r.supplierName || r.source || '') + '</span></div></div>';
 }
 
 function esc(s)     { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -3398,7 +3311,9 @@ function _paintSb8dBody(){
   window._sb8dShownRef=shown;
   // Header sayacı
   const hdr=document.getElementById('sb8dHeader');
-  if(hdr) hdr.innerHTML=`🌐 LeanSys 8D (paylaşımlı) &nbsp;<span style="font-size:0.8em;opacity:0.8;">${shown.length}${(shown.length<rows.length)?'/'+rows.length:''} rapor</span>`;
+  if(hdr) hdr.innerHTML=`📋 8D Raporları &nbsp;<span style="font-size:0.8em;opacity:0.8;">`
+    + `${_yer.length?_yer.length+' kendi + ':''}${shown.length}${(shown.length<rows.length)?'/'+rows.length:''} LeanSys</span>`
+    + (_yon?`<span style="float:right;font-size:.72em;opacity:.85;font-weight:400">◆ LeanSys · ◇ kendi kaydımız</span>`:'');
   // Bulk bar
   const selCount=_sb8dSelected.size;
   const bulk=document.getElementById('sb8dBulk');
@@ -3415,6 +3330,9 @@ function _paintSb8dBody(){
   const cardActive=_sb8dView==='card';
   const body=document.getElementById('sb8dBody');
   if(!body) return;
+  // TEK LISTE: kendi raporlarimiz ayni tabloda, ustte
+  const _yer=_yerelFiltreli();
+  const _yon=(typeof _yoneticiMi==='function') && _yoneticiMi();
   if(cardActive){
     const cards=shown.map(s=>{
       const st=s.status||'Open'; const cls=st==='Closed'?'status-closed':'status-open'; const ico=st==='Closed'?'✓':'○';
@@ -3436,7 +3354,7 @@ function _paintSb8dBody(){
         <div class="report-card-meta"><span class="status-badge ${cls}">${ico} ${st}</span>${(s.loc&&s.loc.trim())?` <span style="font-size:.78em;color:#475569;">📍 ${_ls8dEsc(s.loc)}</span>`:''}<span style="font-size:.78em;color:#64748b;margin-left:6px;">📅 ${sdTr}</span></div>
       </div>`;
     }).join('');
-    body.innerHTML=`<div class="supplier-cards">${cards}</div>`;
+    body.innerHTML=`<div class="supplier-cards">${_yer.map(_yerelSb8dKart).join('')}${cards}</div>`;
   } else {
     const rrows=shown.map(s=>{
       const st=s.status||'Open'; const cls=st==='Closed'?'status-closed':'status-open'; const ico=st==='Closed'?'✓':'○';
@@ -3444,6 +3362,7 @@ function _paintSb8dBody(){
       const isSel=_sb8dSelected.has(s.id);
       return `<tr style="border-bottom:1px solid #eef2f7;cursor:pointer;${isSel?'background:#eff6ff;':'background:transparent;'}" onclick="open8dSb(${s.id})" onmouseover="if(!${isSel})this.style.background='#f8fafc'" onmouseout="if(!${isSel})this.style.background='transparent'">
         <td style="padding:6px 8px;" onclick="event.stopPropagation()"><input type="checkbox" ${isSel?'checked':''} onclick="_toggle8dSelect(${s.id},event)" style="cursor:pointer;width:14px;height:14px;" title="Seç"></td>
+        ${_yon?'<td style="padding:8px 6px;text-align:center;color:#0d9488;font-weight:700;" title="LeanSys kaydı">◆</td>':''}
         <td style="padding:8px 10px;font-weight:700;white-space:nowrap;">${_ls8dEsc(s.seri)}-${_ls8dEsc(s.sira)}</td>
         <td style="padding:8px 10px;">${_ls8dEsc(s.baslik||'')}</td>
         <td style="padding:8px 10px;white-space:nowrap;">${(s.loc&&s.loc.trim())?'📍 '+_ls8dEsc(s.loc):'<span style=color:#94a3b8>—</span>'}</td>
@@ -3460,10 +3379,11 @@ function _paintSb8dBody(){
       <table style="width:100%;border-collapse:collapse;font-size:.9em;">
         <thead><tr style="background:#f1f5f9;text-align:left;">
           <th style="padding:8px 10px;width:32px;"></th>
+          ${_yon?'<th style="padding:8px 6px;width:30px;" title="◆ LeanSys · ◇ kendi kaydımız">Kaynak</th>':''}
           <th style="padding:8px 10px;">No</th><th style="padding:8px 10px;">Başlık</th>
           <th style="padding:8px 10px;">Lokasyon</th><th onclick="_toggleSb8dSort()" style="padding:8px 10px;cursor:pointer;user-select:none;white-space:nowrap;" title="Tarihe göre sırala">Tarih ${_sb8dSortDir==='asc'?'↑':'↓'}</th>
           <th style="padding:8px 10px;">Durum</th><th style="padding:8px 10px;">İşlem</th>
-        </tr></thead><tbody>${rrows}</tbody>
+        </tr></thead><tbody>${_yer.map(r=>_yerelSb8dSatir(r,_yon)).join('')}${rrows}</tbody>
       </table></div>`;
   }
 }
