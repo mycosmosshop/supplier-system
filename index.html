@@ -5802,6 +5802,49 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             return bul || null;
         }
 
+        // Sertifika kabulunde bitis tarihi sorar. Tarih girilmeden
+        // kapatilamaz; Vazgec -> null (kabul yapilmaz).
+        function sertifikaTarihiSor(cert, supplierName, dosyaAdi, varsayilan) {
+            return new Promise(resolve => {
+                const p = document.createElement('div');
+                p.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:30500;'
+                    + 'display:flex;align-items:center;justify-content:center;padding:20px';
+                p.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:440px;width:100%;padding:24px 26px">'
+                    + '<h3 style="margin:0 0 6px;font-size:1.1em;color:#1e3c72">📅 ' + cert.label
+                    + ' — geçerlilik bitiş tarihi</h3>'
+                    + '<div style="font-size:.86em;color:#666;margin-bottom:6px">' + supplierName
+                    + '<br>📄 ' + (dosyaAdi || '') + '</div>'
+                    + '<div style="font-size:.84em;background:#fff8e1;border-left:4px solid #f57f17;'
+                    + 'border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:14px;color:#7a5200">'
+                    + 'Bu tarih Kalite Belge Matrisi\'ne yazılır; belge süresi takibi ve '
+                    + 'tedarikçiye giden uyarı buradan hesaplanır.</div>'
+                    + '<input id="stz_tarih" type="date" value="' + (varsayilan || '')
+                    + '" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:1em">'
+                    + '<div id="stz_uyari" style="color:#c62828;font-size:.83em;margin-top:6px;display:none">'
+                    + 'Kabul için geçerli bir bitiş tarihi gerekiyor.</div>'
+                    + '<div style="display:flex;gap:8px;margin-top:18px">'
+                    + '<button id="stz_ok" style="flex:1;padding:11px;background:#2e7d32;color:#fff;'
+                    + 'border:0;border-radius:8px;cursor:pointer;font-weight:700">Kabul et ve kaydet</button>'
+                    + '<button id="stz_vaz" style="padding:11px 16px;background:#fff;border:1px solid #ddd;'
+                    + 'border-radius:8px;cursor:pointer">Vazgeç</button></div></div>';
+                document.body.appendChild(p);
+                const gir = p.querySelector('#stz_tarih');
+                gir.focus();
+                p.querySelector('#stz_vaz').onclick = () => { p.remove(); resolve(null); };
+                const onayla = () => {
+                    const t = String(gir.value || '').slice(0, 10);
+                    if (!t || isNaN(new Date(t))) {
+                        p.querySelector('#stz_uyari').style.display = 'block';
+                        gir.focus();
+                        return;
+                    }
+                    p.remove(); resolve(t);
+                };
+                p.querySelector('#stz_ok').onclick = onayla;
+                gir.addEventListener('keydown', e => { if (e.key === 'Enter') onayla(); });
+            });
+        }
+
         // Doküman durumunu güncelle
         // NOT: cagri INDEKS gonderiyor (id degil) — eskiden imza fileId
         // bekledigi icin find() hicbir zaman eslesmiyordu ve kabul/red
@@ -5818,29 +5861,23 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     : liste.find(d => d.id === idxVeyaId);
                 if (!doc) { console.warn('Doküman bulunamadı:', docType, idxVeyaId); return; }
 
-                doc.status = newStatus;
-                doc.reviewedAt = new Date().toISOString();
-
-                // SERTIFIKA ONAYI: gecerlilik bitis tarihi istenir ve Kalite
-                // Belge Matrisi'ne yazilir. Once tarih kutusu, sonra
-                // tedarikcinin bildirdigi tarih, o da yoksa sorulur.
+                // SERTIFIKA ONAYI: gecerlilik bitis tarihi ZORUNLU. Tarih
+                // girilmeden kabul tamamlanmaz — yoksa sure takibi eski
+                // tarihte kalip tedarikcide "suresi doluyor" bandi duruyordu.
                 const cert = (newStatus === 'approved') ? _turAnahtari(docType) : null;
                 if (cert) {
                     let t = String(tarih || '').slice(0, 10);
-                    if (!t) t = String(doc.expiryDate || '').slice(0, 10);
+                    if (t && isNaN(new Date(t))) t = '';
                     if (!t) {
-                        t = prompt(cert.label + ' geçerlilik BİTİŞ tarihi (yyyy-aa-gg):\n\n'
-                            + supplierName + '\n' + (doc.name || '')
-                            + '\n\nBoş bırakırsanız bu sertifika süre takibine girmez.', '');
-                        t = String(t || '').slice(0, 10);
+                        t = await sertifikaTarihiSor(cert, supplierName, doc.name,
+                            String(doc.expiryDate || '').slice(0, 10));
+                        if (!t) {
+                            showAlert('Kabul yapılmadı — ' + cert.label
+                                + ' için geçerlilik bitiş tarihi zorunlu.', 'warning');
+                            return;              // durum DEGISMEZ
+                        }
                     }
-                    if (!t) {
-                        showAlert('⚠️ ' + cert.label + ' bitiş tarihi girilmedi — '
-                            + 'süre takibi ve tedarikçideki "süresi doluyor" uyarısı '
-                            + 'ESKİ tarihe göre devam eder. Kalite Belge Matrisi\'nden '
-                            + 'sonradan girebilirsiniz.', 'warning');
-                    }
-                    if (t && !isNaN(new Date(t))) {
+                    {
                         doc.expiryDate = t;
                         const su = (allResults || []).find(x => x.name === supplierName);
                         if (su) {
@@ -5853,6 +5890,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         }
                     }
                 }
+
+                doc.status = newStatus;
+                doc.reviewedAt = new Date().toISOString();
 
                 await saveSupplierDocuments(supplierName, record);
                 try { refreshDocPresence(true); } catch (e) {}
