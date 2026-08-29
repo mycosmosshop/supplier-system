@@ -128,6 +128,9 @@
         if(ra && ra.data && ra.data.is_admin) window.ERP_IS_ADMIN = true;
       }catch(e){}
       try{ if(document.body) document.body.setAttribute('data-erp-admin', window.ERP_IS_ADMIN?'1':'0'); }catch(e){}
+      // Ayni sekmedeki diger sayfalar (8d-rapor.html gibi) da okuyabilsin;
+      // orada supplier-sync yuklenmiyor ve yonetici bilgisi hic ulasmiyordu.
+      try{ sessionStorage.setItem('_erpAdmin', window.ERP_IS_ADMIN?'1':'0'); }catch(e){}
       try{ window.dispatchEvent(new CustomEvent('erp-admin-ready',{detail:{admin:window.ERP_IS_ADMIN}})); }catch(e){}
       var r=await sb.from('supplier_sync').select('data').eq('id',ROW_ID).maybeSingle();
       var remote=(r.data && r.data.data) ? r.data.data : null;

@@ -13,12 +13,18 @@ function cek(ad) {
     }
     return src.slice(i, k);
 }
-const F = new Function('window', 'localStorage', '_yerelGorunum',
-    [cek('esc'), cek('escAttr'), cek('_kaynakBaklava'), cek('_zilIsareti'),
-     cek('_yerelSatirlar'), cek('_yerelBaslik')].join('\n')
-    + '\nreturn {_kaynakBaklava,_zilIsareti,_yerelSatirlar,_yerelBaslik};')(
-    { __yeni8D: new Map([[2, { ne: ['d1', 'd2'] }]]) },
-    { getItem: () => 'row', setItem: () => {} }, 'row');
+function kur(yonetici) {
+    // sessionStorage taklidi: yonetici bayragi buradan okunuyor
+    const oturum = { _erpAdmin: yonetici ? '1' : '0' };
+    return new Function('window', 'localStorage', 'sessionStorage', '_yerelGorunum',
+        [cek('esc'), cek('escAttr'), cek('_yoneticiMi'), cek('_kaynakBaklava'),
+         cek('_zilIsareti'), cek('_yerelSatirlar'), cek('_yerelBaslik')].join('\n')
+        + '\nreturn {_yoneticiMi,_kaynakBaklava,_zilIsareti,_yerelSatirlar,_yerelBaslik};')(
+        { __yeni8D: new Map([[2, { ne: ['d1', 'd2'] }]]) },
+        { getItem: () => 'row', setItem: () => {} },
+        { getItem: k => (k in oturum ? oturum[k] : null) }, 'row');
+}
+const F = kur(true);      // yonetici gorunumu (varsayilan senaryolar)
 
 const raporlar = [
     { id: 1, source: 'LeanSys', supplierName: 'ACME', timestamp: '2026-05-01T00:00:00Z',
@@ -93,6 +99,33 @@ const raporlar = [
     assert(/\u25C6 LeanSys/.test(b) && /\u25C7 yerel/.test(b), '6b: baklava açıklaması yok');
     assert(/3 rapor/.test(b), '6c: sayaç');
     console.log('✓ 6  başlık şeridinde Kart/Satır seçimi ve baklava açıklaması var');
+}
+
+// 7) YONETICI DEGILSE: baklava, sutun ve aciklama YOK; liste aynen var
+{
+    const K = kur(false);
+    assert.strictEqual(K._yoneticiMi(), false, '7a');
+    assert.strictEqual(K._kaynakBaklava(raporlar[0]), '', '7b: baklava gizlenmemiş');
+    const h = K._yerelSatirlar(raporlar);
+    assert(!/◆|◇/.test(h), '7c: tabloda hâlâ baklava var');
+    assert(h.indexOf('>Kaynak<') < 0, '7d: boş "Kaynak" sütunu kalmış');
+    assert(!/◆ LeanSys/.test(K._yerelBaslik(3)), '7e: başlıkta açıklama kalmış');
+    // DOF kayitlari ve sutunlar yerinde
+    assert(/DF2026-11/.test(h) && /8D-26-001/.test(h) && /UY-3/.test(h), '7f: kayıtlar kayboldu');
+    ['No', 'Başlık', 'Tedarikçi / Kaynak', 'Tarih', 'Durum', 'İşlem']
+        .forEach(x => assert(h.indexOf('>' + x + '<') > 0, '7g: sütun kayboldu: ' + x));
+    assert((h.match(/<tr style="border-bottom/g) || []).length === 3, '7h: satır sayısı');
+    assert(/YENİ/.test(h), '7i: zil işareti de kaybolmuş (o herkese görünmeli)');
+    console.log('✓ 7  yönetici değilse baklava/sütun/açıklama yok — liste ve kayıtlar aynen duruyor');
+}
+
+// 8) Sifreyle kilitlenmisse yonetici olsa bile gizli
+{
+    const oturum = { _erpAdmin: '1', _adminLocked: '1' };
+    const K = new Function('sessionStorage', cek('_yoneticiMi') + '\nreturn _yoneticiMi;')(
+        { getItem: k => (k in oturum ? oturum[k] : null) });
+    assert.strictEqual(K(), false, '8: yönetici kilidi kapalıyken baklava görünüyor');
+    console.log('✓ 8  yönetici kilidi kapalıyken işaret gizleniyor');
 }
 
 fs.writeFileSync('ornek_yerel_liste.html',

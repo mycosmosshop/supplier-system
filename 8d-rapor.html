@@ -2064,8 +2064,22 @@ function _setYerelGorunum(v) {
     refreshList();
 }
 
-// Kaynak baklavasi: LeanSys mi, yerel mi?
+// Yonetici mi? index.html ile AYNI mantik: sifre kilidi kapatiyorsa
+// hayir; e-posta yoneticisi (supplier-sync sessionStorage'a yazar) ya da
+// sifreyle acilmis olmasi yeter. Bilinmiyorsa GUVENLI TARAF: hayir.
+function _yoneticiMi() {
+    try {
+        if (sessionStorage.getItem('_adminLocked') === '1') return false;
+        return sessionStorage.getItem('_erpAdmin') === '1'
+            || sessionStorage.getItem('_pwAdmin') === '1';
+    } catch (e) { return false; }
+}
+
+// Kaynak baklavasi: LeanSys mi, yerel mi? YALNIZ yoneticiye gorunur —
+// diger kullanicilar listeyi ve DOF kayitlarini normal sekilde gorur,
+// yalnizca bu isaret cikmaz.
 function _kaynakBaklava(r) {
+    if (!_yoneticiMi()) return '';
     const k = r && r.source;
     if (k === 'LeanSys') return '<span title="LeanSys\'ten gelen kayıt" '
         + 'style="color:#0d9488;font-weight:700">\u25C6</span>';
@@ -2087,6 +2101,7 @@ function _zilIsareti(r) {
 
 // Yerel raporlar icin SATIR tablosu (LeanSys bolumuyle ayni duzen)
 function _yerelSatirlar(reports) {
+    const yonetici = _yoneticiMi();     // baklava sutunu yalniz yoneticide
     const srt = reports.slice().sort((a, b) => {
         const da = (a.head && a.head.startDate) || a.timestamp || '';
         const db = (b.head && b.head.startDate) || b.timestamp || '';
@@ -2107,7 +2122,8 @@ function _yerelSatirlar(reports) {
             + 'onclick="openReportForEdit(' + r.id + ')" '
             + 'onmouseover="this.style.background=\'#f8fafc\'" '
             + 'onmouseout="this.style.background=\'transparent\'">'
-            + '<td style="padding:8px 10px;text-align:center;">' + _kaynakBaklava(r) + '</td>'
+            + (yonetici ? '<td style="padding:8px 10px;text-align:center;">'
+                + _kaynakBaklava(r) + '</td>' : '')
             + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap;">'
             + _zilIsareti(r) + esc(no) + '</td>'
             + '<td style="padding:8px 10px;">' + esc(baslik) + '</td>'
@@ -2126,8 +2142,8 @@ function _yerelSatirlar(reports) {
     return '<div style="padding:6px 12px 12px;overflow-x:auto;">'
         + '<table style="width:100%;border-collapse:collapse;font-size:.9em;">'
         + '<thead><tr style="background:#f1f5f9;text-align:left;">'
-        + '<th style="padding:8px 10px;width:34px;" title="\u25C6 LeanSys \u00b7 \u25C7 yerel kayıt">'
-        + 'Kaynak</th>'
+        + (yonetici ? '<th style="padding:8px 10px;width:34px;" '
+            + 'title="◆ LeanSys · ◇ yerel kayıt">Kaynak</th>' : '')
         + '<th style="padding:8px 10px;">No</th><th style="padding:8px 10px;">Başlık</th>'
         + '<th style="padding:8px 10px;">Tedarikçi / Kaynak</th>'
         + '<th style="padding:8px 10px;">Tarih</th><th style="padding:8px 10px;">Durum</th>'
@@ -2145,8 +2161,8 @@ function _yerelBaslik(n) {
         + '<span>\uD83D\uDCCB Kendi 8D Raporlarımız</span>'
         + '<span style="font-size:0.8em;opacity:0.8;">' + n + ' rapor</span>'
         + '<span style="flex:1"></span>'
-        + '<span style="font-size:.75em;opacity:.85;font-weight:400">'
-        + '\u25C6 LeanSys \u00b7 \u25C7 yerel</span>'
+        + (_yoneticiMi() ? '<span style="font-size:.75em;opacity:.85;font-weight:400">'
+            + '◆ LeanSys · ◇ yerel</span>' : '')
         + '<span style="display:inline-flex;border:1px solid #cbd5e1;border-radius:8px;'
         + 'overflow:hidden;">' + dugme('card', '\u25A6 Kart', kart)
         + dugme('row', '\u2630 Satır', !kart) + '</span></div>';
