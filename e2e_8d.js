@@ -74,11 +74,12 @@ const AD = 'ZZTEST Sanal Tedarikci A.S.';
     const key = paylasimAnahtari8D(rapor);
     assert(/^8D_ZZTEST[A-Za-z0-9_]*_999001\.json$/.test(key), 'anahtar: ' + key);
 
-    let uzak = null;
-    try { uzak = await driveOku(key); } catch (e) { /* ilk gonderim */ }
-    const gonderilen = birlestir8D(rapor, uzak, 'musteri');
-    gonderilen.paylasimKey = key;
-    gonderilen.gonderildi = new Date().toISOString();
+    // YENI rapor: uzakta dosya yoktur, dogrudan yazilir. Onceki turun
+    // dosyasi ustune birlestirilirse D1-D7 dolu gelir ve test ikinci
+    // kosuda coker — tur her seferinde TEMIZ baslamali.
+    const gonderilen = Object.assign({}, rapor, {
+        paylasimKey: key, gonderildi: new Date().toISOString()
+    });
     await driveYaz(key, gonderilen);
     await new Promise(r => setTimeout(r, 2500));
     console.log('✓ 1  sanal 8D oluşturuldu ve Drive\'a yazıldı  (' + key + ')');
