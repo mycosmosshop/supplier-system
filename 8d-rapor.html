@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=)/i.test(location.search);};</script>
+<script>window.ERP_GUARD_ALLOW=function(){return /[?&](mode=supplier|storj=|share=|shared|view=|d8p=)/i.test(location.search);};</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://mycosmosshop.github.io/erp-portal/erp-guard.js"></script>
@@ -414,7 +414,7 @@
     <!-- Form header -->
     <div class="form-header">
         <h2 id="formTitle">📋 8D RAPOR — Problem Çözme Metodu</h2>
-        <button onclick="closeForm()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:white;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:600;">← Listeye Dön</button>
+        <button onclick="closeForm()" id="listeyeDonBtn" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.4);color:white;padding:7px 14px;border-radius:6px;cursor:pointer;font-weight:600;">← Listeye Dön</button>
     </div>
 
     <!-- Kaynak bağlam baneri (URL param ile açıldığında görünür) -->
@@ -696,8 +696,17 @@
         </div>
         <div class="form-footer-right">
             <button class="footer-btn btn-del" id="deleteFormBtn" onclick="deleteCurrentReport()" style="display:none;">🗑️ Sil</button>
-            <button class="footer-btn btn-back" onclick="closeForm()">← İptal</button>
-            <button class="footer-btn btn-save" onclick="save8DReport()">💾 Kaydet</button>
+            <button class="footer-btn btn-back" id="iptal8DBtn" onclick="closeForm()">← İptal</button>
+            <button class="footer-btn btn-save" id="kaydet8DBtn" onclick="save8DReport()">💾 Kaydet</button>
+            <!-- 8D tedarikci portali -->
+            <button class="footer-btn" id="gonder8DBtn" onclick="tedarikciyeGonder8D()"
+                    title="Raporu tedarikçiye portal linki olarak gönder — D1–D7'yi o doldurur"
+                    style="background:#6a1b9a;color:#fff;">🔗 Tedarikçiye Gönder</button>
+            <button class="footer-btn" id="al8DBtn" onclick="tedarikcidenAl8D()"
+                    title="Tedarikçinin doldurduğu D1–D7 bölümlerini indir"
+                    style="background:#00695c;color:#fff;">🔄 Tedarikçiden Al</button>
+            <button class="footer-btn" id="tedGonder8DBtn" onclick="tedarikciGonder8D()"
+                    style="display:none;background:#2e7d32;color:#fff;font-weight:700;">📤 8D'yi Gönder</button>
         </div>
     </div>
 
@@ -1323,6 +1332,327 @@ function showFormView(uygValues) {
 function closeForm() { showListView(); }
 
 /* ================================================================
+   8D TEDARIKCI PORTALI
+   Head -> musteri · D1-D7 -> tedarikci · D8 -> musteri
+================================================================ */
+function driveAyar8D() {
+    const DEF_URL = 'https://script.google.com/macros/s/AKfycby2nGHzpjJWEe-By16Urj865sLLvowSUPZC4_HyvCCzU4fyRwy6pXbfU3AumHwYMlWs_A/exec';
+    const DEF_SECRET = 'Sanifoam2026Drive';
+    const url = (localStorage.getItem('drive_script_url') || '').trim() || DEF_URL;
+    const secret = (localStorage.getItem('drive_secret') || '').trim() || DEF_SECRET;
+    return { url: url, secret: secret };
+}
+
+function driveOku8D(key) {
+    return new Promise((cz, hata) => {
+        const a = driveAyar8D();
+        const cb = '__d8oku_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+        const sc = document.createElement('script');
+        const t = setTimeout(() => { temizle(); hata(new Error('Zaman a\u015f\u0131m\u0131 \u2014 Drive yan\u0131t vermedi')); }, 90000);
+        function temizle() { clearTimeout(t); try { delete window[cb]; } catch (e) { window[cb] = undefined; } if (sc.parentNode) sc.parentNode.removeChild(sc); }
+        window[cb] = r => {
+            temizle();
+            if (r && r.success && r.content) {
+                try { cz(typeof r.content === 'string' ? JSON.parse(r.content) : r.content); }
+                catch (e) { hata(new Error('Dosya okunamad\u0131')); }
+            } else hata(new Error((r && r.error) || 'Dosya bulunamad\u0131'));
+        };
+        sc.src = a.url + (a.url.indexOf('?') >= 0 ? '&' : '?') + 'action=getfile&name='
+            + encodeURIComponent(key) + '&secret=' + encodeURIComponent(a.secret) + '&callback=' + cb;
+        sc.onerror = () => { temizle(); hata(new Error('Drive ba\u011flant\u0131 hatas\u0131')); };
+        document.body.appendChild(sc);
+    });
+}
+
+async function driveYaz8D(key, veri) {
+    const a = driveAyar8D();
+    await fetch(a.url, { method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'save', secret: a.secret, name: key, content: JSON.stringify(veri) }) });
+}
+
+// Bolum sahipligi: cagiran tarafin bolumleri korunur, digerleri karsidan
+// gelir. Boylece tedarikci gonderirken bizim Head/D8'i, biz cekerken
+// onun D1-D7'sini EZMEYIZ.
+const _MUSTERI_BOLUM = ['head', 'd8'];
+const _TEDARIKCI_BOLUM = ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7'];
+function birlestir8D(yerel, uzak, taraf) {
+    if (!uzak) return yerel || null;
+    if (!yerel) return uzak;
+    const benim = (taraf === 'musteri') ? _MUSTERI_BOLUM : _TEDARIKCI_BOLUM;
+    const sonuc = Object.assign({}, yerel);
+    Object.keys(uzak).forEach(k => {
+        if (k === 'id') return;                       // yerel kayit kimligi asla uzaktan gelmez
+        if (benim.indexOf(k) < 0) sonuc[k] = uzak[k];
+    });
+    benim.forEach(k => { if (yerel[k] !== undefined) sonuc[k] = yerel[k]; });
+    return sonuc;
+}
+
+function paylasimAnahtari8D(rapor) {
+    const ad = String((rapor && rapor.supplierName) || 'tedarikci')
+        .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'tedarikci';
+    return '8D_' + ad + '_' + (rapor.id || Date.now()) + '.json';
+}
+
+function perde8D(baslik, alt) {
+    kapatPerde8D();
+    const p = document.createElement('div');
+    p.id = 'perde8D';
+    p.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:99999;'
+        + 'display:flex;align-items:center;justify-content:center;padding:20px';
+    p.innerHTML = '<div style="background:#fff;border-radius:16px;padding:28px 36px;text-align:center;max-width:420px">'
+        + '<div style="font-size:3em;animation:d8kum 1.4s ease-in-out infinite">\u23F3</div>'
+        + '<div style="font-size:1.1em;font-weight:700;color:#1e3c72;margin:12px 0 6px">' + baslik + '</div>'
+        + '<div style="font-size:.9em;color:#667">' + (alt || '') + '</div>'
+        + '<div style="font-size:.8em;color:#c62828;margin-top:12px">L\u00fctfen sayfay\u0131 kapatmay\u0131n.</div></div>'
+        + '<style>@keyframes d8kum{0%{transform:rotate(0)}60%,100%{transform:rotate(180deg)}}</style>';
+    document.body.appendChild(p);
+}
+function kapatPerde8D() { const v = document.getElementById('perde8D'); if (v) v.remove(); }
+
+// ── ANA PC: raporu tedarikciye gonder (link + taslak mail) ──────────
+async function tedarikciyeGonder8D() {
+    if (!current8DData || !current8DData.id) {
+        showAlert('\u26A0\uFE0F \u00d6nce raporu kaydedin \u2014 link kay\u0131tl\u0131 rapora verilir.', 'error');
+        return;
+    }
+    const guncel = form8DVerisi();
+    guncel.id = current8DData.id;
+    if (!guncel.supplierName) { showAlert('\u26A0\uFE0F Tedarik\u00e7i se\u00e7iniz!', 'error'); return; }
+
+    const key = current8DData.paylasimKey || paylasimAnahtari8D(guncel);
+    perde8D('8D tedarik\u00e7iye g\u00f6nderiliyor\u2026', 'Rapor Google Drive\'a y\u00fckleniyor.');
+    try {
+        // READ-MODIFY-WRITE: tedarikci arada doldurduysa D1-D7 ezilmesin
+        let uzak = null;
+        try { uzak = await driveOku8D(key); } catch (e) { /* ilk gonderim */ }
+        const paylasim = birlestir8D(guncel, uzak, 'musteri');
+        paylasim.paylasimKey = key;
+        paylasim.gonderildi = new Date().toISOString();
+        await driveYaz8D(key, paylasim);
+        await new Promise(r => setTimeout(r, 1500));
+
+        // Anahtari rapora isle ki "Tedarikciden Al" ayni dosyayi okusun
+        current8DData.paylasimKey = key;
+        await new Promise(cz => {
+            const tx = db.transaction([STORE_8D], 'readwrite');
+            const rq = tx.objectStore(STORE_8D).get(current8DData.id);
+            rq.onsuccess = () => {
+                const r = rq.result; if (!r) { cz(); return; }
+                r.paylasimKey = key; r.tedarikciyeGonderildi = paylasim.gonderildi;
+                const p = tx.objectStore(STORE_8D).put(r);
+                p.onsuccess = () => cz(); p.onerror = () => cz();
+            };
+            rq.onerror = () => cz();
+        });
+
+        kapatPerde8D();
+        const link = location.origin + location.pathname + '?d8p=' + encodeURIComponent(key);
+        gonderMaili8D(guncel, link);
+    } catch (e) {
+        kapatPerde8D();
+        showAlert('\u274C G\u00f6nderilemedi: ' + (e && e.message ? e.message : e), 'error');
+    }
+}
+
+function gonderMaili8D(rapor, link) {
+    const h = rapor.head || {};
+    const cizgi = '\u2501'.repeat(38);
+    const konu = '\u26A0 8D Raporu Talebi - ' + (rapor.supplierName || '')
+        + (h.reportNumber ? ' (' + h.reportNumber + ')' : '');
+    const govde = [
+        'Say\u0131n Yetkili,',
+        '',
+        'A\u015fa\u011f\u0131daki uygunsuzluk i\u00e7in 8D raporu talep ediyoruz. Rapor formu',
+        'sizin i\u00e7in a\u00e7\u0131ld\u0131; a\u015fa\u011f\u0131daki ba\u011flant\u0131dan doldurabilirsiniz.',
+        '',
+        cizgi,
+        '\u26A0 UYGUNSUZLUK',
+        cizgi,
+        '',
+        'Rapor No      : ' + (h.reportNumber || '-'),
+        'Konu          : ' + (h.title || h.subject || '-'),
+        'Par\u00e7a         : ' + [h.partNumber, h.partName].filter(Boolean).join(' \u2014 ') || '-',
+        'Hata          : ' + (h.defectDescription || '-'),
+        'Adet          : ' + (h.defectQuantity || '-'),
+        'Tespit yeri   : ' + (h.detectionPoint || '-'),
+        '',
+        cizgi,
+        '\U0001F517 8D FORMU',
+        cizgi,
+        '',
+        link,
+        '',
+        cizgi,
+        '\u23F1 TERM\u0130NLER (IATF 16949 md. 8.7 / 10.2)',
+        cizgi,
+        '',
+        '\u2022 24 saat i\u00e7inde : D1-D3 \u2014 ekip, problem tan\u0131m\u0131, AC\u0130L \u00d6NLEM',
+        '\u2022 10 g\u00fcn i\u00e7inde  : D4-D8 \u2014 k\u00f6k neden, kal\u0131c\u0131 aksiyon, do\u011frulama',
+        '',
+        cizgi,
+        '\U0001F4A1 NASIL DOLDURULUR?',
+        cizgi,
+        '',
+        '1. Ba\u011flant\u0131ya t\u0131klay\u0131n \u2014 uygunsuzluk bilgileri haz\u0131r gelir',
+        '2. D1\u2013D7 sekmelerini doldurun (dosya/foto\u011fraf ekleyebilirsiniz)',
+        '3. "\U0001F4E4 8D\'yi G\u00f6nder" d\u00fc\u011fmesine bas\u0131n',
+        '4. Yar\u0131da b\u0131rak\u0131rsan\u0131z ayn\u0131 ba\u011flant\u0131dan devam edebilirsiniz',
+        '',
+        'D8 (kapan\u0131\u015f de\u011ferlendirmesi) taraf\u0131m\u0131zca doldurulacakt\u0131r.',
+        '',
+        'Sayg\u0131lar\u0131m\u0131zla,',
+        'Kalite Ekibi'
+    ].join('\n');
+    const alici = (h.email || '').trim();
+    window.location.href = 'mailto:' + encodeURIComponent(alici)
+        + '?subject=' + encodeURIComponent(konu) + '&body=' + encodeURIComponent(govde);
+    showAlert('\u2709 Link haz\u0131r \u2014 mail tasla\u011f\u0131 a\u00e7\u0131l\u0131yor'
+        + (alici ? '.' : ' (Head Data\'da e-posta yok, al\u0131c\u0131y\u0131 elle girin).'),
+        alici ? 'success' : 'warning');
+}
+
+// ── ANA PC: tedarikcinin doldurdugunu cek ───────────────────────────
+async function tedarikcidenAl8D() {
+    if (!current8DData || !current8DData.paylasimKey) {
+        showAlert('\u26A0\uFE0F Bu rapor hen\u00fcz tedarik\u00e7iye g\u00f6nderilmemi\u015f.', 'error');
+        return;
+    }
+    perde8D('Tedarik\u00e7iden al\u0131n\u0131yor\u2026', 'D1\u2013D7 b\u00f6l\u00fcmleri indiriliyor.');
+    try {
+        const uzak = await driveOku8D(current8DData.paylasimKey);
+        const yerel = form8DVerisi();
+        yerel.id = current8DData.id;
+        yerel.paylasimKey = current8DData.paylasimKey;
+        const dolu = _TEDARIKCI_BOLUM.filter(b => _bolumDoluMu(uzak && uzak[b]));
+        const birlesik = birlestir8D(yerel, uzak, 'musteri');
+        current8DData = birlesik;
+        populate8DForm(birlesik);
+        await new Promise(cz => {
+            const tx = db.transaction([STORE_8D], 'readwrite');
+            const p = tx.objectStore(STORE_8D).put(birlesik);
+            p.onsuccess = () => cz(); p.onerror = () => cz();
+        });
+        kapatPerde8D();
+        if (!dolu.length) {
+            showAlert('\u2705 Hen\u00fcz doldurulmam\u0131\u015f \u2014 tedarik\u00e7i taraf\u0131ndan g\u00f6nderilen b\u00f6l\u00fcm yok.', 'info');
+        } else {
+            showAlert('\u2705 Al\u0131nd\u0131 \u2014 dolu b\u00f6l\u00fcmler: ' + dolu.map(x => x.toUpperCase()).join(', ')
+                + (uzak.lastUpdatedBySupplier
+                    ? '\n\u23F1 Tedarik\u00e7i g\u00f6nderimi: ' + new Date(uzak.lastUpdatedBySupplier).toLocaleString('tr-TR')
+                    : ''), 'success');
+        }
+    } catch (e) {
+        kapatPerde8D();
+        showAlert('\u274C Al\u0131namad\u0131: ' + (e && e.message ? e.message : e), 'error');
+    }
+}
+
+// Bir bolum gercekten dolduruldu mu (bos dizi/bos metin sayilmaz)
+function _bolumDoluMu(b) {
+    if (!b) return false;
+    return Object.keys(b).some(k => {
+        const v = b[k];
+        if (Array.isArray(v)) return v.some(x => x && Object.keys(x).some(y => String(x[y] || '').trim()));
+        return String(v == null ? '' : v).trim() !== '';
+    });
+}
+
+// ── TEDARIKCI KIPI ──────────────────────────────────────────────────
+let _tedarikciKipi = null;   // { key }
+
+async function tedarikciKipiniAc(key) {
+    _tedarikciKipi = { key: key };
+    document.querySelectorAll('.nav-links, .nav-btn').forEach(e => { e.style.display = 'none'; });
+    perde8D('8D formu a\u00e7\u0131l\u0131yor\u2026', 'Uygunsuzluk bilgileri indiriliyor.');
+    let veri;
+    try { veri = await driveOku8D(key); }
+    catch (e) {
+        kapatPerde8D();
+        document.body.innerHTML = '<div style="max-width:520px;margin:80px auto;padding:30px;'
+            + 'font-family:Segoe UI,system-ui,sans-serif;text-align:center;background:#fff;border-radius:14px">'
+            + '<div style="font-size:3em">\u26A0\uFE0F</div>'
+            + '<h2 style="color:#c62828">8D formu a\u00e7\u0131lamad\u0131</h2>'
+            + '<p style="color:#555">' + (e && e.message ? e.message : e) + '</p>'
+            + '<p style="color:#777;font-size:.9em">Ba\u011flant\u0131y\u0131 g\u00f6nderen ki\u015fiye bildirin.</p></div>';
+        return;
+    }
+    try { populate8DForm(veri); }
+    catch (e) {
+        // Yerel liste/dropdown yuklemeleri veritabani ister; tedarikcide
+        // olmayabilir. Form alanlari yine de dolsun.
+        console.warn('Form doldurma uyarısı:', e);
+    }
+    current8DData = veri;
+
+    // Head Data: musterinin yazdigi sikayet — okunur, degistirilemez
+    document.querySelectorAll('[data-tab-content="head"] input, [data-tab-content="head"] textarea, [data-tab-content="head"] select')
+        .forEach(e => { e.readOnly = true; e.disabled = true; e.style.background = '#f5f5f5'; });
+    // D8 musterinin kapanis degerlendirmesi — tedarikciye gosterilmez
+    const d8b = document.querySelector('.tab-nav [data-tab="d8"]');
+    if (d8b) d8b.style.display = 'none';
+    const d8c = document.querySelector('[data-tab-content="d8"]');
+    if (d8c) d8c.style.display = 'none';
+    // Kaynak/tedarikci secicileri ve yerel kayit dugmeleri
+    ['meta_source', 'meta_supplier', 'meta_month'].forEach(id => {
+        const e = document.getElementById(id); if (e) e.disabled = true;
+    });
+    ['deleteFormBtn', 'kaydet8DBtn', 'iptal8DBtn', 'gonder8DBtn', 'al8DBtn', 'listeyeDonBtn']
+        .forEach(id => { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    const tg = document.getElementById('tedGonder8DBtn');
+    if (tg) tg.style.display = 'inline-block';
+
+    const h = veri.head || {};
+    const b = document.getElementById('sourceBanner');
+    if (b) {
+        document.getElementById('sourceBannerIcon').textContent = '\U0001F4CB';
+        document.getElementById('sourceBannerTitle').textContent =
+            '8D talebi \u2014 ' + (h.reportNumber || '') + ' ' + (h.title || h.subject || '');
+        document.getElementById('sourceBannerSub').textContent =
+            'D1\u2013D7 b\u00f6l\u00fcmlerini doldurup "\U0001F4E4 8D\'yi G\u00f6nder" deyin. '
+            + 'Yar\u0131da b\u0131rak\u0131rsan\u0131z ayn\u0131 ba\u011flant\u0131dan devam edebilirsiniz. '
+            + 'D8 kapan\u0131\u015f de\u011ferlendirmesi m\u00fc\u015fteri taraf\u0131ndan doldurulur.';
+        const l = document.getElementById('sourceBannerLink'); if (l) l.style.display = 'none';
+        b.style.display = 'flex';
+    }
+    document.getElementById('formTitle').textContent =
+        '\U0001F4CB 8D RAPORU \u2014 ' + (veri.supplierName || '');
+    showFormView(null);
+    switch8DTab('d1');
+    kapatPerde8D();
+}
+
+async function tedarikciGonder8D() {
+    const veri = form8DVerisi();
+    const bos = _TEDARIKCI_BOLUM.filter(x => ['d1', 'd2', 'd4', 'd5'].indexOf(x) >= 0 && !_bolumDoluMu(veri[x]));
+    if (bos.length && !confirm('Baz\u0131 b\u00f6l\u00fcmler bo\u015f: ' + bos.map(x => x.toUpperCase()).join(', ')
+        + '\n\nYine de g\u00f6nderilsin mi?\n(Sonra ayn\u0131 ba\u011flant\u0131dan tamamlayabilirsiniz.)')) return;
+
+    perde8D('8D g\u00f6nderiliyor\u2026', 'Doldurdu\u011funuz b\u00f6l\u00fcmler y\u00fckleniyor.');
+    try {
+        // READ-MODIFY-WRITE: musteri arada Head/D8'i degistirdiyse ezmeyelim
+        let uzak = null;
+        try { uzak = await driveOku8D(_tedarikciKipi.key); } catch (e) {}
+        veri.id = (uzak && uzak.id) || (current8DData && current8DData.id);
+        const birlesik = birlestir8D(veri, uzak, 'tedarikci');
+        birlesik.paylasimKey = _tedarikciKipi.key;
+        birlesik.lastUpdatedBySupplier = new Date().toISOString();
+        await driveYaz8D(_tedarikciKipi.key, birlesik);
+        await new Promise(r => setTimeout(r, 1500));
+        current8DData = birlesik;
+        kapatPerde8D();
+        alert('\u2705 8D raporunuz g\u00f6nderildi.\n\n'
+            + 'M\u00fc\u015fteri de\u011ferlendirmesi (D8) tamamland\u0131\u011f\u0131nda size bildirilecektir.\n'
+            + 'Eklemek istedi\u011finiz bir \u015fey olursa ayn\u0131 ba\u011flant\u0131dan devam edip tekrar g\u00f6nderebilirsiniz.');
+    } catch (e) {
+        kapatPerde8D();
+        alert('\u274C G\u00f6nderilemedi: ' + (e && e.message ? e.message : e)
+            + '\n\nD\u0130KKAT: raporunuz KAYDED\u0130LMED\u0130. \u0130nternet ba\u011flant\u0131n\u0131z\u0131 kontrol edip tekrar deneyin.');
+    }
+}
+
+/* ================================================================
    CREATE NEW + OPEN FOR EDIT
 ================================================================ */
 // ted: onayli listeden gelen baglanti tedarikciyi onceden secer.
@@ -1368,21 +1698,17 @@ function _open8dDoc(doc){
 /* ================================================================
    SAVE
 ================================================================ */
-async function save8DReport() {
+// Formdaki degerleri rapor nesnesine cevirir. Yerel kayit ile tedarikci
+// portali gonderimi AYNI yerden beslensin diye ayrildi; iki ayri alan
+// listesi tutmak kacinilmaz sekilde birbirinden kopar.
+function form8DVerisi() {
     const source       = document.getElementById('meta_source').value || 'Tedarikçi';
     const supplierName = source === 'Tedarikçi' ? document.getElementById('meta_supplier').value.trim() : '';
     const konu         = source !== 'Tedarikçi' ? getKonuValue() : '';
-    if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
-    if (source === 'Tedarikçi' && !supplierName) {
-        showAlert('⚠️ Tedarikçi seçiniz!','error');
-        document.getElementById('meta_supplier').focus();
-        return;
-    }
-
     const monthVal  = document.getElementById('meta_month').value;
     const v = id => document.getElementById(id)?.value || '';
 
-    const reportData = {
+    return {
         supplierName : supplierName,
         source       : source,
         konu         : konu,
@@ -1488,6 +1814,20 @@ async function save8DReport() {
             finalDiscussion : v('f8d_d8_finalDiscussion')
         }
     };
+}
+
+async function save8DReport() {
+    const source       = document.getElementById('meta_source').value || 'Tedarikçi';
+    const supplierName = source === 'Tedarikçi' ? document.getElementById('meta_supplier').value.trim() : '';
+    const konu         = source !== 'Tedarikçi' ? getKonuValue() : '';
+    if (!db) { showAlert('⚠️ Veritabanı hazır değil!','error'); return; }
+    if (source === 'Tedarikçi' && !supplierName) {
+        showAlert('⚠️ Tedarikçi seçiniz!','error');
+        document.getElementById('meta_supplier').focus();
+        return;
+    }
+
+    const reportData = form8DVerisi();
 
     document.getElementById('savingSpinner').style.display = 'block';
 
@@ -2397,6 +2737,19 @@ async function _svgToDataUrl(svgEl) {
    INIT
 ================================================================ */
 document.addEventListener('DOMContentLoaded', async () => {
+    // TEDARIKCI KIPI yerel veritabanini KULLANMAZ (veri Drive'dan gelir,
+    // Drive'a gider). openDB'den once bakilir: gizli sekmede / depolama
+    // engelliyse tedarikci formu yine de acilsin.
+    {
+        const p0 = new URLSearchParams(location.search);
+        const d8p0 = p0.get('d8p');
+        if (d8p0) {
+            try { await openDB(); } catch (e) { console.warn('Yerel veritabanı yok — tedarikçi kipi devam ediyor'); }
+            await tedarikciKipiniAc(d8p0);
+            return;
+        }
+    }
+
     try {
         await openDB();
 
