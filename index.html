@@ -4688,6 +4688,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             const deletedFile = existingList.find(doc => doc.id === fileId);
                             // Belirli dosyayı array'den sil
                             record.documents[docType] = existingList.filter(doc => doc.id !== fileId);
+                            // SILME TASI: tedarikcinin eski kopyasindan geri
+                            // dirilmesin (senkron uzaktakini geri getiriyordu).
+                            try { silmeTasiEkle(record, docType, deletedFile, 'musteri'); } catch (e) {}
                             
                             // Eğer array boşsa, türü tamamen sil
                             if (record.documents[docType].length === 0) {
@@ -4714,7 +4717,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                     });
                                 }
                                 try { if (typeof backupOneSupplierDocsToDrive === 'function') backupOneSupplierDocsToDrive(supplierName, true); } catch(e){} // silmeyi de bu tedarikçinin Drive dosyasına yansıt
-                                resolve(record);
+                                // PAYLASIM dosyasina da yansit. Eskiden yalniz
+                                // yedek guncelleniyordu; silinen dosya paylasim
+                                // dosyasinda kalinca oto-senkron onu GERI
+                                // INDIRIYORDU (silme kalici olmuyordu).
+                                Promise.resolve()
+                                    .then(() => record.sharedDriveKey ? kararlariPaylas(supplierName, record) : null)
+                                    .catch(e => console.warn('Silme paylaşıma yansıtılamadı:', e))
+                                    .then(() => resolve(record));
                             };
                             putRequest.onerror = () => reject(putRequest.error);
                         } else {
@@ -5252,33 +5262,148 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // Değişiklikleri kaydet ve Storj'a güncelle
         // Kabul/red kararlarini ve yorumlari paylasim dosyasina yazar.
         // "Degisiklikleri Kaydet ve Paylas" ile ayni icerik; sessiz calisir.
+        // ═══ PAYLASIM MODELI (iki tarafli birlestirme) ═══════════════
+        // Dosya kimligi: ad + yukleme zamani. id senkronda yeniden
+        // uretilebildigi icin ona guvenilmez.
+        function _dosyaAnahtari(f) {
+            return String((f && f.name) || '') + '|' + String((f && f.timestamp) || '');
+        }
+
+        // Bu tarafin OTORITE oldugu alanlar. Digerleri karsi taraftan gelir.
+        const _MUSTERI_ALANLARI = ['status', 'reviewComment', 'reviewedAt', 'expiryDate'];
+        const _TEDARIKCI_ALANLARI = ['data', 'description', 'supplierComment',
+                                     'supplierCommentDate', 'uploadedBySupplier'];
+
+        // Silinen dosyanin karsi tarafin eski kopyasindan geri DIRILMEMESI
+        // icin silme tasi birakilir; tas paylasim dosyasinda tasinir.
+        function silmeTasiEkle(kap, tur, dosya, kim) {
+            if (!kap || !dosya) return;
+            if (!Array.isArray(kap.silinenler)) kap.silinenler = [];
+            const k = _dosyaAnahtari(dosya);
+            if (!kap.silinenler.some(t => t && t.k === k)) {
+                kap.silinenler.push({ k: k, ad: dosya.name || '', tur: tur,
+                                      kim: kim, tarih: new Date().toISOString() });
+            }
+            // ponytail: son 300 tas yeter; eskiler iki tarafta da uygulanmis olur
+            if (kap.silinenler.length > 300) kap.silinenler = kap.silinenler.slice(-300);
+        }
+
+        // taraf: 'musteri' | 'tedarikci' — cagiran tarafin alanlari korunur.
+        function belgeleriBirlestir(yerel, uzak, taraf) {
+            const benim = (taraf === 'musteri') ? _MUSTERI_ALANLARI : _TEDARIKCI_ALANLARI;
+            const taslar = new Map();
+            [((yerel && yerel.silinenler) || []), ((uzak && uzak.silinenler) || [])]
+                .forEach(l => l.forEach(t => { if (t && t.k) taslar.set(t.k, t); }));
+
+            const yd = (yerel && yerel.documents) || {};
+            const ud = (uzak && uzak.documents) || {};
+            const sonuc = {};
+            const turler = new Set(Object.keys(yd).concat(Object.keys(ud)));
+            turler.forEach(tur => {
+                const harita = new Map();
+                // once karsi tarafin gorunumu
+                (ud[tur] || []).forEach(f => {
+                    if (f && f.name) harita.set(_dosyaAnahtari(f), Object.assign({}, f));
+                });
+                // sonra benim gorunumum: sahibi oldugum alanlari geri koy
+                (yd[tur] || []).forEach(f => {
+                    if (!f || !f.name) return;
+                    const k = _dosyaAnahtari(f);
+                    const v = harita.get(k);
+                    if (!v) { harita.set(k, Object.assign({}, f)); return; }
+                    benim.forEach(alan => {
+                        const d = f[alan];
+                        if (d !== undefined && d !== null && d !== '') v[alan] = d;
+                    });
+                    // icerik hangi tarafta varsa korunur (blob yerel, data uzak)
+                    if (f.blob) v.blob = f.blob;
+                    if (!v.data && f.data) v.data = f.data;
+                    if (!v.size && f.size) v.size = f.size;
+                    harita.set(k, v);
+                });
+                const liste = Array.from(harita.values())
+                    .filter(f => !taslar.has(_dosyaAnahtari(f)));
+                if (liste.length) sonuc[tur] = liste;
+            });
+            return { documents: sonuc, silinenler: Array.from(taslar.values()) };
+        }
+
+        // Paylasim dosyasini OKU (iki tarafta da calisir).
+        async function paylasimOku(key, creds) {
+            if (!key) return null;
+            try {
+                let r;
+                if (creds && creds.url) {
+                    r = await new Promise((cz, hata) => {
+                        const cb = '__pshoku_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+                        const sc = document.createElement('script');
+                        const t = setTimeout(() => { temizle(); hata(new Error('Zaman aşımı')); }, 90000);
+                        function temizle() { clearTimeout(t); try { delete window[cb]; } catch (e) { window[cb] = undefined; } if (sc.parentNode) sc.parentNode.removeChild(sc); }
+                        window[cb] = d => { temizle(); cz(d); };
+                        sc.src = creds.url + (creds.url.indexOf('?') >= 0 ? '&' : '?')
+                            + 'action=getfile&name=' + encodeURIComponent(key)
+                            + '&secret=' + encodeURIComponent(creds.secret) + '&callback=' + cb;
+                        sc.onerror = () => { temizle(); hata(new Error('Drive bağlantı hatası')); };
+                        document.body.appendChild(sc);
+                    });
+                } else {
+                    r = await driveJsonp({ action: 'getfile', name: key });
+                }
+                if (r && r.success && r.content) {
+                    return typeof r.content === 'string' ? JSON.parse(r.content) : r.content;
+                }
+            } catch (e) { console.warn('Paylaşım dosyası okunamadı:', e && e.message); }
+            return null;
+        }
+
+        async function paylasimaYaz(key, creds, veri) {
+            const c = (creds && creds.url) ? creds : getDriveSettings();
+            if (!c || !key) throw new Error('Drive ayarı yok');
+            await fetch(c.url, { method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'save', secret: c.secret,
+                    name: key, content: JSON.stringify(veri) }) });
+        }
+
         async function kararlariPaylas(supplierName, record) {
             const ds = getDriveSettings();
             if (!ds || !record || !record.sharedDriveKey) return;
             const convDocs = {};
             for (const [tur, dosyalar] of Object.entries(record.documents || {})) {
-                convDocs[tur] = (dosyalar || []).map(f => ({
+                // ICERIK KORUMA: yerel kayitta dosya blob olarak durur,
+                // data bos olabilir. Eskiden data:'' yaziliyordu ->
+                // tedarikcideki dosya icerigi bosaliyordu.
+                convDocs[tur] = await Promise.all((dosyalar || []).map(async f => ({
                     id: f.id, name: f.name, type: f.type, size: f.size,
-                    data: f.data || '', timestamp: f.timestamp,
+                    data: f.data || (f.blob instanceof Blob ? await blobToBase64(f.blob) : ''),
+                    timestamp: f.timestamp,
                     description: f.description || '', status: f.status || 'pending',
                     reviewComment: f.reviewComment || '', reviewedAt: f.reviewedAt || null,
                     supplierComment: f.supplierComment || '',
                     supplierCommentDate: f.supplierCommentDate || null,
                     uploadedBySupplier: f.uploadedBySupplier || false,
                     expiryDate: f.expiryDate || ''
-                }));
+                })));
             }
+            // READ-MODIFY-WRITE: uzaktaki hali oku, BIRLESTIR, sonra yaz.
+            // Eskiden dogrudan uzeri yaziliyordu; bu arada tedarikcinin
+            // yukledigi yeni dosya/yorum kayboluyordu.
+            const uzak = await paylasimOku(record.sharedDriveKey, null);
+            const birlesik = belgeleriBirlestir(
+                { documents: convDocs, silinenler: record.silinenler || [] },
+                uzak, 'musteri');
+
             const shareData = {
-                supplierName: supplierName, documents: convDocs,
+                supplierName: supplierName,
+                documents: birlesik.documents,
+                silinenler: birlesik.silinenler,
                 exemptDocTypes: record.exemptDocTypes || [],
                 customTypes: record.customTypes || [],
                 certAlerts: belgeUyariOzeti(supplierName),
-                sharedAt: new Date().toISOString(), mode: 'supplier-upload'
+                sharedAt: new Date().toISOString(), mode: 'supplier-upload',
+                lastUpdatedBySupplier: (uzak && uzak.lastUpdatedBySupplier) || null
             };
-            await fetch(ds.url, { method: 'POST', mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: 'save', secret: ds.secret,
-                    name: record.sharedDriveKey, content: JSON.stringify(shareData) }) });
+            await paylasimaYaz(record.sharedDriveKey, ds, shareData);
         }
 
         async function saveAndShareDocumentChanges() {
@@ -5634,10 +5759,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const _yerelAdlar = new Set();
                 Object.values(docRecord.documents || {}).forEach(liste =>
                     (liste || []).forEach(f => _yerelAdlar.add(String(f && f.name))));
+                // Silinmis (silme tasi olan) dosya eksik sayilmaz; yoksa
+                // her modal acilisinda bosuna senkron tetikleniyordu.
+                const _tasli = new Set((docRecord.silinenler || []).map(t => t && t.k));
                 let eksikDosyaVar = false;
                 Object.values(remoteData.documents || {}).forEach(liste =>
                     (liste || []).forEach(f => {
-                        if (f && f.name && !_yerelAdlar.has(String(f.name))) eksikDosyaVar = true;
+                        if (f && f.name && !_yerelAdlar.has(String(f.name))
+                            && !_tasli.has(_dosyaAnahtari(f))) eksikDosyaVar = true;
                     }));
                 if (eksikDosyaVar) console.log('📥 Uzakta yerelde olmayan dosya var → senkron');
                 
@@ -5711,7 +5840,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     
                     console.log(`📦 ${Object.keys(convertedDocuments).length} doküman türü dönüştürüldü`);
                     
-                    docRecord.documents = convertedDocuments;
+                    // KOMPLE EZME YOK: eskiden documents dogrudan uzaktan
+                    // yaziliyordu; ana PC'de silinen dosya geri geliyor,
+                    // yerel duzeltmeler kayboluyordu. Artik birlestirilir ve
+                    // silme taslari iki taraftan da uygulanir.
+                    {
+                        const _b = belgeleriBirlestir(
+                            { documents: docRecord.documents || {}, silinenler: docRecord.silinenler || [] },
+                            { documents: convertedDocuments, silinenler: remoteData.silinenler || [] },
+                            'musteri');
+                        docRecord.documents = _b.documents;
+                        docRecord.silinenler = _b.silinenler;
+                    }
                     // Gorulen tedarikci damgasi YERELDE: uzak dosyaya
                     // dokunmuyoruz (once bayragi silmek icin uzaga
                     // yaziliyordu; yaris ve veri kaybi cikariyordu).
@@ -9308,8 +9448,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (confirm(`${fileName} dokümanını silmek istediğinizden emin misiniz?`)) {
                 try {
                     await deleteSupplierDocument(supplierName, docType, fileId);
-                    showAlert(`✅ ${fileName} başarıyla silindi`, 'success');
-                    
+                    showAlert(`✅ ${fileName} silindi (Drive'daki paylaşımdan da kaldırıldı)`, 'success');
+
+                    // Silme paylasim dosyasina yeni yazildi; modal
+                    // acilisindaki oto-senkron ESKI dosyayi okuyup silineni
+                    // geri getirmesin diye bu sefer atlanir.
+                    window.__otoSenkronAtla = supplierName;
+
                     // Modalı yeniden yükle
                     await openDocumentModal(supplierName);
                     
@@ -30802,9 +30947,14 @@ Devam etmek istiyor musunuz?`;
             if (!confirm('Bu dokümanı silmek istediğinize emin misiniz?')) return;
             
             if (!window.sharedDocumentsData.documents[docType]) return;
-            
+
+            const _silinen = window.sharedDocumentsData.documents[docType][index];
             window.sharedDocumentsData.documents[docType].splice(index, 1);
+            // Silme tasi: "Gonder" ile ana PC'ye duyurulur; yoksa ana PC'nin
+            // eski kopyasi dosyayi geri getiriyordu.
+            try { silmeTasiEkle(window.sharedDocumentsData, docType, _silinen, 'tedarikci'); } catch (e) {}
             updateSupplierDocumentList(docType);
+            showAlert('\uD83D\uDDD1\uFE0F Silindi. Ana PC\'nin da g\u00f6rmesi i\u00e7in "\uD83D\uDCE4 G\u00f6nder" demeyi unutmay\u0131n.', 'info');
         }
 
         // Tedarikçi PC: Ana PC'den konfigürasyon değişikliklerini al
@@ -30889,6 +31039,13 @@ Devam etmek istiyor musunuz?`;
                 const farkVar = degisiklikler.length > 0
                     || JSON.stringify(eski.documents || {}) !== JSON.stringify(updatedData.documents || {});
 
+                // EZME YOK: tedarikcinin henuz GONDERMEDIGI yuklemeleri ve
+                // silmeleri korunur; musteri alanlari uzaktan gelir.
+                {
+                    const _b = belgeleriBirlestir(window.sharedDocumentsData, updatedData, 'tedarikci');
+                    updatedData.documents = _b.documents;
+                    updatedData.silinenler = _b.silinenler;
+                }
                 window.sharedDocumentsData = updatedData;
                 const viewer = document.getElementById('sharedDocumentViewer');
                 if (viewer) viewer.remove();
@@ -30982,6 +31139,7 @@ Devam etmek istiyor musunuz?`;
                     documents: convertedDocuments,
                     exemptDocTypes: window.sharedDocumentsData.exemptDocTypes || [],
                     customTypes: window.sharedDocumentsData.customTypes || [],
+                    silinenler: window.sharedDocumentsData.silinenler || [],
                     sharedAt: window.sharedDocumentsData.sharedAt,
                     mode: window.sharedDocumentsData.mode,
                     lastUpdatedBySupplier: new Date().toISOString()
@@ -31010,11 +31168,27 @@ Devam etmek istiyor musunuz?`;
                         if (dsx) driveEncoded = btoa(JSON.stringify({
                             url: dsx.url, secret: dsx.secret, key: urlParams.get('d') }));
                     } catch (e) { console.error('Kısa link çözülemedi (gönderim):', e); }
-                islemPerdesiKapat();
                 }
                 if (driveEncoded) {
                     const dcreds = JSON.parse(atob(driveEncoded)); // {url, secret, key}
                     console.log('📤 Drive\'a (Apps Script) gönderiliyor... Key:', dcreds.key);
+
+                    // READ-MODIFY-WRITE: once uzaktaki hali oku, BIRLESTIR.
+                    // Eskiden sayfa acilisindaki kopya komple yaziliyordu;
+                    // ana PC'nin bu arada verdigi kabul/yorum/vade siliniyordu.
+                    const uzak = await paylasimOku(dcreds.key, dcreds);
+                    const birlesik = belgeleriBirlestir(updatedData, uzak, 'tedarikci');
+                    updatedData.documents = birlesik.documents;
+                    updatedData.silinenler = birlesik.silinenler;
+                    if (uzak) {
+                        // Musteri tarafina ait alanlar: gonderirken dusurulmesin
+                        // (certAlerts pakette hic yoktu -> vade bandi kayboluyordu)
+                        updatedData.exemptDocTypes = uzak.exemptDocTypes || updatedData.exemptDocTypes || [];
+                        updatedData.certAlerts = uzak.certAlerts || [];
+                        const t = new Set((uzak.customTypes || []).concat(updatedData.customTypes || []));
+                        updatedData.customTypes = Array.from(t);
+                    }
+
                     await fetch(dcreds.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action: 'save', secret: dcreds.secret, name: dcreds.key, content: JSON.stringify(updatedData) }) });
                     await new Promise(r => setTimeout(r, 1500));
                     console.log('✅ Dokümanlar Drive\'a gönderildi! Ana PC "Senkronize Et" ile görebilir.');
