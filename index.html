@@ -30815,8 +30815,45 @@ Devam etmek istiyor musunuz?`;
         }
 
         // Tedarikçinin dokümanları Storj'a gönder
+        // Islem perdesi: donen kum saati. Buyuk dosyalarda gonderim uzun
+        // suruyor ve ekranda hicbir sey olmuyordu — tedarikci tekrar
+        // basiyor ya da sayfayi kapatiyordu.
+        function islemPerdesi(baslik, altyazi) {
+            islemPerdesiKapat();
+            const p = document.createElement('div');
+            p.id = 'islemPerdesi';
+            p.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:40000;'
+                + 'display:flex;align-items:center;justify-content:center;padding:20px;'
+                + 'font-family:Segoe UI,system-ui,sans-serif';
+            p.innerHTML = '<div style="background:#fff;border-radius:16px;padding:30px 38px;text-align:center;'
+                + 'box-shadow:0 12px 40px rgba(0,0,0,.25);max-width:420px">'
+                + '<div style="font-size:3.2em;line-height:1;animation:kumSaati 1.4s ease-in-out infinite">⏳</div>'
+                + '<div style="font-size:1.15em;font-weight:700;color:#1e3c72;margin:14px 0 6px">'
+                + (baslik || 'İşleminiz sürüyor…') + '</div>'
+                + '<div style="font-size:.9em;color:#667">' + (altyazi || '') + '</div>'
+                + '<div style="margin-top:16px;height:6px;background:#e8eefb;border-radius:99px;overflow:hidden">'
+                + '<div style="height:100%;width:40%;background:linear-gradient(90deg,#1e3c72,#4a90d9);'
+                + 'border-radius:99px;animation:kumCubuk 1.2s ease-in-out infinite"></div></div>'
+                + '<div style="font-size:.82em;color:#c62828;margin-top:12px">Lütfen sayfayı kapatmayın.</div>'
+                + '</div>'
+                + '<style>@keyframes kumSaati{0%{transform:rotate(0)}60%{transform:rotate(180deg)}'
+                + '100%{transform:rotate(180deg)}}'
+                + '@keyframes kumCubuk{0%{margin-left:-40%}100%{margin-left:100%}}</style>';
+            document.body.appendChild(p);
+            return p;
+        }
+        function islemPerdesiKapat() {
+            const v = document.getElementById('islemPerdesi');
+            if (v) v.remove();
+        }
+
         async function sendSupplierDocumentsToStorj() {
-            console.log('📤 Tedarikçi dokümanları Storj\'a gönderiliyor...');
+            console.log('📤 Tedarikçi dokümanları gönderiliyor...');
+            const _dosyaSay = Object.values((window.sharedDocumentsData || {}).documents || {})
+                .reduce((n, l) => n + (l || []).length, 0);
+            islemPerdesi('Dokümanlarınız gönderiliyor…',
+                _dosyaSay + ' dosya Google Drive\'a yükleniyor. Dosya boyutuna göre '
+                + 'bu işlem yarım dakikayı bulabilir.');
             
             try {
                 // Dokümanları temizle - sadece JSON-safe alanları gönder
@@ -30877,6 +30914,7 @@ Devam etmek istiyor musunuz?`;
                         if (dsx) driveEncoded = btoa(JSON.stringify({
                             url: dsx.url, secret: dsx.secret, key: urlParams.get('d') }));
                     } catch (e) { console.error('Kısa link çözülemedi (gönderim):', e); }
+                islemPerdesiKapat();
                 }
                 if (driveEncoded) {
                     const dcreds = JSON.parse(atob(driveEncoded)); // {url, secret, key}
@@ -30894,6 +30932,7 @@ Devam etmek istiyor musunuz?`;
                             + 'Bu sayfayı size gönderilen bağlantıdan (?d=... ile biten) '
                             + 'açtığınızdan emin olun. Sorun sürerse bağlantıyı gönderen '
                             + 'kişiye bildirin; dosyalarınız KAYDEDİLMEDİ.');
+                        islemPerdesiKapat();
                         showAlert('❌ Paylaşım anahtarı bulunamadı — dosyalar gönderilmedi!', 'error');
                         return;
                     }
@@ -30903,6 +30942,7 @@ Devam etmek istiyor musunuz?`;
                     console.log('✅ Dokümanlar Storj\'a gönderildi!');
                 }
                 
+                islemPerdesiKapat();
                 // Başarılı gönderim modalı göster
                 const successModal = document.createElement('div');
                 successModal.style.cssText = `
@@ -30951,6 +30991,7 @@ Devam etmek istiyor musunuz?`;
                 window.supplierDocumentChanges = {};
                 
             } catch (error) {
+                islemPerdesiKapat();
                 console.error('❌ Gönderme hatası:', error);
                 showAlert('❌ Gönderme Hatası!\n\n' + error.message, 'error');
             }
