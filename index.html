@@ -4960,33 +4960,22 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         ${hasDoc ? `
                             <div style="margin-left: 10px;">
                                 ${docs.map((file, idx) => {
-                                    // Timestamp sisteminden durumu al
-                                    const docKey = `${docType}_${idx}`;
-                                    const docTimestamp = record.timestamps ? record.timestamps[docKey] : null;
-                                    
-                                    let statusColor = '#999';
-                                    let statusText = 'İncelenmedi';
-                                    let statusBg = '#f5f5f5';
-                                    let selectedStatus = '';
-                                    
-                                    if (docTimestamp) {
-                                        if (docTimestamp.approved === true) {
-                                            statusColor = '#4caf50';
-                                            statusText = '✓ Kabul';
-                                            statusBg = '#e8f5e9';
-                                            selectedStatus = 'approved';
-                                        } else if (docTimestamp.approved === false) {
-                                            statusColor = '#f44336';
-                                            statusText = '✗ Ret';
-                                            statusBg = '#ffebee';
-                                            selectedStatus = 'rejected';
-                                        } else {
-                                            statusColor = '#ff9800';
-                                            statusText = '◐ İnceleniyor';
-                                            statusBg = '#fff3e0';
-                                            selectedStatus = 'reviewing';
-                                        }
-                                    }
+                                    // TEK KAYNAK: dosyanin kendi durumu. Eskiden
+                                    // timestamps['<tur>_<indeks>'] okunuyordu; KONUMA
+                                    // bagli oldugu icin yeni yuklenen dosya, ayni
+                                    // siradaki eski dosyanin kabulunu devraliyordu.
+                                    const selectedStatus = ['approved', 'rejected', 'reviewing']
+                                        .includes(file.status) ? file.status : '';
+                                    const statusColor = selectedStatus === 'approved' ? '#4caf50'
+                                        : selectedStatus === 'rejected' ? '#f44336'
+                                        : selectedStatus === 'reviewing' ? '#ff9800' : '#999';
+                                    const statusBg = selectedStatus === 'approved' ? '#e8f5e9'
+                                        : selectedStatus === 'rejected' ? '#ffebee'
+                                        : selectedStatus === 'reviewing' ? '#fff3e0' : '#f5f5f5';
+                                    const statusText = selectedStatus === 'approved' ? '✓ Kabul'
+                                        : selectedStatus === 'rejected' ? '✗ Ret'
+                                        : selectedStatus === 'reviewing' ? '◐ İnceleniyor'
+                                        : 'İncelenmedi';
                                     
                                     return `
                                     <div style="padding: 8px; background: white; border-radius: 4px; margin-bottom: 6px; border-left: 3px solid ${statusColor};">
@@ -20448,28 +20437,18 @@ function sinifTavaniSebep(s){
                         const sizeKB = (doc.size / 1024).toFixed(2);
                         const sizeDisplay = sizeKB > 1024 ? `${(sizeKB / 1024).toFixed(2)} MB` : `${sizeKB} KB`;
                         
-                        // Doküman durumunu al
-                        const docKey = `${docType}_${idx}`;
-                        const docTimestamp = timestamps[docKey];
-                        let statusColor = '#999';
-                        let statusText = 'İncelenmedi';
-                        let statusBg = '#f5f5f5';
-                        
-                        if (docTimestamp) {
-                            if (docTimestamp.approved === true) {
-                                statusColor = '#4caf50';
-                                statusText = '✓ Kabul';
-                                statusBg = '#e8f5e9';
-                            } else if (docTimestamp.approved === false) {
-                                statusColor = '#f44336';
-                                statusText = '✗ Ret';
-                                statusBg = '#ffebee';
-                            } else {
-                                statusColor = '#ff9800';
-                                statusText = '◐ İnceleniyor';
-                                statusBg = '#fff3e0';
-                            }
-                        }
+                        // TEK KAYNAK: dosyanin kendi durumu (konum kaydi degil)
+                        const dDurum = ['approved', 'rejected', 'reviewing']
+                            .includes(doc.status) ? doc.status : '';
+                        const statusColor = dDurum === 'approved' ? '#4caf50'
+                            : dDurum === 'rejected' ? '#f44336'
+                            : dDurum === 'reviewing' ? '#ff9800' : '#999';
+                        const statusText = dDurum === 'approved' ? '✓ Kabul'
+                            : dDurum === 'rejected' ? '✗ Ret'
+                            : dDurum === 'reviewing' ? '◐ İnceleniyor' : 'İncelenmedi';
+                        const statusBg = dDurum === 'approved' ? '#e8f5e9'
+                            : dDurum === 'rejected' ? '#ffebee'
+                            : dDurum === 'reviewing' ? '#fff3e0' : '#f5f5f5';
                         
                         docDetails += `
                             <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: white; border-radius: 4px; border: 1px solid #e0e0e0;">
@@ -20482,12 +20461,12 @@ function sinifTavaniSebep(s){
                                         ${statusText}
                                     </div>
                                     <input type="date" id="analysisDocDate_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}" style="padding: 4px 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8em;" title="Tarih seçin (boş bırakırsanız bugün)" />
-                                    <select onchange="updateDocumentStatus('${supplier.name}', '${docType}', ${idx}, this.value, document.getElementById('analysisDocDate_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}').value)" 
+                                    <select onchange="analizDurumGuncelle('${supplier.name}', '${docType}', ${idx}, this.value, document.getElementById('analysisDocDate_${docType.replace(/[^a-zA-Z0-9]/g, '_')}_${idx}').value)"
                                             style="padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85em; cursor: pointer;">
                                         <option value="">Durum Seç</option>
-                                        <option value="approved" ${docTimestamp && docTimestamp.approved === true ? 'selected' : ''}>✓ Kabul</option>
-                                        <option value="reviewing" ${docTimestamp && docTimestamp.approved === undefined ? 'selected' : ''}>◐ İnceleniyor</option>
-                                        <option value="rejected" ${docTimestamp && docTimestamp.approved === false ? 'selected' : ''}>✗ Ret</option>
+                                        <option value="approved" ${dDurum === 'approved' ? 'selected' : ''}>✓ Kabul</option>
+                                        <option value="reviewing" ${dDurum === 'reviewing' ? 'selected' : ''}>◐ İnceleniyor</option>
+                                        <option value="rejected" ${dDurum === 'rejected' ? 'selected' : ''}>✗ Ret</option>
                                     </select>
                                 </div>
                             </div>
@@ -20542,82 +20521,17 @@ function sinifTavaniSebep(s){
         }
         
         // Doküman durumunu güncelle
-        async function updateDocumentStatus(supplierName, category, docIndex, status, customDate) {
-            if (!db) {
-                showAlert('⚠️ Veritabanı hazır değil!', 'error');
-                return;
-            }
-            
-            try {
-                // Mevcut dokümanları al
-                const currentDocs = await getSupplierDocuments(supplierName);
-                
-                if (!currentDocs || !currentDocs.documents) {
-                    showAlert('⚠️ Doküman bulunamadı!', 'error');
-                    return;
-                }
-                
-                // Timestamp yapısını oluştur veya güncelle
-                if (!currentDocs.timestamps) {
-                    currentDocs.timestamps = {};
-                }
-                
-                const docKey = `${category}_${docIndex}`;
-                // Tarih girilmişse kullan, yoksa bugünün tarihini kullan
-                const selectedDate = customDate ? new Date(customDate + 'T12:00:00').toISOString() : new Date().toISOString();
-                
-                // Durum güncelle
-                if (status === 'approved') {
-                    currentDocs.timestamps[docKey] = {
-                        approved: true,
-                        date: selectedDate,
-                        by: 'Müşteri PC' // Gerçek kullanıcı bilgisi eklenebilir
-                    };
-                } else if (status === 'rejected') {
-                    currentDocs.timestamps[docKey] = {
-                        approved: false,
-                        date: selectedDate,
-                        by: 'Müşteri PC'
-                    };
-                } else if (status === 'reviewing') {
-                    currentDocs.timestamps[docKey] = {
-                        approved: undefined,
-                        date: selectedDate,
-                        by: 'Müşteri PC'
-                    };
-                } else {
-                    // Durum temizle
-                    delete currentDocs.timestamps[docKey];
-                }
-                
-                // Dosyanın status alanını da güncelle (tedarikçi görünümü için)
-                if (currentDocs.documents[category] && currentDocs.documents[category][docIndex]) {
-                    currentDocs.documents[category][docIndex].status = status;
-                    currentDocs.documents[category][docIndex].reviewedAt = selectedDate;
-                }
-                
-                // Veritabanına kaydet
-                await saveSupplierDocuments(supplierName, currentDocs);
-                
-                // Ekranı yenile
-                const selectedName = document.getElementById('analysisSupplierSelect').value;
-                if (selectedName === supplierName) {
-                    await loadSupplierAnalysis();
-                }
-                
-                // Başarı mesajı
-                const statusNames = {
-                    'approved': 'Kabul edildi',
-                    'rejected': 'Ret edildi',
-                    'reviewing': 'İnceleniyor olarak işaretlendi',
-                    '': 'Durumu temizlendi'
-                };
-                showAlert(`✅ Doküman ${statusNames[status] || 'güncellendi'}`, 'success');
-                
-            } catch (error) {
-                console.error('Durum güncelleme hatası:', error);
-                showAlert('❌ Durum güncellenemedi: ' + error.message, 'error');
-            }
+        // ESKIDEN BU DA 'updateDocumentStatus' ADINDAYDI. Ayni ada sahip
+        // iki fonksiyon vardi; JS'te sonraki tanim kazandigi icin dokuman
+        // modalinin cagrisi da buraya dusuyordu: sertifika vadesi
+        // sorulmuyor, karar tedarikciye gonderilmiyordu. Karar ayrica
+        // KONUMA gore (tur_indeks) saklandigi icin yeni yuklenen dosya,
+        // ayni siradaki eski dosyanin kabulunu devraliyordu.
+        // Artik tek karar yolu var: updateDocumentStatus.
+        async function analizDurumGuncelle(supplierName, category, docIndex, status, customDate) {
+            await updateDocumentStatus(supplierName, category, docIndex, status, customDate);
+            const sec = document.getElementById('analysisSupplierSelect');
+            if (sec && sec.value === supplierName) await loadSupplierAnalysis();
         }
         
         // Doküman için müşteri yorumu güncelle
@@ -21447,19 +21361,13 @@ function sinifTavaniSebep(s){
                     uploadedCount++;
                     docArray.forEach((doc, idx) => {
                         const sizeKB = (doc.size / 1024).toFixed(1);
-                        const docKey = `${docType}_${idx}`;
-                        const docTimestamp = timestamps[docKey];
+                        // TEK KAYNAK: dosyanin kendi durumu (konum kaydi degil)
                         let statusText = turkishToAscii('Incelenmedi');
-                        
-                        if (docTimestamp) {
-                            if (docTimestamp.approved === true) statusText = turkishToAscii('Kabul');
-                            else if (docTimestamp.approved === false) statusText = 'RET';
-                            else statusText = turkishToAscii('Bekleme');
-                            
-                            if (docTimestamp.date) {
-                                const dateStr = new Date(docTimestamp.date).toLocaleDateString('tr-TR');
-                                statusText += ` (${dateStr})`;
-                            }
+                        if (doc.status === 'approved') statusText = turkishToAscii('Kabul');
+                        else if (doc.status === 'rejected') statusText = 'RET';
+                        else if (doc.status === 'reviewing') statusText = turkishToAscii('Bekleme');
+                        if (statusText !== turkishToAscii('Incelenmedi') && doc.reviewedAt) {
+                            statusText += ` (${new Date(doc.reviewedAt).toLocaleDateString('tr-TR')})`;
                         }
                         
                         docTableData.push([
