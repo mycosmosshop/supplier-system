@@ -2057,6 +2057,13 @@ function renderList(reports) {
                 <p>Henüz 8D raporu kaydedilmemiş</p>
                 <p style="font-size:0.9em;margin-top:8px;color:#bbb;">Üstteki <strong>➕ Yeni Rapor</strong> butonuna tıklayarak başlayın</p>
             </div>`;
+    // renderList kabin icerigini KOMPLE yeniden yazar; LeanSys 8D bolumu
+    // de ayni kapta duruyor ve siliniyor. Onbellekten geri boyaniyor
+    // (_paintSb8d aga gitmez, _renderSb8dGroup gider). Zil taramasi
+    // listeyi tazeledigi icin LeanSys satirlari kayboluyordu.
+    try {
+        if (typeof _paintSb8d === 'function' && (_sb8dRows || []).length) _paintSb8d();
+    } catch (e) { console.warn('LeanSys bölümü geri boyanamadı:', e); }
         return;
     }
 
@@ -2119,6 +2126,13 @@ function renderList(reports) {
     });
 
     container.innerHTML = html;
+    // renderList kabin icerigini KOMPLE yeniden yazar; LeanSys 8D bolumu
+    // de ayni kapta duruyor ve siliniyor. Onbellekten geri boyaniyor
+    // (_paintSb8d aga gitmez, _renderSb8dGroup gider). Zil taramasi
+    // listeyi tazeledigi icin LeanSys satirlari kayboluyordu.
+    try {
+        if (typeof _paintSb8d === 'function' && (_sb8dRows || []).length) _paintSb8d();
+    } catch (e) { console.warn('LeanSys bölümü geri boyanamadı:', e); }
 }
 
 function esc(s)     { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
