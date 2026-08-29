@@ -4281,6 +4281,141 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // ======== 8D SAYILARI YÖNETİM FONKSİYONLARI ========
         
         // Tedarikçinin 8D sayılarını kaydet
+        // ═══ TEDARIKCI <-> 8D BAGI ═══════════════════════════════════
+        // Onayli listedeki Talep/Cevaplanan sayilari ELLE girilir ve risk
+        // puanina girer; 8D modulunun gercek kayitlari ise ayni
+        // veritabaninda (report8D) durur. Ikisi arasinda bag yoktu.
+        // Asagidakiler hesaplamaya DOKUNMAZ; sadece gercegi gosterir.
+        window.__gercek8D = new Map();
+
+        async function gercek8DSayilariYukle() {
+            try {
+                if (!db || !db.objectStoreNames.contains(REPORT_8D_STORE_NAME)) return;
+                const kayitlar = await new Promise((cz, hata) => {
+                    const t = db.transaction([REPORT_8D_STORE_NAME], 'readonly');
+                    const r = t.objectStore(REPORT_8D_STORE_NAME).getAll();
+                    r.onsuccess = () => cz(r.result || []);
+                    r.onerror = () => hata(r.error);
+                });
+                const m = new Map();
+                kayitlar.forEach(k => {
+                    const ad = String((k && k.supplierName) || '').trim();
+                    if (!ad) return;
+                    const anahtar = normalizeName(ad);
+                    if (!m.has(anahtar)) m.set(anahtar, { adet: 0, ad: ad });
+                    m.get(anahtar).adet++;
+                });
+                window.__gercek8D = m;
+                console.log('\U0001F4CB Ger\u00e7ek 8D kay\u0131tlar\u0131: ' + m.size + ' tedarik\u00e7i');
+            } catch (e) { console.warn('8D kay\u0131tlar\u0131 okunamad\u0131:', e); }
+        }
+
+        function gercek8DAdet(name) {
+            const v = window.__gercek8D && window.__gercek8D.get(normalizeName(name));
+            return v ? v.adet : 0;
+        }
+
+        // Satirda gorunen kucuk seri: gercek kayit sayisi + uyusmazlik.
+        // Harita bossa BOS doner -> tablo eskisiyle birebir ayni cizilir.
+        function sekizDRozet(result) {
+            if (!window.__gercek8D || !window.__gercek8D.size) return '';
+            const ad = result && result.name;
+            if (!ad) return '';
+            const gercek = gercek8DAdet(ad);
+            const cevap = +result.cevaplanan8D || 0;
+            const A = JSON.stringify(ad).replace(/"/g, '&quot;');
+            if (!gercek) return '';
+            const uyusmaz = gercek !== cevap;
+            return '<div style="margin-top:3px;font-size:.72em;white-space:nowrap">'
+                + '<span onclick="sekizDAc(' + A + ')" title="8D mod\u00fcl\u00fcnde bu tedarik\u00e7inin raporlar\u0131n\u0131 a\u00e7"'
+                + ' style="cursor:pointer;color:#1e3c72;font-weight:700">\U0001F4CB ' + gercek + ' kay\u0131t</span>'
+                + (uyusmaz ? ' <span onclick="sekizDEsitle(' + A + ',' + gercek + ')"'
+                    + ' title="Cevaplanan 8D olarak ' + gercek + ' yaz (elle de\u011fi\u015ftirebilirsiniz)"'
+                    + ' style="cursor:pointer;background:#fff3e0;color:#e65100;border-radius:3px;'
+                    + 'padding:0 4px;font-weight:700">\u26A0 ' + cevap + '\u2192' + gercek + '</span>' : '')
+                + '</div>';
+        }
+
+        // 8D modulunu ERP icinde SEKME olarak ac (PPAP ile ayni yol).
+        function sekizDAc(name) {
+            const sorgu = 'ted=' + encodeURIComponent(name);
+            const yedek = () => window.open('8d-rapor.html?' + sorgu, '_blank', 'noopener');
+            if (window.parent && window.parent !== window) {
+                try {
+                    let onay = false;
+                    const dinle = ev => { if (ev.data && ev.data.tip === 'erp-modul-ac-tamam') onay = true; };
+                    window.addEventListener('message', dinle);
+                    window.parent.postMessage({ tip: 'erp-modul-ac', modul: 'rapor8d', sorgu: sorgu },
+                        window.location.origin);
+                    setTimeout(() => { window.removeEventListener('message', dinle); if (!onay) yedek(); }, 700);
+                    return;
+                } catch (e) { /* origin farkli -> yedek */ }
+            }
+            yedek();
+        }
+
+        // Karar kullanicinin: otomatik yazmaz, onay ister.
+        function sekizDEsitle(name, gercek) {
+            if (!confirm(name + '\n\nSistemde ' + gercek + ' adet 8D raporu kay\u0131tl\u0131.\n'
+                + '"Cevaplanan 8D" alan\u0131na ' + gercek + ' yaz\u0131ls\u0131n m\u0131?\n\n'
+                + '(Talep Edilen 8D de\u011fi\u015fmez; d\u00f6n\u00fc\u015f oran\u0131 ve risk puan\u0131 buna g\u00f6re yeniden hesaplan\u0131r.)')) return;
+            update8D(name, 'cevap', gercek);
+        }
+
+        // Tedarikciye 8D talebi: TASLAK acilir, gonderilmez.
+        function sekizDTalepMaili(name) {
+            const s = (allResults || []).find(x => x.name === name) || {};
+            const bilgi = (typeof getSupplierInfo === 'function' && getSupplierInfo(name)) || {};
+            const alici = (bilgi.email || '').trim();
+            const bugun = new Date();
+            const termin = new Date(bugun.getTime() + 10 * 86400000);
+            const g = d => d.toLocaleDateString('tr-TR');
+            const cizgi = '\u2501'.repeat(38);
+            const konu = '\u26A0 8D Raporu Talebi - ' + name;
+            const govde = [
+                'Say\u0131n Yetkili,',
+                '',
+                name + ' i\u00e7in a\u015fa\u011f\u0131daki uygunsuzlukla ilgili 8D raporu talep ediyoruz.',
+                '',
+                cizgi,
+                '\u26A0 UYGUNSUZLUK',
+                cizgi,
+                '',
+                'Konu          : (l\u00fctfen doldurun)',
+                'Par\u00e7a / kod   : ',
+                'Sevk / parti  : ',
+                'Tespit tarihi : ' + g(bugun),
+                '',
+                cizgi,
+                '\u23F1 BEKLENEN TERM\u0130NLER (IATF 16949 md. 8.7 / 10.2)',
+                cizgi,
+                '',
+                '\u2022 24 saat i\u00e7inde  : D1-D3 \u2014 ekip, problem tan\u0131m\u0131 ve ACIL \u00d6NLEM',
+                '\u2022 ' + g(termin) + '\u2019e kadar : D4-D8 \u2014 k\u00f6k neden, kal\u0131c\u0131 aksiyon,',
+                '                    do\u011frulama ve yayg\u0131nla\u015ft\u0131rma',
+                '',
+                cizgi,
+                '\U0001F4CE \u0130STENENLER',
+                cizgi,
+                '',
+                '\u2713 Doldurulmu\u015f 8D raporu (kendi format\u0131n\u0131z kabul edilir)',
+                '\u2713 K\u00f6k neden analizi (5 Neden / Bal\u0131k K\u0131l\u00e7\u0131\u011f\u0131)',
+                '\u2713 Kal\u0131c\u0131 aksiyonun etkinlik do\u011frulamas\u0131',
+                '\u2713 Stokta/yolda olan \u00fcr\u00fcnler i\u00e7in ay\u0131klama sonucu',
+                '',
+                'Bu talep tedarik\u00e7i performans de\u011ferlendirmesindeki 8D d\u00f6n\u00fc\u015f oran\u0131na',
+                'i\u015flenecektir' + (s.duzeltilmisSinif ? ' (mevcut s\u0131n\u0131f: ' + s.duzeltilmisSinif + ').' : '.'),
+                '',
+                'Sayg\u0131lar\u0131m\u0131zla,',
+                'Kalite Ekibi'
+            ].join('\n');
+            window.location.href = 'mailto:' + encodeURIComponent(alici)
+                + '?subject=' + encodeURIComponent(konu) + '&body=' + encodeURIComponent(govde);
+            showAlert(alici ? '\u2709 8D talep maili taslak olarak a\u00e7\u0131l\u0131yor \u2014 g\u00f6ndermeden \u00f6nce uygunsuzluk bilgilerini doldurun.'
+                : '\u2709 Taslak a\u00e7\u0131l\u0131yor \u2014 bu tedarik\u00e7ide kay\u0131tl\u0131 e-posta yok, al\u0131c\u0131y\u0131 elle girin.',
+                alici ? 'success' : 'warning');
+        }
+
         function save8DCounts(supplierName, talepEdilen8D, cevaplanan8D, donusOrani8D) {
             return new Promise((resolve, reject) => {
                 if (!db) {
@@ -7417,6 +7552,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                        + 'color:#fff;border:0;border-radius:7px;cursor:pointer;font-weight:600">📧 Plan maili</button>'
                        + '<button onclick="gelisimExcel(' + A + ')" style="padding:7px 11px;background:#fff;'
                        + 'border:1px solid #ddd;border-radius:7px;cursor:pointer">📊 Excel</button>'
+                       + '<button onclick="sekizDAc(' + A + ')" title="Bu tedarikçi için 8D raporu aç"'
+                       + ' style="padding:7px 11px;background:#1e3c72;color:#fff;border:0;'
+                       + 'border-radius:7px;cursor:pointer;font-weight:600">📋 8D aç</button>'
+                       + '<button onclick="sekizDTalepMaili(' + A + ')" title="Tedarikçiden 8D iste (taslak mail)"'
+                       + ' style="padding:7px 11px;background:#fff;border:1px solid #1e3c72;color:#1e3c72;'
+                       + 'border-radius:7px;cursor:pointer;font-weight:600">✉ 8D talebi</button>'
                        + '</div>';
                     x.plan.forEach((e, i) => {
                         h += '<div style="margin-top:12px;border:1px solid #ede7f6;border-radius:9px;overflow:hidden">'
@@ -12639,10 +12780,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                style="width: 60px; padding: 5px; text-align: right; border: 1px solid #ddd; border-radius: 4px;">
                     </td>
                     <td class="text-right">
-                        <input type="number" 
-                               value="${result.cevaplanan8D || 0}" 
+                        <input type="number"
+                               value="${result.cevaplanan8D || 0}"
                                onchange="update8D('${result.name}', 'cevap', this.value)"
                                style="width: 60px; padding: 5px; text-align: right; border: 1px solid #ddd; border-radius: 4px;">
+                        ${sekizDRozet(result)}
                     </td>
                     <td class="text-right">${((result.talepEdilen8D || 0) === 0 ? 100 : (result.donusOrani8D || 0)).toFixed(0)}%</td>
                     <td class="text-right" style="${isMusteri ? 'opacity: 0.3; pointer-events: none; background: #f5f5f5;' : ''}">
@@ -33770,6 +33912,7 @@ Quality Team
 
         // 8D Rapor sayısını güncelle
         async function update8DReportCount() {
+            try { await gercek8DSayilariYukle(); } catch (e) {}
             if (!db) {
                 document.getElementById('report8DCount').textContent = '0';
                 return;

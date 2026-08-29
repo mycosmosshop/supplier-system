@@ -1325,15 +1325,17 @@ function closeForm() { showListView(); }
 /* ================================================================
    CREATE NEW + OPEN FOR EDIT
 ================================================================ */
-function startNewReport() {
+// ted: onayli listeden gelen baglanti tedarikciyi onceden secer.
+// Argumansiz cagri (➕ Yeni Rapor dugmesi) eskisi gibi calisir.
+function startNewReport(ted) {
     current8DData = null;
     clear8DForm();
-    document.getElementById('formTitle').textContent           = '📋 8D RAPOR — Yeni Rapor';
+    document.getElementById('formTitle').textContent           = '📋 8D RAPOR — ' + (ted || 'Yeni Rapor');
     document.getElementById('meta_month').value                = '';
     document.getElementById('meta_source').value               = 'Tedarikçi';
     onSourceChange('');
     document.getElementById('deleteFormBtn').style.display     = 'none';
-    loadSupplierList('');
+    loadSupplierList(ted || '');
     showFormView(null);
 }
 
@@ -2501,6 +2503,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             showFormView(null);
             return;
         }
+
+        // Onaylı listeden gelen bağlantı: ?ted=<tedarikçi>
+        const urlTed = params.get('ted');
+        if (urlTed) { startNewReport(urlTed); return; }
 
         showListView();
         // Supplier listesini arka planda hazırla
