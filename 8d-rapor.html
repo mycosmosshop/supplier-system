@@ -1501,7 +1501,14 @@ function _duzMetin8D(rapor, link) {
     ].concat(
         alanlar.map(a => a[0] + ' '.repeat(en - a[0].length) + ' : ' + a[1])
     ).concat([
-        '', cizgi, '🔗 8D FORMU', cizgi, '', link, '',
+        ''
+    ]).concat((function () {
+        const e = _hataEkleri8D(rapor);
+        const n = e.gorseller.length + e.digerleri.length;
+        return n ? ['📎 Hata fotoğrafı/eki: ' + n + ' adet '
+            + '(biçimli mailde görünür, formda da açılabilir)', ''] : [];
+    })()).concat([
+        cizgi, '🔗 8D FORMU', cizgi, '', link, '',
         cizgi, '⏱ TERMİNLER (IATF 16949 md. 8.7 / 10.2)', cizgi, '',
         '• 24 saat içinde : D1-D3 — ekip, problem tanımı, ACİL ÖNLEM',
         '• 10 gün içinde  : D4-D8 — kök neden, kalıcı aksiyon, doğrulama',
@@ -1516,10 +1523,39 @@ function _duzMetin8D(rapor, link) {
     ]).join('\n');
 }
 
-// Zengin HTML — Outlook taslagi icin
-function _htmlMetin8D(rapor, link) {
+// Head Data'daki hata ekleri: gorseller ayri, digerleri ayri
+function _hataEkleri8D(rapor) {
+    const hepsi = ((rapor.head || {}).defectPhotos || [])
+        .filter(f => f && f.data && /^data:/.test(String(f.data)));
+    return {
+        gorseller: hepsi.filter(f => /^image\//i.test(f.type || '')),
+        digerleri: hepsi.filter(f => !/^image\//i.test(f.type || ''))
+    };
+}
+
+// Zengin HTML — Outlook taslagi icin.
+// kaynakFn: gorselin src'sini uretir. .eml icin 'cid:...' doner (Outlook
+// data: URL'li gorseli gostermez); onizleme/webmail icin data URL kalir.
+function _htmlMetin8D(rapor, link, kaynakFn) {
     const esc = t => String(t == null ? '' : t)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const ekler = _hataEkleri8D(rapor);
+    const src = kaynakFn || ((i, f) => f.data);
+    const fotoBlok = (!ekler.gorseller.length && !ekler.digerleri.length) ? '' :
+        '<div style="font-size:12px;font-weight:700;color:#c62828;letter-spacing:.4px;'
+        + 'margin:0 0 8px">📎 HATA FOTOĞRAFLARI</div>'
+        + '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px">'
+        + '<tr>' + ekler.gorseller.map((f, i) =>
+            '<td style="padding:0 10px 10px 0;vertical-align:top">'
+            + '<img src="' + src(i, f) + '" alt="' + esc(f.name) + '" '
+            + 'style="display:block;max-width:250px;width:100%;border:1px solid #dbe2ea;'
+            + 'border-radius:8px">'
+            + '<div style="font-size:11px;color:#8a97a6;margin-top:4px;max-width:250px">'
+            + esc(f.name) + '</div></td>').join('') + '</tr></table>'
+        + (ekler.digerleri.length
+            ? '<p style="margin:-14px 0 20px;font-size:12px;color:#6b7a8d">📎 Ekler: '
+              + ekler.digerleri.map(f => esc(f.name)).join(', ') + '</p>'
+            : '');
     const satirlar = _mailAlanlari8D(rapor).map(a =>
         '<tr>'
         + '<td style="padding:7px 14px;background:#f8fafc;border-bottom:1px solid #e8edf3;'
@@ -1561,6 +1597,8 @@ function _htmlMetin8D(rapor, link) {
         + 'style="border-collapse:collapse;border:1px solid #e8edf3;border-radius:8px;'
         + 'overflow:hidden;margin:0 0 22px">' + satirlar + '</table>'
 
+        + fotoBlok
+
         // buyuk dugme
         + '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 8px">'
         + '<tr><td style="background:#2e7d32;border-radius:9px">'
@@ -1597,16 +1635,46 @@ function _htmlMetin8D(rapor, link) {
 function outlookTaslagi8D(rapor, link) {
     const h = rapor.head || {};
     const konu = _konu8D(rapor);
-    const govde = _b64utf8(_htmlMetin8D(rapor, link)).replace(/(.{76})/g, '$1\r\n');
-    const eml = [
+    const gorseller = _hataEkleri8D(rapor).gorseller;
+    const kimlik = i => 'hata' + (i + 1) + '@sanifoam';
+    // Outlook data: URL'li gorseli GOSTERMEZ; cid: ile gomulmesi gerekir.
+    const govde = _b64utf8(_htmlMetin8D(rapor, link,
+        gorseller.length ? (i => 'cid:' + kimlik(i)) : null)).replace(/(.{76})/g, '$1\r\n');
+
+    let parcalar = [
         'To: ' + (h.email || '').trim(),
         'Subject: =?UTF-8?B?' + _b64utf8(konu) + '?=',
         'X-Unsent: 1',
-        'MIME-Version: 1.0',
-        'Content-Type: text/html; charset=utf-8',
-        'Content-Transfer-Encoding: base64',
-        '', govde
-    ].join('\r\n');
+        'MIME-Version: 1.0'
+    ];
+    if (!gorseller.length) {
+        parcalar = parcalar.concat([
+            'Content-Type: text/html; charset=utf-8',
+            'Content-Transfer-Encoding: base64', '', govde]);
+    } else {
+        const sinir = '----8D_' + Date.now();
+        parcalar = parcalar.concat([
+            'Content-Type: multipart/related; type="text/html"; boundary="' + sinir + '"', '',
+            '--' + sinir,
+            'Content-Type: text/html; charset=utf-8',
+            'Content-Transfer-Encoding: base64', '', govde, '']);
+        gorseller.forEach((f, i) => {
+            const noktaliVirgul = f.data.indexOf(';');
+            const virgul = f.data.indexOf(',');
+            const tur = f.data.slice(5, noktaliVirgul > 0 ? noktaliVirgul : virgul) || 'image/jpeg';
+            const veri = f.data.slice(virgul + 1).replace(/\s+/g, '').replace(/(.{76})/g, '$1\r\n');
+            const ad = String(f.name || ('hata' + (i + 1) + '.jpg')).replace(/"/g, '');
+            parcalar = parcalar.concat([
+                '--' + sinir,
+                'Content-Type: ' + tur + '; name="' + ad + '"',
+                'Content-Transfer-Encoding: base64',
+                'Content-ID: <' + kimlik(i) + '>',
+                'Content-Disposition: inline; filename="' + ad + '"',
+                '', veri, '']);
+        });
+        parcalar.push('--' + sinir + '--');
+    }
+    const eml = parcalar.join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([eml], { type: 'message/rfc822' }));
     a.download = '8D-talebi-' + String(rapor.supplierName || '')
@@ -1678,6 +1746,9 @@ async function tedarikcidenAl8D() {
         yerel.paylasimKey = current8DData.paylasimKey;
         const dolu = _TEDARIKCI_BOLUM.filter(b => _bolumDoluMu(uzak && uzak[b]));
         const birlesik = birlestir8D(yerel, uzak, 'musteri');
+        // Gorulen damga: bu gonderim artik "yeni" sayilmaz (zil duser)
+        birlesik.gorulenTedarikciDamgasi = uzak.lastUpdatedBySupplier || null;
+        if (window.__yeni8D) window.__yeni8D.delete(current8DData.id);
         current8DData = birlesik;
         populate8DForm(birlesik);
         await new Promise(cz => {
@@ -2059,8 +2130,61 @@ async function refreshList() {
     if (!db) return;
     const tx  = db.transaction([STORE_8D],'readonly');
     const req = tx.objectStore(STORE_8D).getAll();
-    req.onsuccess = () => { renderList(req.result || []); _renderSb8dGroup(); };
+    req.onsuccess = () => {
+        const hepsi = req.result || [];
+        renderList(hepsi); _renderSb8dGroup();
+        tedarikci8DTara(hepsi);            // arka planda: zil rozetleri
+    };
     req.onerror   = () => showAlert('❌ Raporlar yüklenemedi!','error');
+}
+
+// Tedarikciden YENI gonderim var mi? Paylasimi olan raporlarin Drive
+// dosyasindaki lastUpdatedBySupplier, raporda saklanan damga ile
+// karsilastirilir. Sessiz calisir; bulursa listeyi tazeler.
+window.__yeni8D = new Map();     // id -> {damga, ne}
+async function tedarikci8DTara(raporlar) {
+    const paylasimli = (raporlar || []).filter(r => r && r.paylasimKey);
+    if (!paylasimli.length) { _zilSayaci8D(); return; }
+    let degisti = false;
+    for (const r of paylasimli) {
+        try {
+            const uzak = await driveOku8D(r.paylasimKey);
+            const damga = uzak && uzak.lastUpdatedBySupplier;
+            if (damga && damga !== r.gorulenTedarikciDamgasi) {
+                const dolu = _TEDARIKCI_BOLUM.filter(b => _bolumDoluMu(uzak[b]));
+                window.__yeni8D.set(r.id, { damga: damga, ne: dolu });
+                degisti = true;
+            } else if (window.__yeni8D.has(r.id)) {
+                window.__yeni8D.delete(r.id); degisti = true;
+            }
+        } catch (e) { /* dosya yok / cevrimdisi -> sessiz gec */ }
+    }
+    if (degisti) {
+        const tx = db.transaction([STORE_8D], 'readonly');
+        const rq = tx.objectStore(STORE_8D).getAll();
+        rq.onsuccess = () => renderList(rq.result || []);
+    }
+    _zilSayaci8D();
+}
+
+function _zilSayaci8D() {
+    const n = window.__yeni8D ? window.__yeni8D.size : 0;
+    let el = document.getElementById('zil8DRozet');
+    if (!n) { if (el) el.remove(); return; }
+    if (!el) {
+        el = document.createElement('button');
+        el.id = 'zil8DRozet';
+        el.className = 'nav-btn';
+        el.style.cssText = 'background:linear-gradient(135deg,#e65100,#f57f17);font-weight:700';
+        el.onclick = () => {
+            const ilk = window.__yeni8D.keys().next().value;
+            if (ilk != null) openReportForEdit(ilk);
+        };
+        const bar = document.querySelector('.nav-btn') && document.querySelector('.nav-btn').parentNode;
+        if (bar) bar.appendChild(el); else return;
+    }
+    el.textContent = '🔔 ' + n + ' yeni 8D cevabı';
+    el.title = 'Tedarikçi(ler) 8D doldurup gönderdi — tıkla: ilkini aç';
 }
 
 function renderList(reports) {
@@ -2127,7 +2251,8 @@ function renderList(reports) {
             <div class="report-card" onclick="openReportForEdit(${r.id})">
                 <div class="report-card-head">
                     <div>
-                        <div class="report-card-title">${esc(cardTitle)}</div>
+                        <div class="report-card-title">${(window.__yeni8D && window.__yeni8D.has(r.id))
+                            ? `<span title="Tedarikçi yeni 8D gönderdi (${esc((window.__yeni8D.get(r.id).ne||[]).map(x=>x.toUpperCase()).join(', '))}) — açıp 'Tedarikçiden Al' deyin" style="display:inline-block;background:#e65100;color:#fff;border-radius:5px;padding:0 6px;font-size:.8em;font-weight:700;margin-right:5px;">🔔 YENİ</span>` : ''}${esc(cardTitle)}</div>
                         ${monthLbl ? `<div style="font-size:0.8em;color:#888;margin-top:2px;">${esc(monthLbl)}</div>` : ''}
                     </div>
                     <div class="report-card-actions" onclick="event.stopPropagation()">

@@ -15,9 +15,9 @@ function cek(ad) {
     return src.slice(i, k);
 }
 const F = new Function('btoa', 'TextEncoder',
-    [cek('_b64utf8'), cek('_mailAlanlari8D'), cek('_konu8D'),
+    [cek('_b64utf8'), cek('_mailAlanlari8D'), cek('_konu8D'), cek('_hataEkleri8D'),
      cek('_duzMetin8D'), cek('_htmlMetin8D')].join('\n')
-    + '\nreturn {_b64utf8,_mailAlanlari8D,_konu8D,_duzMetin8D,_htmlMetin8D};')(
+    + '\nreturn {_b64utf8,_mailAlanlari8D,_konu8D,_hataEkleri8D,_duzMetin8D,_htmlMetin8D};')(
     t => Buffer.from(t, 'binary').toString('base64'), TextEncoder);
 
 const rapor = {
