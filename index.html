@@ -30809,96 +30809,104 @@ Devam etmek istiyor musunuz?`;
 
         // Tedarikçi PC: Ana PC'den konfigürasyon değişikliklerini al
         async function syncSupplierConfigFromStorj() {
-            console.log('🔄 Konfigürasyon senkronizasyonu başlıyor...');
+            console.log('🔄 Değişiklikler alınıyor...');
 
             if (!window.sharedDocumentsData) {
                 showAlert('❌ Veri bulunamadı!', 'error');
                 return;
             }
 
-            // URL'den Storj bilgilerini al
-            const urlParams = new URLSearchParams(window.location.search);
-            const storjData = urlParams.get('storj');
-            
-            if (!storjData) {
-                showAlert('❌ Storj bilgisi bulunamadı!', 'error');
-                return;
-            }
+            islemPerdesi('Yeni değişiklikler alınıyor…',
+                'Ana PC\'nin kararları ve yorumları indiriliyor.');
 
             try {
-                const credentials = JSON.parse(atob(storjData));
-                
-                console.log('🔑 Storj\'dan çekiliyor:', credentials.key);
+                const urlParams = new URLSearchParams(window.location.search);
+                let updatedData = null;
 
-                // Settings objesi oluştur
-                const settings = {
-                    accessKey: credentials.accessKey,
-                    secretKey: credentials.secretKey,
-                    bucket: credentials.bucket,
-                    endpoint: credentials.endpoint
-                };
-
-                // downloadFromStorj fonksiyonunu kullan (AWS Signature v4 ile)
-                const updatedData = await downloadFromStorj(credentials.key, settings);
-                
-                console.log('✅ Güncel veri alındı!');
-                console.log('📊 Zorunlu değil türler:', updatedData.exemptDocTypes);
-                console.log('📊 Özel türler:', updatedData.customTypes);
-                console.log('📄 Dokümanlar:', Object.keys(updatedData.documents || {}).length, 'tür');
-                
-                // Yorumları logla
-                Object.keys(updatedData.documents || {}).forEach(docType => {
-                    updatedData.documents[docType].forEach((file, idx) => {
-                        if (file.reviewComment || file.supplierComment) {
-                            console.log(`📝 ${file.name}:`);
-                            if (file.reviewComment) console.log(`  💬 Müşteri: "${file.reviewComment}"`);
-                            if (file.supplierComment) console.log(`  💭 Tedarikçi: "${file.supplierComment}"`);
-                        }
+                // 1) DRIVE: kisa link (?d=) veya acilista cozulen kimlik veya ?drive=
+                let driveEncoded = urlParams.get('drive') || window.__paylasimDrive || null;
+                if (!driveEncoded && urlParams.get('d')) {
+                    const ds = (typeof getDriveSettings === 'function') ? getDriveSettings() : null;
+                    if (ds) driveEncoded = btoa(JSON.stringify({
+                        url: ds.url, secret: ds.secret, key: urlParams.get('d') }));
+                }
+                if (driveEncoded) {
+                    const c = JSON.parse(atob(driveEncoded));
+                    updatedData = await new Promise((resolve, reject) => {
+                        const cb = '__cfgdrv_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+                        const sc = document.createElement('script');
+                        const t = setTimeout(function () { temizle(); reject(new Error('Zaman aşımı (Drive yanıt vermedi)')); }, 90000);
+                        function temizle() { clearTimeout(t); try { delete window[cb]; } catch (e) { window[cb] = undefined; } if (sc.parentNode) sc.parentNode.removeChild(sc); }
+                        window[cb] = function (r) {
+                            temizle();
+                            if (r && r.success && r.content) resolve(typeof r.content === 'string' ? JSON.parse(r.content) : r.content);
+                            else reject(new Error((r && r.error) || 'Dosya okunamadı'));
+                        };
+                        sc.src = c.url + (c.url.indexOf('?') >= 0 ? '&' : '?')
+                            + 'action=getfile&name=' + encodeURIComponent(c.key)
+                            + '&secret=' + encodeURIComponent(c.secret) + '&callback=' + cb;
+                        sc.onerror = function () { temizle(); reject(new Error('Drive bağlantı hatası')); };
+                        document.body.appendChild(sc);
                     });
-                });
-
-                // Değişiklikleri karşılaştır
-                const oldExempt = JSON.stringify(window.sharedDocumentsData.exemptDocTypes || []);
-                const newExempt = JSON.stringify(updatedData.exemptDocTypes || []);
-                const oldCustom = JSON.stringify(window.sharedDocumentsData.customTypes || []);
-                const newCustom = JSON.stringify(updatedData.customTypes || []);
-                const oldDocs = JSON.stringify(window.sharedDocumentsData.documents || {});
-                const newDocs = JSON.stringify(updatedData.documents || {});
-
-                let changes = [];
-                
-                if (oldExempt !== newExempt) {
-                    changes.push('📋 Zorunlu değil türler güncellendi');
-                }
-                
-                if (oldCustom !== newCustom) {
-                    changes.push('📝 Özel doküman türleri güncellendi');
-                }
-                
-                if (oldDocs !== newDocs) {
-                    changes.push('📄 Doküman durumları ve yorumlar güncellendi');
+                } else {
+                    // 2) Geriye donuk: eski Storj linkleri
+                    const storjData = urlParams.get('storj');
+                    if (!storjData) {
+                        islemPerdesiKapat();
+                        showAlert('❌ Paylaşım bilgisi bulunamadı!\n\nBu sayfayı size gönderilen bağlantıdan açın.', 'error');
+                        return;
+                    }
+                    const c = JSON.parse(atob(storjData));
+                    updatedData = await downloadFromStorj(c.key, {
+                        accessKey: c.accessKey, secretKey: c.secretKey,
+                        bucket: c.bucket, endpoint: c.endpoint });
                 }
 
-                // Güncel veriyi uygula (değişiklik olsun olmasın)
+                console.log('✅ Güncel veri alındı');
+
+                // NE DEGISTI: kullaniciya somut sekilde soylenir
+                const eski = window.sharedDocumentsData || {};
+                const sayKarar = v => {
+                    let kabul = 0, red = 0, yorum = 0;
+                    Object.values((v && v.documents) || {}).forEach(l => (l || []).forEach(f => {
+                        if (f.status === 'approved') kabul++;
+                        if (f.status === 'rejected') red++;
+                        if (String(f.reviewComment || '').trim()) yorum++;
+                    }));
+                    return { kabul, red, yorum };
+                };
+                const a = sayKarar(eski), b = sayKarar(updatedData);
+                const degisiklikler = [];
+                if (b.kabul > a.kabul) degisiklikler.push('✅ ' + (b.kabul - a.kabul) + ' belge kabul edildi');
+                if (b.red > a.red) degisiklikler.push('❌ ' + (b.red - a.red) + ' belge reddedildi');
+                if (b.yorum > a.yorum) degisiklikler.push('💬 ' + (b.yorum - a.yorum) + ' yeni müşteri yorumu');
+                if (JSON.stringify(eski.exemptDocTypes || []) !== JSON.stringify(updatedData.exemptDocTypes || []))
+                    degisiklikler.push('📋 Zorunlu olmayan belge listesi güncellendi');
+                if (JSON.stringify(eski.customTypes || []) !== JSON.stringify(updatedData.customTypes || []))
+                    degisiklikler.push('📝 Doküman türleri güncellendi');
+                if (JSON.stringify(eski.certAlerts || []) !== JSON.stringify(updatedData.certAlerts || []))
+                    degisiklikler.push('📅 Belge geçerlilik tarihleri güncellendi');
+                const farkVar = degisiklikler.length > 0
+                    || JSON.stringify(eski.documents || {}) !== JSON.stringify(updatedData.documents || {});
+
                 window.sharedDocumentsData = updatedData;
-                
-                // Sayfayı yeniden oluştur
                 const viewer = document.getElementById('sharedDocumentViewer');
-                if (viewer) {
-                    viewer.remove();
-                }
+                if (viewer) viewer.remove();
                 showSharedDocumentsView(updatedData);
 
-                // Kullanıcıya bilgi ver
-                if (changes.length === 0) {
-                    showAlert('✅ Sayfa Yenilendi!\n\nEn güncel veriler gösteriliyor.', 'success');
+                islemPerdesiKapat();
+                if (!farkVar) {
+                    showAlert('✅ Zaten güncel\n\nAna PC\'den yeni bir değişiklik yok.', 'success');
+                } else if (degisiklikler.length) {
+                    showAlert('✅ Güncellendi\n\n' + degisiklikler.join('\n'), 'success');
                 } else {
-                    showAlert('✅ Güncellemeler Alındı!\n\n' + changes.join('\n') + '\n\n🔄 Sayfa yenilendi.', 'success');
+                    showAlert('✅ Güncellendi\n\nSayfa en güncel hâliyle yenilendi.', 'success');
                 }
-
             } catch (error) {
-                console.error('❌ Senkronizasyon hatası:', error);
-                showAlert('❌ Senkronizasyon Hatası!\n\n' + error.message, 'error');
+                islemPerdesiKapat();
+                console.error('❌ Değişiklik alma hatası:', error);
+                showAlert('❌ Değişiklikler alınamadı!\n\n' + (error && error.message ? error.message : error)
+                    + '\n\nİnternet bağlantınızı kontrol edip tekrar deneyin.', 'error');
             }
         }
 
