@@ -3298,6 +3298,10 @@ function _paintSb8d(){
   _paintSb8dBody();
 }
 function _paintSb8dBody(){
+  // TEK LISTE: kendi raporlarimiz ayni tabloda, ustte.
+  // BASTA tanimlanmali: baslik seridi de bunlari kullaniyor.
+  const _yer=_yerelFiltreli();
+  const _yon=(typeof _yoneticiMi==='function') && _yoneticiMi();
   const rows=_sb8dRows;
   const shown = rows.filter(r=>{
     if(_sb8dLoc && _8dLoc(r)!==_sb8dLoc) return false;
@@ -3330,9 +3334,6 @@ function _paintSb8dBody(){
   const cardActive=_sb8dView==='card';
   const body=document.getElementById('sb8dBody');
   if(!body) return;
-  // TEK LISTE: kendi raporlarimiz ayni tabloda, ustte
-  const _yer=_yerelFiltreli();
-  const _yon=(typeof _yoneticiMi==='function') && _yoneticiMi();
   if(cardActive){
     const cards=shown.map(s=>{
       const st=s.status||'Open'; const cls=st==='Closed'?'status-closed':'status-open'; const ico=st==='Closed'?'✓':'○';
