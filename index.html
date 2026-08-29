@@ -3725,31 +3725,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // olusturulur. Onayli listeden secmek sureci baslatan yoldur.
         const PPAP_PORTAL = 'https://mycosmosshop.github.io/ppap-portal/';
         function ppapAc(name) {
-            const sorgu = 'ted=' + encodeURIComponent(name);
-            // ERP icinde acildiysa portaldan SEKME olarak actir; yeni tarayici
-            // penceresi acilmasin. Portal cevap vermezse (tek basina acilmis
-            // olabilir) eski davranisa donulur.
-            const yedek = () => window.open(PPAP_PORTAL + '?' + sorgu, '_blank', 'noopener');
-            if (window.parent && window.parent !== window) {
-                try {
-                    let onay = false;
-                    const dinle = ev => {
-                        if (ev.data && ev.data.tip === 'erp-modul-ac-tamam') onay = true;
-                    };
-                    window.addEventListener('message', dinle);
-                    window.parent.postMessage(
-                        { tip: 'erp-modul-ac', modul: 'ppap-portal', sorgu: sorgu },
-                        window.location.origin);
-                    // Portal eski surumdeyse (onbellek) mesaji kimse duymaz —
-                    // dugme olu kalmasin diye kisa surede yedege dusuyoruz.
-                    setTimeout(() => {
-                        window.removeEventListener('message', dinle);
-                        if (!onay) yedek();
-                    }, 700);
-                    return;
-                } catch (e) { /* origin farkli -> yedek */ }
-            }
-            yedek();
+            _erpModulAc('ppap-portal', 'ted=' + encodeURIComponent(name), PPAP_PORTAL);
         }
 
         function getSupplierInfo(name) {
@@ -4393,37 +4369,36 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function _erpModulAc(modul, sorgu, yerelDosya) {
             const yedek = () => window.open(yerelDosya + (sorgu ? '?' + sorgu : ''),
                 '_blank', 'noopener');
-            if (window.parent && window.parent !== window) {
-                try {
-                    let onay = false;
-                    const dinle = ev => { if (ev.data && ev.data.tip === 'erp-modul-ac-tamam') onay = true; };
-                    window.addEventListener('message', dinle);
-                    window.parent.postMessage({ tip: 'erp-modul-ac', modul: modul, sorgu: sorgu },
-                        window.location.origin);
-                    setTimeout(() => { window.removeEventListener('message', dinle); if (!onay) yedek(); }, 700);
-                    return;
-                } catch (e) { /* origin farkli -> yedek */ }
+            // Tek basina acilmis sayfa: dogrudan yeni sekme
+            if (!(window.parent && window.parent !== window)) { yedek(); return; }
+
+            let onay = false;
+            const dinle = ev => { if (ev.data && ev.data.tip === 'erp-modul-ac-tamam') onay = true; };
+            window.addEventListener('message', dinle);
+            try {
+                window.parent.postMessage({ tip: 'erp-modul-ac', modul: modul, sorgu: sorgu },
+                    window.location.origin);
+            } catch (e) {
+                window.removeEventListener('message', dinle);
+                yedek();                       // farkli origin: sekme actiramayiz
+                return;
             }
-            yedek();
+            // ERP ICINDEYIZ: onay gecikse bile KENDILIGINDEN pencere ACMA.
+            // Eskiden 700 ms'de yedege dusuluyordu; sayfa mesgulken onay
+            // gec kaliyor ve modul hem sekmede hem ayri pencerede
+            // aciliyordu. Portal gercekten cevapsizsa kullaniciya soruyoruz.
+            setTimeout(() => {
+                window.removeEventListener('message', dinle);
+                if (onay) return;
+                if (confirm('Modül ERP sekmesi olarak açılamadı.\n\n'
+                    + 'Ayrı bir pencerede açılsın mı?')) yedek();
+            }, 3000);
         }
         function sekizDListeAc() { _erpModulAc('rapor8d', '', '8d-rapor.html'); }
 
         // 8D modulunu ERP icinde SEKME olarak ac (PPAP ile ayni yol).
         function sekizDAc(name) {
-            const sorgu = 'ted=' + encodeURIComponent(name);
-            const yedek = () => window.open('8d-rapor.html?' + sorgu, '_blank', 'noopener');
-            if (window.parent && window.parent !== window) {
-                try {
-                    let onay = false;
-                    const dinle = ev => { if (ev.data && ev.data.tip === 'erp-modul-ac-tamam') onay = true; };
-                    window.addEventListener('message', dinle);
-                    window.parent.postMessage({ tip: 'erp-modul-ac', modul: 'rapor8d', sorgu: sorgu },
-                        window.location.origin);
-                    setTimeout(() => { window.removeEventListener('message', dinle); if (!onay) yedek(); }, 700);
-                    return;
-                } catch (e) { /* origin farkli -> yedek */ }
-            }
-            yedek();
+            _erpModulAc('rapor8d', 'ted=' + encodeURIComponent(name), '8d-rapor.html');
         }
 
         // Karar kullanicinin: otomatik yazmaz, onay ister.
