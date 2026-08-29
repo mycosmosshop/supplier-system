@@ -2056,6 +2056,102 @@ function _zilSayaci8D() {
     el.title = 'Tedarikçi(ler) 8D doldurup gönderdi — tıkla: ilkini aç';
 }
 
+// Yerel bolum gorunumu: 'row' (varsayilan) | 'card'
+let _yerelGorunum = localStorage.getItem('yerel8d_view') || 'row';
+function _setYerelGorunum(v) {
+    _yerelGorunum = v;
+    localStorage.setItem('yerel8d_view', v);
+    refreshList();
+}
+
+// Kaynak baklavasi: LeanSys mi, yerel mi?
+function _kaynakBaklava(r) {
+    const k = r && r.source;
+    if (k === 'LeanSys') return '<span title="LeanSys\'ten gelen kayıt" '
+        + 'style="color:#0d9488;font-weight:700">\u25C6</span>';
+    const etiket = { 'Tedarikçi': 'Tedarikçi 8D\'si', 'Uygunsuzluk': 'Uygunsuzluk analizinden',
+        'Balık Kılçığı': 'Balık kılçığından', 'Kapsamlı Rapor': 'Kapsamlı rapordan' }[k]
+        || 'Yerel kayıt';
+    return '<span title="' + etiket + '" style="color:#94a3b8;font-weight:700">\u25C7</span>';
+}
+
+// Zil rozeti (iki gorunumde de ayni)
+function _zilIsareti(r) {
+    if (!window.__yeni8D || !window.__yeni8D.has(r.id)) return '';
+    const ne = (window.__yeni8D.get(r.id).ne || []).map(x => x.toUpperCase()).join(', ');
+    return '<span title="Tedarikçi yeni 8D gönderdi (' + esc(ne) + ') — açıp '
+        + '&quot;Tedarikçiden Al&quot; deyin" style="display:inline-block;background:#e65100;'
+        + 'color:#fff;border-radius:5px;padding:0 6px;font-size:.8em;font-weight:700;'
+        + 'margin-right:5px;">\uD83D\uDD14 YENİ</span>';
+}
+
+// Yerel raporlar icin SATIR tablosu (LeanSys bolumuyle ayni duzen)
+function _yerelSatirlar(reports) {
+    const srt = reports.slice().sort((a, b) => {
+        const da = (a.head && a.head.startDate) || a.timestamp || '';
+        const db = (b.head && b.head.startDate) || b.timestamp || '';
+        return da < db ? 1 : da > db ? -1 : 0;
+    });
+    const satir = srt.map(r => {
+        const st = (r.head && r.head.status) || 'Open';
+        const cls = st === 'Closed' ? 'status-closed' : st === 'In Progress' ? 'status-inprogress' : 'status-open';
+        const ico = st === 'Closed' ? '\u2713' : st === 'In Progress' ? '\u25D0' : '\u25CB';
+        const no = (r.head && r.head.reportNumber) || '\u2014';
+        const kaynak = (r.source && r.source !== 'Tedarikçi')
+            ? r.source : (r.supplierName || '(belirtilmemiş)');
+        const tarih = (r.head && r.head.startDate)
+            ? new Date(r.head.startDate).toLocaleDateString('tr-TR')
+            : new Date(r.timestamp).toLocaleDateString('tr-TR');
+        const baslik = (r.head && r.head.title) || r.konu || '';
+        return '<tr style="border-bottom:1px solid #eef2f7;cursor:pointer;" '
+            + 'onclick="openReportForEdit(' + r.id + ')" '
+            + 'onmouseover="this.style.background=\'#f8fafc\'" '
+            + 'onmouseout="this.style.background=\'transparent\'">'
+            + '<td style="padding:8px 10px;text-align:center;">' + _kaynakBaklava(r) + '</td>'
+            + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap;">'
+            + _zilIsareti(r) + esc(no) + '</td>'
+            + '<td style="padding:8px 10px;">' + esc(baslik) + '</td>'
+            + '<td style="padding:8px 10px;white-space:nowrap;">' + esc(kaynak) + '</td>'
+            + '<td style="padding:8px 10px;white-space:nowrap;color:#475569;">\uD83D\uDCC5 '
+            + tarih + '</td>'
+            + '<td style="padding:8px 10px;white-space:nowrap;">'
+            + '<span class="status-badge ' + cls + '">' + ico + ' ' + esc(st) + '</span></td>'
+            + '<td style="padding:8px 10px;white-space:nowrap;" onclick="event.stopPropagation()">'
+            + '<button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" '
+            + 'onclick="openReportForEdit(' + r.id + ')">\u270F\uFE0F</button> '
+            + '<button class="card-btn" style="background:#f44336;color:#fff;" title="Sil" '
+            + 'onclick="deleteReportFromList(' + r.id + ',\'' + esc(escAttr(no)) + '\')">'
+            + '\uD83D\uDDD1\uFE0F</button></td></tr>';
+    }).join('');
+    return '<div style="padding:6px 12px 12px;overflow-x:auto;">'
+        + '<table style="width:100%;border-collapse:collapse;font-size:.9em;">'
+        + '<thead><tr style="background:#f1f5f9;text-align:left;">'
+        + '<th style="padding:8px 10px;width:34px;" title="\u25C6 LeanSys \u00b7 \u25C7 yerel kayıt">'
+        + 'Kaynak</th>'
+        + '<th style="padding:8px 10px;">No</th><th style="padding:8px 10px;">Başlık</th>'
+        + '<th style="padding:8px 10px;">Tedarikçi / Kaynak</th>'
+        + '<th style="padding:8px 10px;">Tarih</th><th style="padding:8px 10px;">Durum</th>'
+        + '<th style="padding:8px 10px;">İşlem</th></tr></thead>'
+        + '<tbody>' + satir + '</tbody></table></div>';
+}
+
+function _yerelBaslik(n) {
+    const kart = _yerelGorunum === 'card';
+    const dugme = (v, etiket, aktif) => '<button onclick="event.stopPropagation();'
+        + '_setYerelGorunum(\'' + v + '\')" style="border:none;cursor:pointer;padding:5px 11px;'
+        + 'font-size:.85em;background:' + (aktif ? '#1d4ed8' : '#fff') + ';color:'
+        + (aktif ? '#fff' : '#334155') + ';">' + etiket + '</button>';
+    return '<div class="supplier-header" style="display:flex;align-items:center;gap:10px;">'
+        + '<span>\uD83D\uDCCB Kendi 8D Raporlarımız</span>'
+        + '<span style="font-size:0.8em;opacity:0.8;">' + n + ' rapor</span>'
+        + '<span style="flex:1"></span>'
+        + '<span style="font-size:.75em;opacity:.85;font-weight:400">'
+        + '\u25C6 LeanSys \u00b7 \u25C7 yerel</span>'
+        + '<span style="display:inline-flex;border:1px solid #cbd5e1;border-radius:8px;'
+        + 'overflow:hidden;">' + dugme('card', '\u25A6 Kart', kart)
+        + dugme('row', '\u2630 Satır', !kart) + '</span></div>';
+}
+
 function renderList(reports) {
     // Yerel (IndexedDB) sayıları sakla → paylaşımlı LeanSys 8D ile birleştirilir
     _localStat = {
@@ -2083,6 +2179,16 @@ function renderList(reports) {
     try {
         if (typeof _paintSb8d === 'function' && (_sb8dRows || []).length) _paintSb8d();
     } catch (e) { console.warn('LeanSys bölümü geri boyanamadı:', e); }
+        return;
+    }
+
+    // SATIR gorunumu: LeanSys bolumuyle ayni duzen, kaynak baklavali
+    if (_yerelGorunum === 'row') {
+        container.innerHTML = '<div class="supplier-group">' + _yerelBaslik(reports.length)
+            + _yerelSatirlar(reports) + '</div>';
+        try {
+            if (typeof _paintSb8d === 'function' && (_sb8dRows || []).length) _paintSb8d();
+        } catch (e) { console.warn('LeanSys bölümü geri boyanamadı:', e); }
         return;
     }
 
@@ -2127,8 +2233,7 @@ function renderList(reports) {
             <div class="report-card" onclick="openReportForEdit(${r.id})">
                 <div class="report-card-head">
                     <div>
-                        <div class="report-card-title">${(window.__yeni8D && window.__yeni8D.has(r.id))
-                            ? `<span title="Tedarikçi yeni 8D gönderdi (${esc((window.__yeni8D.get(r.id).ne||[]).map(x=>x.toUpperCase()).join(', '))}) — açıp 'Tedarikçiden Al' deyin" style="display:inline-block;background:#e65100;color:#fff;border-radius:5px;padding:0 6px;font-size:.8em;font-weight:700;margin-right:5px;">🔔 YENİ</span>` : ''}${esc(cardTitle)}</div>
+                        <div class="report-card-title">${_zilIsareti(r)}${_kaynakBaklava(r)} ${esc(cardTitle)}</div>
                         ${monthLbl ? `<div style="font-size:0.8em;color:#888;margin-top:2px;">${esc(monthLbl)}</div>` : ''}
                     </div>
                     <div class="report-card-actions" onclick="event.stopPropagation()">
