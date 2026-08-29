@@ -4387,6 +4387,26 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 + link + ' - ' + g.adet + ' kayit' + durum + '</div>';
         }
 
+        // ERP icinde SEKME olarak modul ac (PPAP ile ayni yol). Portal
+        // cevap vermezse (tek basina acilmis olabilir) yeni pencereye duser.
+        function _erpModulAc(modul, sorgu, yerelDosya) {
+            const yedek = () => window.open(yerelDosya + (sorgu ? '?' + sorgu : ''),
+                '_blank', 'noopener');
+            if (window.parent && window.parent !== window) {
+                try {
+                    let onay = false;
+                    const dinle = ev => { if (ev.data && ev.data.tip === 'erp-modul-ac-tamam') onay = true; };
+                    window.addEventListener('message', dinle);
+                    window.parent.postMessage({ tip: 'erp-modul-ac', modul: modul, sorgu: sorgu },
+                        window.location.origin);
+                    setTimeout(() => { window.removeEventListener('message', dinle); if (!onay) yedek(); }, 700);
+                    return;
+                } catch (e) { /* origin farkli -> yedek */ }
+            }
+            yedek();
+        }
+        function sekizDListeAc() { _erpModulAc('rapor8d', '', '8d-rapor.html'); }
+
         // 8D modulunu ERP icinde SEKME olarak ac (PPAP ile ayni yol).
         function sekizDAc(name) {
             const sorgu = 'ted=' + encodeURIComponent(name);
@@ -8044,6 +8064,71 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 + 'Bilgi kartına ekleyebilir ya da ayarlardan sabit adres verebilirsin.', 'info');
         }
 
+        // Acilista 8D/DOF bildirimi: acik 8D ve tedarikciden gelen YENI
+        // cevaplar ayni seritte gorunur. Sessiz calisir; Drive'a
+        // ulasilamazsa hic bant cikmaz.
+        async function sekizDAcilisUyarisi() {
+            if (window.__sekizDUyarisiVerildi) return;
+            window.__sekizDUyarisiVerildi = true;
+            try {
+                if (!db || !db.objectStoreNames.contains(REPORT_8D_STORE_NAME)) return;
+                const raporlar = await new Promise((cz, hata) => {
+                    const t = db.transaction([REPORT_8D_STORE_NAME], 'readonly');
+                    const r = t.objectStore(REPORT_8D_STORE_NAME).getAll();
+                    r.onsuccess = () => cz(r.result || []);
+                    r.onerror = () => hata(r.error);
+                });
+                if (!raporlar.length) return;
+
+                const acik = raporlar.filter(r => ((r.head && r.head.status) || 'Open') !== 'Closed');
+                const acikFirma = new Set(acik.map(r => r.supplierName || r.source).filter(Boolean));
+
+                // Tedarikciden yeni cevap: paylasimli raporlarin Drive
+                // damgasi yerelde gorulen damgadan farkli mi?
+                const cevaplar = [];
+                for (const r of raporlar.filter(x => x && x.paylasimKey)) {
+                    try {
+                        const uz = await driveJsonp({ action: 'getfile', name: r.paylasimKey });
+                        if (!uz || !uz.success || !uz.content) continue;
+                        const v = typeof uz.content === 'string' ? JSON.parse(uz.content) : uz.content;
+                        if (v.lastUpdatedBySupplier
+                            && v.lastUpdatedBySupplier !== r.gorulenTedarikciDamgasi) {
+                            cevaplar.push(r.supplierName || (r.head && r.head.reportNumber) || '');
+                        }
+                    } catch (e) { /* cevrimdisi / dosya yok -> sessiz gec */ }
+                }
+                if (!cevaplar.length && !acik.length) return;
+
+                const k = document.querySelector('.container') || document.getElementById('alertContainer');
+                if (!k) return;
+                const yeni = cevaplar.length > 0;
+                const kutu = document.createElement('div');
+                kutu.style.cssText = 'background:' + (yeni ? '#fff3e0' : '#eef4ff')
+                    + ';border:1px solid ' + (yeni ? '#ffcc80' : '#c7d7f5')
+                    + ';border-left:5px solid ' + (yeni ? '#e65100' : '#1e3c72')
+                    + ';border-radius:8px;padding:11px 14px;margin-bottom:10px;font-size:.92em;'
+                    + 'display:flex;align-items:center;gap:10px;flex-wrap:wrap;pointer-events:auto';
+                const parca = [];
+                if (yeni) parca.push('<b>' + cevaplar.length + ' tedarikçiden yeni 8D cevabı</b> geldi'
+                    + ' <span style="color:#666">(' + cevaplar.slice(0, 3).map(x =>
+                        String(x).replace(/[<>&]/g, '')).join(', ')
+                    + (cevaplar.length > 3 ? ' …' : '') + ')</span>');
+                if (acik.length) parca.push('<b>' + acik.length + ' açık 8D</b> var'
+                    + (acikFirma.size ? ' (' + acikFirma.size + ' tedarikçi/kaynak)' : ''));
+                kutu.innerHTML = '<span>' + (yeni ? '🔔' : '📋') + '</span>'
+                    + '<span>' + parca.join(' · ') + '</span>'
+                    + '<button style="margin-left:auto;padding:6px 12px;background:#1e3c72;color:#fff;'
+                    + 'border:0;border-radius:6px;cursor:pointer;font-weight:600">8D listesini aç</button>'
+                    + '<button style="padding:6px 10px;background:#fff;border:1px solid #ddd;'
+                    + 'border-radius:6px;cursor:pointer">Kapat</button>';
+                const dg = kutu.querySelectorAll('button');
+                dg[0].onclick = () => sekizDListeAc();
+                dg[1].onclick = () => kutu.remove();
+                if (k.firstChild) k.insertBefore(kutu, k.firstChild);
+                else k.appendChild(kutu);
+            } catch (e) { console.warn('8D bildirimi:', e && e.message); }
+        }
+
         // Acilista BIZE uyari: suresi yaklasan varsa bir kez bildir.
         function belgeAcilisUyarisi() {
             if (window.__belgeUyarisiVerildi) return;
@@ -8107,6 +8192,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const r = _eskiDisplayResults.apply(this, arguments);
                 try { belgeTakipRozetiniGuncelle(); } catch (e) {}
                 try { setTimeout(belgeAcilisUyarisi, 2500); } catch (e) {}
+                // 8D/DOF bildirimi: Drive taramasi yaptigi icin biraz
+                // sonra, belge bandi yerine oturduktan sonra calisir.
+                try { setTimeout(sekizDAcilisUyarisi, 4000); } catch (e) {}
                 try { bulutaYazPlanla(25000); } catch (e) {}
                 return r;
             };
