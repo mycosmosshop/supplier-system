@@ -4874,6 +4874,44 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         // Doküman sil (belirli dosya ID'si ile)
+        // Bir sertifikanin gecerlilik tarihini KALAN kabul edilmis
+        // belgelerden yeniden turetir. Belge silinince tarih eskisi gibi
+        // asili kalmasin: baska kabul edilmis belge varsa onun (en ileri)
+        // tarihine doner, hic kalmadiysa tarih ve "belge var" isareti
+        // temizlenir. Tur adi serbest metin oldugu icin ayni sertifikaya
+        // eslesen TUM turler taranir (ISO9001 / "ISO 9001 Belgesi" vb.).
+        function sertifikaTarihiTazele(supplierName, docType, record) {
+            const cert = (typeof _turAnahtari === 'function') ? _turAnahtari(docType) : null;
+            if (!cert) return null;
+            const su = (allResults || []).find(x => x.name === supplierName);
+            if (!su) return null;
+
+            let enIleri = '';
+            Object.keys((record && record.documents) || {}).forEach(tur => {
+                const c2 = _turAnahtari(tur);
+                if (!c2 || c2.key !== cert.key) return;
+                (record.documents[tur] || []).forEach(f => {
+                    if (!f || f.status !== 'approved') return;
+                    const t = String(f.expiryDate || '').slice(0, 10);
+                    if (t && !isNaN(new Date(t)) && (!enIleri || t > enIleri)) enIleri = t;
+                });
+            });
+
+            if (!su.certExpiryDates) su.certExpiryDates = {};
+            const onceki = su.certExpiryDates[cert.key] || '';
+            if (enIleri) {
+                su.certExpiryDates[cert.key] = enIleri;
+                su[cert.key] = true;
+            } else {
+                delete su.certExpiryDates[cert.key];
+                su[cert.key] = false;          // kabul edilmis belge kalmadi
+            }
+            try { saveSupplierCertData(); } catch (e) {}
+            try { belgeTakipRozetiniGuncelle(); } catch (e) {}
+            if (onceki === (enIleri || '')) return null;
+            return { cert: cert, onceki: onceki, yeni: enIleri };
+        }
+
         function deleteSupplierDocument(supplierName, docType, fileId, skipLog = false) {
             return new Promise((resolve, reject) => {
                 if (!db) {
@@ -4897,6 +4935,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             // SILME TASI: tedarikcinin eski kopyasindan geri
                             // dirilmesin (senkron uzaktakini geri getiriyordu).
                             try { silmeTasiEkle(record, docType, deletedFile, 'musteri'); } catch (e) {}
+                            // Sertifika tarihi KALAN kabul edilmis belgelerden
+                            // yeniden turetilir (silinen belgenin tarihi asili
+                            // kalmasin). Sonuc yerel degiskende tutulur; gecici
+                            // alan olarak kayda YAZILMAZ.
+                            let _sertDegisim = null;
+                            try { _sertDegisim = sertifikaTarihiTazele(supplierName, docType, record); } catch (e) {}
                             
                             // Eğer array boşsa, türü tamamen sil
                             if (record.documents[docType].length === 0) {
@@ -4907,6 +4951,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             
                             const putRequest = store.put(record);
                             putRequest.onsuccess = () => {
+                                // Cagirana bildirilecek; kayitta saklanmaz
+                                record.__sertifikaDegisimi = _sertDegisim;
                                 console.log(`🗑️ ${supplierName} - ${docType} dokümanı silindi`);
                                 if (!skipLog) {
                                     logActivity('document-delete', {
@@ -9716,8 +9762,19 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         async function deleteDocumentFromModal(supplierName, docType, fileId, fileName) {
             if (confirm(`${fileName} dokümanını silmek istediğinizden emin misiniz?`)) {
                 try {
-                    await deleteSupplierDocument(supplierName, docType, fileId);
+                    const _kayit = await deleteSupplierDocument(supplierName, docType, fileId);
                     showAlert(`✅ ${fileName} silindi (Drive'daki paylaşımdan da kaldırıldı)`, 'success');
+                    // Sertifika tarihi degistiyse ACIKCA bildir; sessizce eski
+                    // tarihe gore vade hesaplanmasin.
+                    const _d = _kayit && _kayit.__sertifikaDegisimi;
+                    if (_d) {
+                        showAlert(_d.yeni
+                            ? '📅 ' + _d.cert.label + ' geçerlilik tarihi kalan belgeye göre '
+                              + 'güncellendi: ' + new Date(_d.yeni).toLocaleDateString('tr-TR')
+                            : '⚠️ ' + _d.cert.label + ' için kabul edilmiş belge kalmadı — '
+                              + 'geçerlilik tarihi ve belge işareti kaldırıldı.',
+                            _d.yeni ? 'info' : 'warning');
+                    }
 
                     // Silme paylasim dosyasina yeni yazildi; modal
                     // acilisindaki oto-senkron ESKI dosyayi okuyup silineni

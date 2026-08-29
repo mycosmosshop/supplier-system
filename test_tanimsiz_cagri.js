@@ -30,7 +30,8 @@ const GEREKLI = {
         'otomatik8DDon', 'sekizDRozet', 'sekizDAc', 'sekizDEsitle', 'sekizDTalepMaili',
         'belgeTalepHtml', 'belgeleriBirlestir', 'silmeTasiEkle', 'paylasimOku',
         'paylasimaYaz', 'kararlariPaylas', '_dosyaAnahtari', 'belgeVadeleri',
-        'belgeVadeMetni', 'analizDurumGuncelle', 'updateDocumentStatus']
+        'belgeVadeMetni', 'analizDurumGuncelle', 'updateDocumentStatus',
+        'sertifikaTarihiTazele', 'sekizDAcilisUyarisi', '_erpModulAc', 'sekizDListeAc']
 };
 
 // MailSablon uzerinden cagrilanlar: sablonda gercekten var mi?
