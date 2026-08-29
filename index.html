@@ -33279,15 +33279,50 @@ Quality Team
             try {
                 // Tedarikçi adını parametre veya global değişkenden al
                 const supplierName = supplierNameOverride || currentDocShareSupplier || 'Tedarikçi';
-                
+
+                // SURESI YAKLASAN / DOLMUS BELGELER: rozet ve hatirlatma
+                // maili uyariyordu ama paylasim maili sabit metindi, hic
+                // soz etmiyordu. Hesap hazir (belgeVadeleri), mail de kullansin.
+                let _vade = [];
+                try {
+                    const _su = (typeof allResults !== 'undefined' && allResults || [])
+                        .find(x => x.name === supplierName);
+                    if (_su) _vade = belgeVadeleri(_su);
+                } catch (e) { _vade = []; }
+                const _dolmus = _vade.some(v => v.kalan < 0);
+
+                const vadeBlokTR = _vade.length ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏰ SÜRESİ YAKLAŞAN / DOLMUŞ BELGELER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${_vade.map(v => (v.kalan < 0 ? '\u26D4 ' : '\u23F0 ') + belgeVadeMetni(v)).join('\n')}
+
+Lütfen bu belgelerin GEÇERLİ kopyalarını aşağıdaki portaldan yükleyiniz.
+Belge yüklediğinizde "📤 Gönder" demeyi unutmayın.
+` : '';
+
+                const vadeBlokEN = _vade.length ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⏰ EXPIRING / EXPIRED CERTIFICATES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${_vade.map(v => { const g = new Date(v.tarih).toLocaleDateString('en-GB'); return (v.kalan < 0 ? '\u26D4 ' : '\u23F0 ') + v.ad + ' \u2014 ' + g + (v.kalan < 0 ? ' (expired ' + (-v.kalan) + ' days ago)' : ' (' + v.kalan + ' days left)'); }).join('\n')}
+
+Please upload valid copies of these certificates via the portal below,
+then press "📤 Send".
+` : '';
+
                 // Türkçe mail içeriği
-                const emailSubjectTR = `📄 Doküman Paylaşımı - ${supplierName}`;
+                const emailSubjectTR = _vade.length
+                    ? `${_dolmus ? '⛔' : '⏰'} Belge Yenileme Talebi ve Doküman Paylaşımı - ${supplierName}`
+                    : `📄 Doküman Paylaşımı - ${supplierName}`;
                 
                 const emailBodyTR = `
 Sayın Yetkili,
 
 ${supplierName} için doküman paylaşımı oluşturulmuştur. Lütfen gerekli dokümanları yükleyiniz ve güncelleyiniz.
-
+${vadeBlokTR}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 DOKÜMAN PORTAL ERIŞIMI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -33329,13 +33364,15 @@ Kalite Ekibi
 `.trim();
 
                 // İngilizce mail içeriği
-                const emailSubjectEN = `📄 Document Sharing - ${supplierName}`;
+                const emailSubjectEN = _vade.length
+                    ? `${_dolmus ? '⛔' : '⏰'} Certificate Renewal Request & Document Sharing - ${supplierName}`
+                    : `📄 Document Sharing - ${supplierName}`;
                 
                 const emailBodyEN = `
 Dear Sir/Madam,
 
 Document sharing has been created for ${supplierName}. Please upload and update the required documents.
-
+${vadeBlokEN}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 DOCUMENT PORTAL ACCESS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
