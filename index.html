@@ -4982,7 +4982,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                     <div style="padding: 8px; background: white; border-radius: 4px; margin-bottom: 6px; border-left: 3px solid ${statusColor};">
                                         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px;">
                                             <div style="flex: 1;">
-                                                <div style="font-size: 0.85em; color: #333; font-weight: 500;">📄 ${file.name}</div>
+                                                <div style="font-size: 0.85em; color: #333; font-weight: 500;">${(file.uploadedBySupplier && file.status !== 'approved' && file.status !== 'rejected') ? '<span style="display:inline-block;background:#e65100;color:#fff;border-radius:4px;padding:1px 6px;font-size:.85em;font-weight:700;margin-right:5px" title="Tedarikçi yükledi — henüz incelenmedi">⚠ YENİ</span>' : ''}📄 ${file.name}</div>
                                                 <div style="font-size: 0.75em; color: #666; margin-top: 2px;">
                                                     ${new Date(file.timestamp).toLocaleDateString('tr-TR')} • ${(file.size / 1024).toFixed(1)} KB ${file.uploadedBySupplier ? '• 📤 Tedarikçi' : '• 💼 Ana PC'}
                                                 </div>
