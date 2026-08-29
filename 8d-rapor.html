@@ -2140,6 +2140,33 @@ function _yerelFiltreli() {
         return da < db ? 1 : da > db ? -1 : 0;
     });
 }
+// Yerel kayit -> modulun kendi PDF formati: raporu forma yukle, yazdir.
+// LeanSys tarafindaki _export8dSbPdf ile ayni yol.
+function _yerelPdf(id) {
+    try {
+        openReportForEdit(id);
+        setTimeout(() => {
+            try { export8DReportPDF(); }
+            catch (e) { showAlert('\u274C PDF hatas\u0131: ' + e.message, 'error'); }
+        }, 400);
+    } catch (e) { showAlert('\u274C PDF hatas\u0131: ' + e.message, 'error'); }
+}
+
+// Yerel kayit -> FR13 Excel. Yerel raporun sekli (head, d1..d8) LeanSys
+// payload'i ile AYNI oldugu icin _docToFr13 dogrudan calisir.
+function _yerelFr13(id) {
+    if (!db) { showAlert('\u26A0\uFE0F Veritabani hazir degil!', 'error'); return; }
+    try {
+        const rq = db.transaction([STORE_8D], 'readonly').objectStore(STORE_8D).get(id);
+        rq.onsuccess = async () => {
+            if (!rq.result) { showAlert('\u274C Kayit bulunamadi.', 'error'); return; }
+            try { await _downloadFr13(_docToFr13(rq.result)); }
+            catch (e) { showAlert('\u274C FR13 hatasi: ' + e.message, 'error'); }
+        };
+        rq.onerror = () => showAlert('\u274C Kayit okunamadi.', 'error');
+    } catch (e) { showAlert('\u274C FR13 hatasi: ' + e.message, 'error'); }
+}
+
 function _yerelSb8dSatir(r, yonetici) {
     const st = (r.head && r.head.status) || 'Open';
     const cls = st === 'Closed' ? 'status-closed' : st === 'In Progress' ? 'status-inprogress' : 'status-open';
@@ -2163,6 +2190,10 @@ function _yerelSb8dSatir(r, yonetici) {
         + '<td style="padding:8px 10px;white-space:nowrap;" onclick="event.stopPropagation()">'
         + '<button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" '
         + 'onclick="openReportForEdit(' + r.id + ')">✏️</button> '
+        + '<button class="card-btn" style="background:#475569;color:#fff;" title="PDF indir" '
+        + 'onclick="_yerelPdf(' + r.id + ')">📄</button> '
+        + '<button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir" '
+        + 'onclick="_yerelFr13(' + r.id + ')">📊</button> '
         + '<button class="card-btn" style="background:#f44336;color:#fff;" title="Sil" '
         + 'onclick="deleteReportFromList(' + r.id + ',\'' + esc(escAttr(no)) + '\')">🗑️</button>'
         + '</td></tr>';
@@ -2180,6 +2211,10 @@ function _yerelSb8dKart(r) {
         + '<div class="report-card-actions" onclick="event.stopPropagation()">'
         + '<button class="card-btn" style="background:#2196F3;color:#fff;" title="Aç" '
         + 'onclick="openReportForEdit(' + r.id + ')">✏️</button>'
+        + '<button class="card-btn" style="background:#475569;color:#fff;" title="PDF indir" '
+        + 'onclick="_yerelPdf(' + r.id + ')">📄</button>'
+        + '<button class="card-btn" style="background:#059669;color:#fff;" title="FR13 Excel indir" '
+        + 'onclick="_yerelFr13(' + r.id + ')">📊</button>'
         + '<button class="card-btn" style="background:#f44336;color:#fff;" title="Sil" '
         + 'onclick="deleteReportFromList(' + r.id + ',\'' + esc(escAttr(no)) + '\')">🗑️</button>'
         + '</div></div>'
