@@ -1650,6 +1650,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
       });
     })();
     </script>
+<script src="mail-sablon.js"></script>
 </head>
 <body>
     <div class="header">
@@ -4297,17 +4298,64 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     r.onsuccess = () => cz(r.result || []);
                     r.onerror = () => hata(r.error);
                 });
+                // Talep = acilmis rapor · Cevaplanan = tedarikcinin
+                // D1-D7'den en az birini doldurdugu rapor
+                const _bolumDolu = b => {
+                    if (!b) return false;
+                    return Object.keys(b).some(x => {
+                        const v = b[x];
+                        if (Array.isArray(v)) return v.some(y => y
+                            && Object.keys(y).some(z => String(y[z] || '').trim()));
+                        return String(v == null ? '' : v).trim() !== '';
+                    });
+                };
                 const m = new Map();
                 kayitlar.forEach(k => {
                     const ad = String((k && k.supplierName) || '').trim();
                     if (!ad) return;
                     const anahtar = normalizeName(ad);
-                    if (!m.has(anahtar)) m.set(anahtar, { adet: 0, ad: ad });
-                    m.get(anahtar).adet++;
+                    if (!m.has(anahtar)) m.set(anahtar, { adet: 0, talep: 0, cevap: 0, ad: ad });
+                    const g = m.get(anahtar);
+                    g.adet++; g.talep++;
+                    if (['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7'].some(b => _bolumDolu(k[b]))
+                        || k.lastUpdatedBySupplier) g.cevap++;
                 });
                 window.__gercek8D = m;
                 console.log('📋 Ger\u00e7ek 8D kay\u0131tlar\u0131: ' + m.size + ' tedarik\u00e7i');
             } catch (e) { console.warn('8D kay\u0131tlar\u0131 okunamad\u0131:', e); }
+        }
+
+        // Otomatik sayilari allResults'a isle. ELLE girilen tedarikciye
+        // DOKUNMAZ. Risk puani da bu sayilardan beslendigi icin donus
+        // orani burada yeniden hesaplanir.
+        function otomatik8DUygula() {
+            if (!window.__gercek8D || typeof allResults === 'undefined' || !allResults) return 0;
+            let n = 0;
+            allResults.forEach(su => {
+                if (su.elle8D) return;                       // kullanici karari onceliklidir
+                const g = window.__gercek8D.get(normalizeName(su.name));
+                const talep = g ? g.talep : 0;
+                const cevap = g ? g.cevap : 0;
+                if ((+su.talepEdilen8D || 0) === talep && (+su.cevaplanan8D || 0) === cevap) return;
+                su.talepEdilen8D = talep;
+                su.cevaplanan8D = cevap;
+                su.donusOrani8D = talep === 0 ? 100
+                    : Math.min(100, (cevap / talep) * 100);
+                n++;
+            });
+            return n;
+        }
+
+        // Elle girilen degeri birak, otomatige don
+        async function otomatik8DDon(name) {
+            const su = (allResults || []).find(x => x.name === name);
+            if (!su) return;
+            delete su.elle8D;
+            otomatik8DUygula();
+            try { await save8DCounts(name, su.talepEdilen8D, su.cevaplanan8D, su.donusOrani8D); } catch (e) {}
+            if (typeof displayResults === 'function') displayResults();
+            showAlert('\u21BA ' + name + ' 8D say\u0131lar\u0131 otomati\u011fe d\u00f6nd\u00fc: '
+                + su.talepEdilen8D + ' talep / ' + su.cevaplanan8D + ' cevap', 'success');
         }
 
         function gercek8DAdet(name) {
@@ -4317,23 +4365,26 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
         // Satirda gorunen kucuk seri: gercek kayit sayisi + uyusmazlik.
         // Harita bossa BOS doner -> tablo eskisiyle birebir ayni cizilir.
+        // Hucre alti seridi: 8D moduluene link + otomatik/elle durumu
         function sekizDRozet(result) {
-            if (!window.__gercek8D || !window.__gercek8D.size) return '';
             const ad = result && result.name;
             if (!ad) return '';
-            const gercek = gercek8DAdet(ad);
-            const cevap = +result.cevaplanan8D || 0;
+            const g = window.__gercek8D && window.__gercek8D.get(normalizeName(ad));
             const A = JSON.stringify(ad).replace(/"/g, '&quot;');
-            if (!gercek) return '';
-            const uyusmaz = gercek !== cevap;
+            const link = '<span onclick="sekizDAc(' + A + ')" title="Bu tedarikci icin 8D '
+                + 'modulunu ac" style="cursor:pointer;color:#1e3c72;font-weight:700;'
+                + 'text-decoration:underline">8D</span>';
+            if (!g) return '<div style="margin-top:3px;font-size:.72em;white-space:nowrap">'
+                + link + '</div>';
+            const durum = result.elle8D
+                ? ' <span onclick="otomatik8DDon(' + A + ')" title="Elle girildi - tikla: '
+                  + 'gercek kayitlardan otomatige don (' + g.talep + ' talep / '
+                  + g.cevap + ' cevap)" style="cursor:pointer;background:#fff3e0;color:#e65100;'
+                  + 'border-radius:3px;padding:0 4px;font-weight:700">elle</span>'
+                : ' <span title="8D kayitlarindan otomatik: ' + g.talep + ' talep / '
+                  + g.cevap + ' cevap" style="color:#2e7d32;font-weight:600">otomatik</span>';
             return '<div style="margin-top:3px;font-size:.72em;white-space:nowrap">'
-                + '<span onclick="sekizDAc(' + A + ')" title="8D mod\u00fcl\u00fcnde bu tedarik\u00e7inin raporlar\u0131n\u0131 a\u00e7"'
-                + ' style="cursor:pointer;color:#1e3c72;font-weight:700">📋 ' + gercek + ' kay\u0131t</span>'
-                + (uyusmaz ? ' <span onclick="sekizDEsitle(' + A + ',' + gercek + ')"'
-                    + ' title="Cevaplanan 8D olarak ' + gercek + ' yaz (elle de\u011fi\u015ftirebilirsiniz)"'
-                    + ' style="cursor:pointer;background:#fff3e0;color:#e65100;border-radius:3px;'
-                    + 'padding:0 4px;font-weight:700">\u26A0 ' + cevap + '\u2192' + gercek + '</span>' : '')
-                + '</div>';
+                + link + ' - ' + g.adet + ' kayit' + durum + '</div>';
         }
 
         // 8D modulunu ERP icinde SEKME olarak ac (PPAP ile ayni yol).
@@ -15807,6 +15858,9 @@ function sinifTavaniSebep(s){
             const supplier = allResults.find(r => r.name === supplierName);
 
             if (supplier) {
+                // Elle giris otomatik hesaplamayi bu tedarikcide devre disi
+                // birakir; '\u21BA' ile geri donulebilir.
+                supplier.elle8D = true;
                 if (type === 'talep') {
                     supplier.talepEdilen8D = value;
                 } else if (type === 'cevap') {
@@ -33324,6 +33378,73 @@ Quality Team
             }
         }
 
+        // Belge/doküman talebi — sade kurumsal gövde (8D ile aynı biçim)
+        function belgeTalepHtml(supplierName, link, vade, turkce) {
+            const M = window.MailSablon;
+            const g = t => new Date(t).toLocaleDateString(turkce ? 'tr-TR' : 'en-GB');
+            const vadeTablosu = (vade || []).map(v => [
+                v.ad,
+                g(v.tarih) + (v.kalan < 0
+                    ? (turkce ? '  (süresi ' + (-v.kalan) + ' gün önce doldu)'
+                              : '  (expired ' + (-v.kalan) + ' days ago)')
+                    : (turkce ? '  (' + v.kalan + ' gün kaldı)'
+                              : '  (' + v.kalan + ' days left)'))
+            ]);
+            return M.sayfa({
+                baslik: turkce
+                    ? (vade && vade.length ? 'Belge Yenileme Talebi' : 'Doküman Paylaşımı')
+                    : (vade && vade.length ? 'Certificate Renewal Request' : 'Document Sharing'),
+                altbaslik: supplierName,
+                giris: turkce
+                    ? ['Sayın Yetkili,',
+                       // Giris satirlari HTML olarak basilir (kalin/vurgu icin);
+                       // firma adi disaridan geldigi icin KACIRILIR.
+                       M.esc(supplierName) + ' için doküman portalı açılmıştır. Gerekli belgeleri '
+                       + 'aşağıdaki bağlantıdan yükleyebilir, durumlarını takip edebilirsiniz.']
+                    : ['Dear Sir/Madam,',
+                       'A document portal has been opened for ' + M.esc(supplierName) + '. You can upload '
+                       + 'the required documents and follow their status from the link below.'],
+                govde: vadeTablosu.length ? [
+                    M.bolumBasligi(turkce ? 'Süresi yaklaşan / dolmuş belgeler'
+                                          : 'Expiring / expired certificates', M.renk.vurgu),
+                    M.tablo(vadeTablosu)
+                ] : [],
+                cta: { metin: turkce ? 'Doküman Portalını Aç' : 'Open Document Portal',
+                       link: link },
+                ctaSonrasi: [
+                    M.kutu(turkce ? 'Portalda neler yapabilirsiniz' : 'What you can do',
+                        turkce ? [
+                            'Sizden istenen tüm belge türlerini görürsünüz',
+                            'Her türe dosya yükleyebilir, açıklama ekleyebilirsiniz',
+                            'Belge durumunu takip edersiniz (İnceleniyor / Kabul / Ret)',
+                            'Müşteri yorumlarını görür, kendi yorumunuzu yazabilirsiniz'
+                        ] : [
+                            'See all document types requested from you',
+                            'Upload files and add descriptions for each type',
+                            'Follow document status (Under review / Accepted / Rejected)',
+                            'Read customer comments and add your own'
+                        ]),
+                    M.kutu(turkce ? 'Nasıl kullanılır' : 'How to use',
+                        turkce ? [
+                            '1. Yukarıdaki bağlantıya tıklayın',
+                            '2. İlgili türün altından <b>Dosya Yükle</b> deyin',
+                            '3. İşiniz bitince <b>Gönder</b> düğmesine basın',
+                            '4. <b>Yeni Değişiklikleri Al</b> ile kararlarımızı görürsünüz'
+                        ] : [
+                            '1. Click the link above',
+                            '2. Use <b>Upload File</b> under the relevant type',
+                            '3. Press <b>Send</b> when finished',
+                            '4. Use <b>Get New Changes</b> to see our review decisions'
+                        ])
+                ],
+                kapanis: vadeTablosu.length
+                    ? [turkce ? 'Lütfen yukarıda listelenen belgelerin geçerli kopyalarını yükleyiniz.'
+                              : 'Please upload valid copies of the certificates listed above.']
+                    : [],
+                imza: turkce ? 'Kalite Ekibi' : 'Quality Team'
+            });
+        }
+
         // Doküman Paylaşımı için Mail Gönder
         function sendDocumentShareEmail(shareUrl, serviceName, supplierNameOverride = null) {
             try {
@@ -33482,13 +33603,21 @@ Quality Team
                 const emailSubject = useTurkish ? emailSubjectTR : emailSubjectEN;
                 const emailBody = useTurkish ? emailBodyTR : emailBodyEN;
                 
-                // Mailto linki oluştur
-                const mailtoLink = `mailto:?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-                
-                // Mail istemcisini aç
-                window.location.href = mailtoLink;
-                
-                showAlert('✅ Mail istemciniz açılıyor...', 'success');
+                // Sade kurumsal gövde (mail-sablon.js) + basit mail yedeği.
+                // Aynı biçim 8D talebinde de kullanılıyor.
+                const _alici = ((typeof getSupplierInfo === 'function'
+                    && getSupplierInfo(supplierName)) || {}).email || '';
+                const _html = () => belgeTalepHtml(supplierName, shareUrl, _vade, useTurkish);
+                window.MailSablon.secimPenceresi({
+                    baslik: useTurkish ? 'Doküman portalı bağlantısı hazır' : 'Document portal link ready',
+                    alici: _alici, link: shareUrl,
+                    zengin: () => window.MailSablon.indir(
+                        'Dokuman-talebi-' + String(supplierName)
+                            .replace(/[^A-Za-z0-9]+/g, '_').slice(0, 30) + '.eml',
+                        window.MailSablon.eml({ alici: _alici, konu: emailSubject,
+                            damga: String(Date.now()), html: _html })),
+                    duz: () => window.MailSablon.mailto(_alici, emailSubject, emailBody)
+                });
                 
             } catch (error) {
                 console.error('Mail gönderme hatası:', error);
@@ -33912,7 +34041,10 @@ Quality Team
 
         // 8D Rapor sayısını güncelle
         async function update8DReportCount() {
-            try { await gercek8DSayilariYukle(); } catch (e) {}
+            try {
+                await gercek8DSayilariYukle();
+                if (otomatik8DUygula() && typeof displayResults === 'function') displayResults();
+            } catch (e) {}
             if (!db) {
                 document.getElementById('report8DCount').textContent = '0';
                 return;

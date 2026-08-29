@@ -36,27 +36,31 @@ const H = (ad, adet) => new Map([[ad.toLowerCase().replace(/[^a-z0-9]/gi, ''), {
 // 1) Harita bos -> rozet BOS (tablo eskisiyle birebir ayni cizilir)
 {
     const f = kur(new Map(), []);
-    assert.strictEqual(f.sekizDRozet({ name: 'BASF', cevaplanan8D: 0 }), '',
-        '1: harita boşken tabloya bir şey eklenmemeli');
-    console.log('✓ 1  gerçek kayıt yokken tablo eskisiyle birebir aynı');
+    const r = f.sekizDRozet({ name: 'BASF', cevaplanan8D: 0 });
+    // Link artik her satirda duruyor (kullanici istegi); sayi/durum yazisi
+    // yalniz gercek 8D kaydi varken cikar.
+    assert(/sekizDAc\(/.test(r), '1a: 8D linki yok');
+    assert(!/otomatik|elle|kayit/.test(r), '1b: kayıt yokken durum yazısı çıkmış');
+    console.log('✓ 1  kayıt yokken yalnızca 8D linki, sayı/durum yazısı yok');
 }
 
-// 2) Sayilar tutuyorsa sadece link, uyari YOK
+// 2) Kayit varsa: link + sayi + "otomatik"
 {
-    const f = kur(H('BASF', 3), []);
+    const f = kur(H('BASF', 3), [{ name: 'BASF' }]);
     const r = f.sekizDRozet({ name: 'BASF', cevaplanan8D: 3 });
-    assert(/3 kay/.test(r), '2a: kayıt sayısı yok');
-    assert(!/\u26A0/.test(r), '2b: gereksiz uyarı çıkmış');
-    assert(/sekizDAc\(/.test(r), '2c: 8D linki yok');
-    console.log('✓ 2  sayılar tutuyorsa sadece link, uyarı yok');
+    assert(/sekizDAc\(/.test(r), '2a: 8D linki yok');
+    assert(/3 kayit/.test(r), '2b: kayit sayisi yok: ' + r);
+    assert(/otomatik/.test(r), '2c: otomatik durumu yok');
+    console.log('✓ 2  kayit varsa link + sayi + "otomatik" gorunuyor');
 }
 
-// 3) Uyusmazlik -> uyari + esitleme teklifi
+// 3) Elle girilmisse otomatige donus baglantisi cikar
 {
-    const f = kur(H('BASF', 5), []);
-    const r = f.sekizDRozet({ name: 'BASF', cevaplanan8D: 2 });
-    assert(/\u26A0 2\u21925/.test(r), '3: uyuşmazlık gösterilmedi: ' + r);
-    console.log('✓ 3  uyuşmazlık "2→5" olarak uyarıyor');
+    const f = kur(H('BASF', 5), [{ name: 'BASF' }]);
+    const r = f.sekizDRozet({ name: 'BASF', cevaplanan8D: 2, elle8D: true });
+    assert(/otomatik8DDon\(/.test(r), '3a: otomatige donus baglantisi yok');
+    assert(/elle/.test(r), '3b');
+    console.log('✓ 3  elle girilmisse "otomatige don" baglantisi cikiyor');
 }
 
 // 4) Esitleme OTOMATIK yazmaz, update8D uzerinden gider
@@ -64,16 +68,17 @@ const H = (ad, adet) => new Map([[ad.toLowerCase().replace(/[^a-z0-9]/gi, ''), {
     sonUpdate = null;
     const f = kur(H('BASF', 5), []);
     f.sekizDEsitle('BASF', 5);
-    assert.deepStrictEqual(sonUpdate, ['BASF', 'cevap', 5], '4: eşitleme yanlış alana yazdı');
-    console.log('✓ 4  eşitleme sadece "Cevaplanan" alanını, onaydan sonra günceller');
+    assert.deepStrictEqual(sonUpdate, ['BASF', 'cevap', 5], '4: esitleme yanlis alana yazdi');
+    console.log('✓ 4  esitleme sadece "Cevaplanan" alanini, onaydan sonra gunceller');
 }
 
-// 5) Kaydi olmayan tedarikcide rozet cikmaz
+// 5) Kaydi olmayan tedarikcide yalniz link
 {
     const f = kur(H('BASF', 3), []);
-    assert.strictEqual(f.sekizDRozet({ name: 'AYPA', cevaplanan8D: 0 }), '',
-        '5: kaydı olmayan tedarikçide rozet çıkmış');
-    console.log('✓ 5  8D kaydı olmayan tedarikçide rozet çıkmıyor');
+    const r = f.sekizDRozet({ name: 'AYPA', cevaplanan8D: 0 });
+    assert(/sekizDAc\(/.test(r), '5a: link yok');
+    assert(!/otomatik|elle|kayit/.test(r), '5b: gereksiz durum yazisi');
+    console.log('✓ 5  kaydi olmayan tedarikcide yalniz 8D linki');
 }
 
 // 6) 8D talep maili: alici + termin + istenenler
