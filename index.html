@@ -5250,6 +5250,37 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         let currentDocShareSupplier = null;
 
         // Değişiklikleri kaydet ve Storj'a güncelle
+        // Kabul/red kararlarini ve yorumlari paylasim dosyasina yazar.
+        // "Degisiklikleri Kaydet ve Paylas" ile ayni icerik; sessiz calisir.
+        async function kararlariPaylas(supplierName, record) {
+            const ds = getDriveSettings();
+            if (!ds || !record || !record.sharedDriveKey) return;
+            const convDocs = {};
+            for (const [tur, dosyalar] of Object.entries(record.documents || {})) {
+                convDocs[tur] = (dosyalar || []).map(f => ({
+                    id: f.id, name: f.name, type: f.type, size: f.size,
+                    data: f.data || '', timestamp: f.timestamp,
+                    description: f.description || '', status: f.status || 'pending',
+                    reviewComment: f.reviewComment || '', reviewedAt: f.reviewedAt || null,
+                    supplierComment: f.supplierComment || '',
+                    supplierCommentDate: f.supplierCommentDate || null,
+                    uploadedBySupplier: f.uploadedBySupplier || false,
+                    expiryDate: f.expiryDate || ''
+                }));
+            }
+            const shareData = {
+                supplierName: supplierName, documents: convDocs,
+                exemptDocTypes: record.exemptDocTypes || [],
+                customTypes: record.customTypes || [],
+                certAlerts: belgeUyariOzeti(supplierName),
+                sharedAt: new Date().toISOString(), mode: 'supplier-upload'
+            };
+            await fetch(ds.url, { method: 'POST', mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: 'save', secret: ds.secret,
+                    name: record.sharedDriveKey, content: JSON.stringify(shareData) }) });
+        }
+
         async function saveAndShareDocumentChanges() {
             // Modal başlığından tedarikçi adını al
             const titleElement = document.getElementById('docModalTitle');
@@ -5803,6 +5834,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             + '\n\nBoş bırakırsanız bu sertifika süre takibine girmez.', '');
                         t = String(t || '').slice(0, 10);
                     }
+                    if (!t) {
+                        showAlert('⚠️ ' + cert.label + ' bitiş tarihi girilmedi — '
+                            + 'süre takibi ve tedarikçideki "süresi doluyor" uyarısı '
+                            + 'ESKİ tarihe göre devam eder. Kalite Belge Matrisi\'nden '
+                            + 'sonradan girebilirsiniz.', 'warning');
+                    }
                     if (t && !isNaN(new Date(t))) {
                         doc.expiryDate = t;
                         const su = (allResults || []).find(x => x.name === supplierName);
@@ -5821,6 +5858,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { refreshDocPresence(true); } catch (e) {}
                 try { belgeTakipRozetiniGuncelle(); } catch (e) {}
                 console.log('✅ ' + (doc.name || idxVeyaId) + ' durumu güncellendi: ' + newStatus);
+
+                // KARARI TEDARIKCIYE YANSIT: kabul/red yalniz yerelde
+                // kaliyordu; tedarikci linki acinca hala "Inceleme
+                // Surecinde" goruyordu. Paylasim varsa sessizce guncelle
+                // ("Degisiklikleri Kaydet ve Paylas"i elle aramaya gerek yok).
+                if (record.sharedDriveKey || record.sharedStorjKey) {
+                    try {
+                        await kararlariPaylas(supplierName, record);
+                        console.log('☁️ Karar tedarikçiye yansıtıldı');
+                    } catch (e) { console.warn('Karar paylaşılamadı:', e && e.message); }
+                }
             } catch (error) {
                 console.error('Durum güncelleme hatası:', error);
             }
