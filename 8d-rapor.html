@@ -2964,6 +2964,60 @@ async function _svgToDataUrl(svgEl) {
 /* ================================================================
    INIT
 ================================================================ */
+
+/* ── CMMS'ten 8D aktarimi ────────────────────────────────────────────
+   CMMS (bakim-yonetim-sistemi) ayni origin altinda; veriyi localStorage
+   ile devreder. Anahtar yoksa bu fonksiyon hicbir sey yapmaz ve mevcut
+   acilis akislari aynen isler. */
+function _cmms8dDevral() {
+    let p = null;
+    try { p = JSON.parse(localStorage.getItem('_cmms_8d') || 'null'); } catch (e) {}
+    if (!p || p.kaynak !== 'cmms' || !p.alanlar) return false;
+    localStorage.removeItem('_cmms_8d');          // bir kez kullanilir
+
+    current8DData = null;
+    clear8DForm();
+    const bas = p.baslik || 'CMMS kaydı';
+    const ft = document.getElementById('formTitle');
+    if (ft) ft.textContent = '📋 8D RAPOR — ' + bas;
+    const df = document.getElementById('deleteFormBtn');
+    if (df) df.style.display = 'none';
+
+    const a = p.alanlar;
+    const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+    set('f8d_d2_problem',        a.d2problem);
+    set('f8d_d2_symptom',        a.d2symptom);
+    set('f8d_d2_errorLocation',  a.d2errorLocation);
+    set('f8d_d2_errorType',      a.d2errorType);
+    set('f8d_d2_riskAssessment', a.d2riskAssessment);
+    set('f8d_d8_result',         a.d8result);
+
+    (a.d1 || []).forEach(x => addD1TeamMember(x));
+    (a.d3 || []).forEach(x => addD3Action(x));
+    (a.d4 || []).forEach(x => addD4RootCause(x.type || 'sco', x));
+    (a.d5 || []).forEach(x => addD5Action(x));
+    // D6 ve D7 bilerek bos: uygulama tarihi ve yaygınlastirma karari
+    // CMMS'te yok, uydurulmaz.
+
+    const bn = document.getElementById('sourceBanner');
+    if (bn) {
+        document.getElementById('sourceBannerIcon').textContent  = '🛠️';
+        document.getElementById('sourceBannerTitle').textContent = 'CMMS Bakım Sisteminden Aktarıldı';
+        document.getElementById('sourceBannerSub').textContent   =
+            bas + (p.zaman ? '  ›  ' + p.zaman : '');
+        document.getElementById('sourceBannerLink').href =
+            '../bakim-yonetim-sistemi/bakim_yonetim_sistemi.html';
+        bn.style.display = 'flex';
+    }
+
+    showFormView(null);
+    showAlert(p.kokVar
+        ? '✅ CMMS’ten aktarıldı. D6 ve D7’yi siz dolduracaksınız.'
+        : '⚠️ CMMS’ten aktarıldı — bu kaydın kök neden analizi yok, D3/D4 boş bırakıldı.',
+        p.kokVar ? 'success' : 'error');
+    return true;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     // TEDARIKCI KIPI yerel veritabanini KULLANMAZ (veri Drive'dan gelir,
     // Drive'a gider). openDB'den once bakilir: gizli sekmede / depolama
@@ -2980,6 +3034,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
         await openDB();
+
+        // CMMS'ten aktarim geldiyse formu onunla ac (anahtar yoksa atlanir)
+        if (_cmms8dDevral()) return;
 
         // URL parametresi varsa → doğrudan yeni form aç (diğer sayfalardan gelen 8D bağlantısı)
         const params    = new URLSearchParams(location.search);
