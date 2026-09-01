@@ -4064,11 +4064,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     else if (!_perfMailGecerli(to)) eksik.push('E-posta biçimi bozuk: ' + to);
                     if (!p.ppmTarget && !p.ppmActual && !p.defectTarget && !p.defectActual)
                         eksik.push(yil + ' için performans verisi yok');
+                    // Aylik ham veri: gonderim ayina kadar kesilecek
+                    // (kesme perfKuyrugaAl'de, tarih orada biliniyor).
+                    const _12 = (a) => Array.isArray(a) ? a.slice(0, 12) : [];
                     return {
                         ad: sp.name,
                         lokasyon: (sp.lokasyon || []).filter(l => PERF_LOKASYON.indexOf(l) >= 0),
                         to: to, cc: cc,
                         yil: yil,
+                        _sevk: _12(sp.monthlySevk),
+                        _iade: _12(sp.monthlyIade),
+                        _hata: _12(sp.monthlyHata),
                         ppmHedef: Number(p.ppmTarget) || 0,
                         ppm: Number(p.ppmActual) || 0,
                         ppmSonraki: Math.round(Number(p.ppmNextTarget) || 0),
@@ -4180,6 +4186,25 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 showAlert('❌ Deneme adresi geçerli değil.', 'warning'); return;
             }
 
+            // Gonderim ayina kadar olan aylari cikar: Mart'ta gonderiliyorsa
+            // Ocak, Subat, Mart. Sevkiyati olmayan ay atlanir (o ay is
+            // yapilmamis; "PPM 0" yazmak yaniltir).
+            const AY_ADI = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
+                            'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+            const sonAy = Number(String(gonderimTarihi).split('-')[1]) || 12;
+            const _aylikCikar = (r) => {
+                const a = [];
+                for (let i = 0; i < sonAy; i++) {
+                    const sevk = Number((r._sevk || [])[i]) || 0;
+                    const iade = Number((r._iade || [])[i]) || 0;
+                    const hata = Number((r._hata || [])[i]) || 0;
+                    if (!sevk && !iade && !hata) continue;
+                    a.push({ ad: AY_ADI[i], sevk: sevk, iade: iade, hata: hata,
+                             ppm: sevk > 0 ? Math.round(iade / sevk * 1000000) : 0 });
+                }
+                return a;
+            };
+
             // Deneme: ayni liste, ayni akis — yalnizca ALICI degisir.
             // Ceyrek etiketine (DENEME) eklenir ki gercek ceyregin onayi
             // sayilmasin; ad da [DENEME] ile isaretlenir.
@@ -4189,9 +4214,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Mailde gorunen DONEM etiketi yalnizca yil olsun; gonderim
             // tarihi ayri alanda duruyor, konuya iki kez yazilmasin.
             const ceyrek = String(yilEt) + (deneme ? ' (DENEME)' : '');
-            const gidecek = secili.map(r => deneme
-                ? Object.assign({}, r, { ad: '[DENEME] ' + r.ad, to: denemeAdres, cc: [] })
-                : r);
+            const gidecek = secili.map(r => {
+                const y = Object.assign({}, r, {
+                    aylar: _aylikCikar(r),
+                    donemAdi: AY_ADI[0] + '–' + AY_ADI[sonAy - 1],
+                    ppm: Math.round(Number(r.ppm) || 0),          // 8166.4203… basiliyordu
+                    ppmHedef: Math.round(Number(r.ppmHedef) || 0)
+                });
+                delete y._sevk; delete y._iade; delete y._hata;   // ham dizi kuyruga gitmesin
+                return deneme
+                    ? Object.assign(y, { ad: '[DENEME] ' + r.ad, to: denemeAdres, cc: [] })
+                    : y;
+            });
 
             const neZaman = gonderimTarihi <= _perfGunStr()
                 ? 'kısa süre içinde'
