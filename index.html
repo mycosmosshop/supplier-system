@@ -4059,11 +4059,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     // NOT: fonksiyonun adi buildPerformanceDataForSupplier ve
                     // ISIM degil TEDARIKCI NESNESI aliyor.
                     const p = buildPerformanceDataForSupplier(sp, yil) || {};
-                    const eksik = [];
-                    if (!to) eksik.push('Sorumlu kişi e-postası yok');
-                    else if (!_perfMailGecerli(to)) eksik.push('E-posta biçimi bozuk: ' + to);
+                    // ENGEL: gonderim fiziken imkansiz (adres yok/bozuk)
+                    // UYARI: gonderilebilir ama eksik — secmek kullanicinin karari
+                    const engel = [], uyari = [];
+                    if (!to) engel.push('Sorumlu kişi e-postası yok');
+                    else if (!_perfMailGecerli(to)) engel.push('E-posta biçimi bozuk: ' + to);
                     if (!p.ppmTarget && !p.ppmActual && !p.defectTarget && !p.defectActual)
-                        eksik.push(yil + ' için performans verisi yok');
+                        uyari.push(yil + ' performans verisi yok');
+                    const eksik = engel.concat(uyari);   // geriye donuk
                     // Aylik ham veri: gonderim ayina kadar kesilecek
                     // (kesme perfKuyrugaAl'de, tarih orada biliniyor).
                     const _12 = (a) => Array.isArray(a) ? a.slice(0, 12) : [];
@@ -4081,7 +4084,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         hataHedef: Number(p.defectTarget) || 0,
                         hata: Number(p.defectActual) || 0,
                         hataSonraki: Math.round(Number(p.defectNextTarget) || 0),
-                        eksik: eksik
+                        engel: engel, uyari: uyari, eksik: eksik
                     };
                 })
                 .sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
@@ -4098,24 +4101,34 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             tarihEl.value = tarihEl.value || _perfGunStr();
             _perfTarihDegisti();
 
-            const gonderilebilir = _perfListe.filter(r => !r.eksik.length).length;
-            const eksikli = _perfListe.length - gonderilebilir;
+            const hazir   = _perfListe.filter(r => !r.engel.length && !r.uyari.length).length;
+            const uyarili = _perfListe.filter(r => !r.engel.length && r.uyari.length).length;
+            const engelli = _perfListe.filter(r => r.engel.length).length;
             document.getElementById('perfBildirimOzet').innerHTML =
                 `<div style="padding:10px; background:#e8f5e9; border-left:4px solid #43a047; border-radius:4px;">
-                    <b>${gonderilebilir}</b> tedarikçiye gönderilebilir.
-                    ${eksikli ? `<span style="color:#e65100"> <b>${eksikli}</b> tedarikçi eksik bilgi yüzünden listede işaretli DEĞİL.</span>` : ''}
+                    <b>${hazir}</b> tedarikçi hazır (işaretli).
+                    ${uyarili ? ` <span style="color:#ef6c00"><b>${uyarili}</b> tedarikçide veri eksik — seçebilirsin, işaretli değil.</span>` : ''}
+                    ${engelli ? ` <span style="color:#c62828"><b>${engelli}</b> tedarikçinin e-posta adresi yok — gönderilemez.</span>` : ''}
                  </div>`;
 
             document.getElementById('perfBildirimSatirlar').innerHTML = _perfListe.map((r, i) => {
-                const kilitli = r.eksik.length > 0;
+                const kilitli = r.engel.length > 0;          // yalnizca ADRES engeli kilitler
                 const alici = kilitli ? '<span style="color:#c62828">—</span>'
                     : _infoAttr(r.to) + (r.cc.length ? `<div style="font-size:.85em;color:#777">CC: ${_infoAttr(r.cc.join(', '))}</div>` : '');
+                // Gerekce ADIN ALTINDA: tablo yatay kayiyordu ve "Durum"
+                // sutunu ekran disinda kalip neden secilemedigi gorunmuyordu.
+                const not = kilitli
+                    ? `<div style="font-size:.82em;color:#c62828;font-weight:400">⛔ ${_infoAttr(r.engel.join(' · '))}</div>`
+                    : (r.uyari.length
+                        ? `<div style="font-size:.82em;color:#ef6c00;font-weight:400">⚠️ ${_infoAttr(r.uyari.join(' · '))}</div>`
+                        : '');
                 const durum = kilitli
-                    ? `<span style="color:#e65100">⚠️ ${_infoAttr(r.eksik.join(' · '))}</span>`
-                    : '<span style="color:#2e7d32">Hazır</span>';
-                return `<tr${kilitli ? ' style="background:#fff8e1"' : ''}>
-                    <td><input type="checkbox" class="perf-sec" data-ix="${i}" ${kilitli ? 'disabled' : 'checked'}></td>
-                    <td style="font-weight:600">${_infoAttr(r.ad)}</td>
+                    ? '<span style="color:#c62828">Gönderilemez</span>'
+                    : (r.uyari.length ? '<span style="color:#ef6c00">Eksik veri</span>'
+                                      : '<span style="color:#2e7d32">Hazır</span>');
+                return `<tr${kilitli ? ' style="background:#ffebee"' : (r.uyari.length ? ' style="background:#fff8e1"' : '')}>
+                    <td><input type="checkbox" class="perf-sec" data-ix="${i}" ${kilitli ? 'disabled' : (r.uyari.length ? '' : 'checked')}></td>
+                    <td style="font-weight:600">${_infoAttr(r.ad)}${not}</td>
                     <td style="font-size:.9em;color:#666">${_infoAttr(r.lokasyon.join(', '))}</td>
                     <td style="font-size:.9em">${alici}</td>
                     <td style="text-align:right">${r.ppm}</td>
@@ -4126,7 +4139,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 </tr>`;
             }).join('') || '<tr><td colspan="9" style="padding:16px;color:#888">Ankara / Çerkezköy lokasyonlu onaylı tedarikçi bulunamadı.</td></tr>';
 
-            document.getElementById('perfHepsi').checked = gonderilebilir > 0;
+            document.getElementById('perfHepsi').checked = hazir > 0;
             // Deneme kutusu her acilista KAPALI baslar: unutulup gercek
             // gonderimin denemeye kacmasi (ya da tersi) olmasin.
             document.getElementById('perfDeneme').checked = false;
@@ -4177,7 +4190,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         async function perfKuyrugaAl() {
             const secili = Array.from(document.querySelectorAll('#perfBildirimSatirlar .perf-sec:checked'))
                 .map(x => _perfListe[+x.dataset.ix])
-                .filter(r => r && !r.eksik.length);
+                .filter(r => r && !r.engel.length);   // veri eksigi kullanicinin karari
             if (!secili.length) { showAlert('❌ Seçili gönderilebilir tedarikçi yok.', 'warning'); return; }
 
             const deneme = document.getElementById('perfDeneme').checked;
