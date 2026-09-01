@@ -97,11 +97,18 @@
             border: 1px solid #ddd; border-radius: 8px; padding: 14px;
             background: #f8f9fa; cursor: pointer;
             transition: box-shadow 0.2s, transform 0.2s;
+            /* Dar kartta (270px) dort dugme disari tasiyordu */
+            overflow: hidden; min-width: 0;
         }
         .report-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); transform: translateY(-2px); }
-        .report-card-head { display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px; }
-        .report-card-title { font-weight: 700; color: #1e3c72; font-size: 1.05em; }
-        .report-card-actions { display: flex; gap: 4px; }
+        .report-card-head { display: flex; justify-content: space-between; align-items: start;
+            margin-bottom: 10px; gap: 6px; flex-wrap: wrap; }
+        .report-card-head > div:first-child { min-width: 0; flex: 1 1 120px; }
+        .report-card-title { font-weight: 700; color: #1e3c72; font-size: 1.05em;
+            overflow-wrap: anywhere; }
+        /* Sigmazsa alt satira geçsin, kartın dışına taşmasın */
+        .report-card-actions { display: flex; gap: 4px; flex-wrap: wrap;
+            flex: 0 0 auto; justify-content: flex-end; }
         .card-btn { padding: 5px 9px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.82em; }
         .status-badge {
             display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 700;
@@ -3470,7 +3477,7 @@ function _paintSb8dBody(){
   const hdr=document.getElementById('sb8dHeader');
   if(hdr) hdr.innerHTML=`📋 8D Raporları &nbsp;<span style="font-size:0.8em;opacity:0.8;">`
     + `${_yer.length?_yer.length+' kendi + ':''}${shown.length}${(shown.length<rows.length)?'/'+rows.length:''} LeanSys</span>`
-    + (_yon?`<span style="float:right;font-size:.72em;opacity:.85;font-weight:400">◆ LeanSys · ◇ kendi kaydımız</span>`:'');
+    ;   // Kaynak sutunu basligindaki ipucu yeterli; ustteki aciklama kaldirildi
   // Bulk bar
   const selCount=_sb8dSelected.size;
   const bulk=document.getElementById('sb8dBulk');
