@@ -1934,12 +1934,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <button class="btn btn-primary" style="background: #1565c0; border-color: #1565c0; padding: 6px 12px; font-size: 0.85em;" onclick="exportSelectedPerformanceReportsExcel(true)">📊 Excel (Grafikli)</button>
                 </div>
                 
-                <!-- Çeyreklik Performans Bildirimi -->
+                <!-- Performans Bildirimi (gönderim tarihini kullanıcı seçer) -->
                 <div style="display: flex; gap: 8px; padding: 8px; background: #fff3e0; border-radius: 8px; border: 1px solid #fb8c00; align-items: center; flex-wrap: wrap;">
-                    <span style="font-weight: 600; color: #e65100; font-size: 0.9em;">📧 Çeyreklik Performans Bildirimi:</span>
+                    <span style="font-weight: 600; color: #e65100; font-size: 0.9em;">📧 Performans Bildirimi:</span>
                     <button class="btn btn-primary" style="background: #fb8c00; border-color: #fb8c00; padding: 6px 12px; font-size: 0.85em;"
                             onclick="openPerfBildirim()">📋 Listeyi hazırla ve onayla</button>
-                    <span style="font-size: 0.8em; color: #8d6e63;">Ankara + Çerkezköy · onaysız mail gitmez</span>
+                    <span style="font-size: 0.8em; color: #8d6e63;">Ankara + Çerkezköy · tarihi sen seçersin · onaysız mail gitmez</span>
                 </div>
 
                 <!-- Toplu Hedef Güncelleme -->
@@ -2776,11 +2776,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         </div>
     </div>
 
-    <!-- Çeyreklik Performans Bildirimi — onay ekranı -->
+    <!-- Performans Bildirimi — onay ekranı -->
     <div id="perfBildirimModal" class="modal-overlay" style="display: none;">
         <div class="modal-dialog" style="max-width: 1150px; width: 96%; max-height: 88vh; overflow: auto;">
             <div class="modal-header">
-                <h3>📧 Çeyreklik Performans Bildirimi — <span id="perfBildirimCeyrek"></span></h3>
+                <h3>📧 Performans Bildirimi — <span id="perfBildirimCeyrek"></span></h3>
                 <button class="modal-close" onclick="closePerfBildirim()">✕</button>
             </div>
             <div class="modal-body">
@@ -2797,6 +2797,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                            autocomplete="off" data-lpignore="true" data-1p-ignore
                            placeholder="kendi e-posta adresin" style="flex:1; min-width:220px; max-width:320px;"
                            oninput="_perfDenemeAdresKaydet()">
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+                            padding:8px 10px; background:#e8f5e9; border:1px solid #66bb6a;
+                            border-radius:6px; margin-bottom:12px;">
+                    <span style="font-weight:600; color:#2e7d32;">📅 Gönderim tarihi:</span>
+                    <input type="date" id="perfGonderimTarihi" class="filter-name-input"
+                           style="max-width:180px;" onchange="_perfTarihDegisti()">
+                    <span id="perfTarihBilgi" style="font-size:.85em; color:#558b2f;"></span>
                 </div>
                 <div id="perfBildirimOzet" style="margin-bottom: 12px;"></div>
                 <div style="max-height: 46vh; overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px;">
@@ -4009,9 +4017,19 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         const PERF_LOKASYON   = ['Ankara', 'Çerkezköy'];
         const PERF_DRIVE_AD   = 'PERFORMANS_KUYRUK.json';
 
-        function _perfCeyrek(d) {
+        // Yerel takvim gunu olarak YYYY-AA-GG. toISOString UTC'ye cevirir
+        // ve 03:00'ten once bir onceki gunu verir — daysDiff'te yasanan
+        // kaymanin aynisi.
+        function _perfGunStr(d) {
             d = d || new Date();
-            return d.getFullYear() + '-Q' + (Math.floor(d.getMonth() / 3) + 1);
+            const p = n => String(n).padStart(2, '0');
+            return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+        }
+
+        function _perfTarihGoster(g) {
+            if (!g) return '';
+            const p = String(g).split('-');
+            return p.length === 3 ? (p[2] + '.' + p[1] + '.' + p[0]) : String(g);
         }
 
         // Basit ama işe yarar e-posta kontrolü: boşluksuz, tek @, noktalı alan adı.
@@ -4068,7 +4086,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         function openPerfBildirim() {
             const yil = new Date().getFullYear();
             _perfListe = _perfAdaylar(yil);
-            document.getElementById('perfBildirimCeyrek').textContent = _perfCeyrek() + ' · ' + yil + ' yılı verisi';
+            document.getElementById('perfBildirimCeyrek').textContent = yil + ' yılı verisi';
+            // Varsayilan BUGUN: secmezsen hemen gider, ileri tarih secersen bekler
+            const tarihEl = document.getElementById('perfGonderimTarihi');
+            tarihEl.value = tarihEl.value || _perfGunStr();
+            _perfTarihDegisti();
 
             const gonderilebilir = _perfListe.filter(r => !r.eksik.length).length;
             const eksikli = _perfListe.length - gonderilebilir;
@@ -4125,6 +4147,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             btn.textContent = acik ? '🧪 Deneme gönderimi için kuyruğa al' : '✅ Onayla ve kuyruğa al';
         }
 
+        function _perfTarihDegisti() {
+            const g = document.getElementById('perfGonderimTarihi').value;
+            const bugun = _perfGunStr();
+            const el = document.getElementById('perfTarihBilgi');
+            if (!g) { el.textContent = 'Tarih seçilmedi.'; return; }
+            el.textContent = g <= bugun
+                ? 'Bugün veya geçmiş — onaylayınca kısa sürede gönderilir.'
+                : _perfTarihGoster(g) + ' tarihine kadar bekler, o gün gönderilir.';
+        }
+
         function closePerfBildirim() {
             document.getElementById('perfBildirimModal').style.display = 'none';
         }
@@ -4151,15 +4183,23 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Deneme: ayni liste, ayni akis — yalnizca ALICI degisir.
             // Ceyrek etiketine (DENEME) eklenir ki gercek ceyregin onayi
             // sayilmasin; ad da [DENEME] ile isaretlenir.
-            const ceyrek = _perfCeyrek() + (deneme ? ' (DENEME)' : '');
+            const gonderimTarihi = document.getElementById('perfGonderimTarihi').value;
+            if (!gonderimTarihi) { showAlert('❌ Gönderim tarihi seçilmedi.', 'warning'); return; }
+            const yilEt = new Date().getFullYear();
+            // Mailde gorunen DONEM etiketi yalnizca yil olsun; gonderim
+            // tarihi ayri alanda duruyor, konuya iki kez yazilmasin.
+            const ceyrek = String(yilEt) + (deneme ? ' (DENEME)' : '');
             const gidecek = secili.map(r => deneme
                 ? Object.assign({}, r, { ad: '[DENEME] ' + r.ad, to: denemeAdres, cc: [] })
                 : r);
 
+            const neZaman = gonderimTarihi <= _perfGunStr()
+                ? 'kısa süre içinde'
+                : _perfTarihGoster(gonderimTarihi) + ' tarihinde';
             if (!confirm((deneme
                     ? '🧪 DENEME — ' + gidecek.length + ' mailin HEPSİ ' + denemeAdres
-                      + ' adresine gidecek, tedarikçilere GİTMEYECEK.\n\n'
-                    : gidecek.length + ' tedarikçiye ' + ceyrek + ' performans maili gönderilecek.\n\n')
+                      + ' adresine ' + neZaman + ' gidecek, tedarikçilere GİTMEYECEK.\n\n'
+                    : gidecek.length + ' tedarikçiye performans maili ' + neZaman + ' gönderilecek.\n\n')
                 + gidecek.slice(0, 8).map(r => '• ' + r.ad + ' → ' + r.to).join('\n')
                 + (gidecek.length > 8 ? '\n… ve ' + (gidecek.length - 8) + ' tane daha' : '')
                 + '\n\nOnaylıyor musunuz?')) return;
@@ -4170,7 +4210,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 const ayar = getDriveSettings();
                 if (!ayar) throw new Error('Drive Script URL tanımlı değil');
                 const kuyruk = {
-                    ceyrek: ceyrek,
+                    ceyrek: ceyrek,                      // mailde gorunen donem etiketi
+                    gonderimTarihi: gonderimTarihi,      // bu tarihten ONCE gonderilmez
                     olusturma: new Date().toISOString(),
                     durum: 'onaylandi',
                     // BCC burada YAZILMAZ: gonderen hesabi Apps Script bilir
@@ -4185,9 +4226,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     body: JSON.stringify({ action: 'save', secret: ayar.secret,
                         name: PERF_DRIVE_AD, content: JSON.stringify(kuyruk) })
                 });
-                showAlert((deneme ? '🧪 DENEME: ' : '✅ ') + gidecek.length
-                    + (deneme ? ' mail ' + denemeAdres + ' adresine gitmek üzere kuyruğa alındı.'
-                              : ' tedarikçi ' + ceyrek + ' kuyruğuna alındı. Gönderimi Apps Script yapacak.'), 'success');
+                showAlert((deneme ? '🧪 DENEME: ' : '✅ ') + gidecek.length + ' mail '
+                    + (deneme ? denemeAdres + ' adresine ' : 'tedarikçilere ')
+                    + neZaman + ' gönderilmek üzere kuyruğa alındı.', 'success');
                 closePerfBildirim();
             } catch (e) {
                 showAlert('❌ Kuyruğa yazılamadı: ' + e.message, 'error');
