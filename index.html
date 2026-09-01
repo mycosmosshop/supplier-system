@@ -2719,29 +2719,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         <label>Dahili</label>
                         <input type="text" id="infoExtension" class="filter-name-input" placeholder="Dahili" />
                     </div>
-                    <div>
-                        <label>Sorumlu Yedek Kişi</label>
-                        <input type="text" id="infoBackupName" class="filter-name-input" placeholder="Ad Soyad" />
-                    </div>
-                    <div>
-                        <label>Ünvan</label>
-                        <input type="text" id="infoBackupTitle" class="filter-name-input" placeholder="Ünvan" />
-                    </div>
-                    <div>
-                        <label>E-posta</label>
-                        <input type="email" id="infoBackupEmail" class="filter-name-input" placeholder="email@firma.com" />
-                    </div>
-                    <div>
-                        <label>GSM</label>
-                        <input type="text" id="infoBackupGsm" class="filter-name-input" placeholder="0(5xx) xxx xx xx" />
-                    </div>
-                    <div>
-                        <label>Telefon2</label>
-                        <input type="text" id="infoBackupPhone2" class="filter-name-input" placeholder="Telefon 2" />
-                    </div>
-                    <div>
-                        <label>Dahili</label>
-                        <input type="text" id="infoBackupExtension" class="filter-name-input" placeholder="Dahili" />
+                    <div style="grid-column: span 3;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+                            <label style="margin:0">Sorumlu Yedek Kişi(ler)</label>
+                            <button type="button" class="btn btn-secondary" style="padding:3px 12px; font-size:.85em;"
+                                    onclick="_yedekEkle()">＋ Yedek kişi ekle</button>
+                        </div>
+                        <div id="infoBackupList"></div>
                     </div>
                     <div style="grid-column: span 3; margin-top: 6px; padding-top: 10px; border-top: 2px solid #0f4c81;">
                         <label style="font-weight: 700; color: #0f4c81;">🛡️ PSCR — Ürün Güvenliği ve Uygunluk Temsilcisi</label>
@@ -6332,6 +6316,99 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             a.style.display = u ? '' : 'none';
         }
 
+        // ── Yedek kişi(ler) — birden fazla olabilir ──
+        // Eski kayıtlarda tek yedek kişi vardı (backupName/backupTitle/...).
+        // Okuma sırası: backups dizisi varsa o, yoksa eski alanlardan tek
+        // kişi üretilir. Böylece hiçbir mevcut kayıt kaybolmaz.
+        const _YEDEK_ALAN = [
+            { k:'name',      etiket:'Ad Soyad',  tip:'text',  ip:'Ad Soyad' },
+            { k:'title',     etiket:'Ünvan',     tip:'text',  ip:'Ünvan' },
+            { k:'email',     etiket:'E-posta',   tip:'email', ip:'email@firma.com' },
+            { k:'gsm',       etiket:'GSM',       tip:'text',  ip:'0(5xx) xxx xx xx' },
+            { k:'phone2',    etiket:'Telefon2',  tip:'text',  ip:'Telefon 2' },
+            { k:'extension', etiket:'Dahili',    tip:'text',  ip:'Dahili' }
+        ];
+
+        function _infoYedekOku(info) {
+            info = info || {};
+            if (Array.isArray(info.backups) && info.backups.length) return info.backups;
+            // Eski tek-kişi biçimi
+            const eski = {
+                name: info.backupName || '', title: info.backupTitle || '',
+                email: info.backupEmail || '', gsm: info.backupGsm || '',
+                phone2: info.backupPhone2 || '', extension: info.backupExtension || ''
+            };
+            return Object.values(eski).some(v => String(v).trim()) ? [eski] : [];
+        }
+
+        // HTML value niteligine kacislama. Tirnak iceren bir isim
+        // ("15\" kalip" gibi) kacislanmazsa formu bozar.
+        function _infoAttr(v) {
+            return String(v == null ? '' : v)
+                .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function _yedekSatirHtml(y, ix, adet) {
+            const alanlar = _YEDEK_ALAN.map(a =>
+                `<div>
+                    <label style="font-size:.9em">${a.etiket}</label>
+                    <input type="${a.tip}" data-y="${a.k}" class="filter-name-input"
+                           placeholder="${a.ip}" value="${_infoAttr(y[a.k])}" />
+                </div>`).join('');
+            return `<div class="yedek-satir" style="border:1px solid #e5e7eb; border-radius:6px; padding:10px; margin-bottom:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+                    <span style="font-size:.85em; color:#666; font-weight:600;">Yedek Kişi ${ix + 1}</span>
+                    <button type="button" class="btn btn-secondary" style="padding:2px 10px; font-size:.8em;"
+                            onclick="_yedekSil(${ix})" title="Bu yedek kişiyi kaldır">✕ Kaldır</button>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">${alanlar}</div>
+            </div>`;
+        }
+
+        function _yedekCiz(liste) {
+            const kap = document.getElementById('infoBackupList');
+            if (!kap) return;
+            kap.innerHTML = liste.length
+                ? liste.map((y, i) => _yedekSatirHtml(y, i, liste.length)).join('')
+                : `<div style="font-size:.85em; color:#888; padding:6px 0;">Yedek kişi yok — “＋ Yedek kişi ekle” ile ekleyebilirsiniz.</div>`;
+        }
+
+        // Formdakileri oku.
+        //   ham=true  -> satirlar oldugu gibi (yeniden cizim icin; yoksa
+        //                yeni eklenen BOS satir hemen silinir ve "+ ekle"ye
+        //                iki kez basmak tek satir uretir)
+        //   ham=false -> bos satirlar atilir (KAYIT icin; yanlislikla
+        //                eklenip doldurulmayan satir kayda girmesin)
+        function _yedekTopla(ham) {
+            return Array.from(document.querySelectorAll('#infoBackupList .yedek-satir'))
+                .map(r => {
+                    const y = {};
+                    _YEDEK_ALAN.forEach(a => {
+                        const el = r.querySelector('[data-y="' + a.k + '"]');
+                        y[a.k] = el ? el.value.trim() : '';
+                    });
+                    return y;
+                })
+                .filter(y => ham || Object.values(y).some(v => v));
+        }
+
+        function _yedekEkle() {
+            const liste = _yedekTopla(true);      // yazilanlari koru (bos satir dahil)
+            liste.push({ name:'', title:'', email:'', gsm:'', phone2:'', extension:'' });
+            _yedekCiz(liste);
+        }
+
+        function _yedekSil(ix) {
+            // Silmeden once formu oku: dolu satirlar kaybolmasin.
+            // NOT: DOM sirasindan degil dogrudan satir dugumunden siliniyor.
+            const satirlar = Array.from(document.querySelectorAll('#infoBackupList .yedek-satir'));
+            const hedef = satirlar[ix];
+            if (!hedef) return;
+            hedef.remove();
+            _yedekCiz(_yedekTopla(true));   // kalan bos satirlar da dursun
+        }
+
         function openSupplierInfoModal(supplierName) {
             const modal = document.getElementById('supplierInfoModal');
             if (!modal) {
@@ -6357,12 +6434,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             document.getElementById('infoGsm').value = info.gsm || '';
             document.getElementById('infoPhone2').value = info.phone2 || '';
             document.getElementById('infoExtension').value = info.extension || '';
-            document.getElementById('infoBackupName').value = info.backupName || '';
-            document.getElementById('infoBackupTitle').value = info.backupTitle || '';
-            document.getElementById('infoBackupEmail').value = info.backupEmail || '';
-            document.getElementById('infoBackupGsm').value = info.backupGsm || '';
-            document.getElementById('infoBackupPhone2').value = info.backupPhone2 || '';
-            document.getElementById('infoBackupExtension').value = info.backupExtension || '';
+            _yedekCiz(_infoYedekOku(info));
             document.getElementById('infoPscrName').value = info.pscrName || '';
             document.getElementById('infoPscrTitle').value = info.pscrTitle || '';
             document.getElementById('infoPscrEmail').value = info.pscrEmail || '';
@@ -8629,6 +8701,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 return;
             }
 
+            const _yedekYaz = _yedekTopla();
+            const _yedek0 = _yedekYaz[0] || {};
+
             const info = {
                 material: document.getElementById('infoMaterial').value || '',
                 type: document.getElementById('infoType').value || '',
@@ -8640,12 +8715,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 gsm: document.getElementById('infoGsm').value || '',
                 phone2: document.getElementById('infoPhone2').value || '',
                 extension: document.getElementById('infoExtension').value || '',
-                backupName: document.getElementById('infoBackupName').value || '',
-                backupTitle: document.getElementById('infoBackupTitle').value || '',
-                backupEmail: document.getElementById('infoBackupEmail').value || '',
-                backupGsm: document.getElementById('infoBackupGsm').value || '',
-                backupPhone2: document.getElementById('infoBackupPhone2').value || '',
-                backupExtension: document.getElementById('infoBackupExtension').value || '',
+                // Tum yedek kisiler
+                backups: _yedekYaz,
+                // ESKI ALANLAR: ilk yedek kisiden doldurulur. Bunlari okuyan
+                // yerler (eski Drive kayitlari, baska istemciler) bozulmasin.
+                backupName: _yedek0.name || '',
+                backupTitle: _yedek0.title || '',
+                backupEmail: _yedek0.email || '',
+                backupGsm: _yedek0.gsm || '',
+                backupPhone2: _yedek0.phone2 || '',
+                backupExtension: _yedek0.extension || '',
                 pscrName: document.getElementById('infoPscrName').value || '',
                 pscrTitle: document.getElementById('infoPscrTitle').value || '',
                 pscrEmail: document.getElementById('infoPscrEmail').value || '',
@@ -20687,12 +20766,18 @@ function sinifTavaniSebep(s){
                     { label: 'GSM', value: supplierInfo.gsm },
                     { label: 'Telefon 2', value: supplierInfo.phone2 },
                     { label: 'Dahili', value: supplierInfo.extension },
-                    { label: 'Yedek Kişi', value: supplierInfo.backupName },
-                    { label: 'Yedek Ünvan', value: supplierInfo.backupTitle },
-                    { label: 'Yedek E-posta', value: supplierInfo.backupEmail },
-                    { label: 'Yedek GSM', value: supplierInfo.backupGsm },
-                    { label: 'Yedek Telefon 2', value: supplierInfo.backupPhone2 },
-                    { label: 'Yedek Dahili', value: supplierInfo.backupExtension },
+                    // Yedek kisiler: bir taneden fazlaysa basliklar numaralanir
+                    ..._infoYedekOku(supplierInfo).flatMap((y, ix, hepsi) => {
+                        const n = hepsi.length > 1 ? ' ' + (ix + 1) : '';
+                        return [
+                            { label: 'Yedek Kişi' + n,      value: y.name },
+                            { label: 'Yedek Ünvan' + n,     value: y.title },
+                            { label: 'Yedek E-posta' + n,   value: y.email },
+                            { label: 'Yedek GSM' + n,       value: y.gsm },
+                            { label: 'Yedek Telefon 2' + n, value: y.phone2 },
+                            { label: 'Yedek Dahili' + n,    value: y.extension }
+                        ];
+                    }),
                     { label: 'PSCR Sorumlusu', value: supplierInfo.pscrName },
                     { label: 'PSCR Ünvan', value: supplierInfo.pscrTitle },
                     { label: 'PSCR E-posta', value: supplierInfo.pscrEmail },
