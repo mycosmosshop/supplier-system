@@ -2686,6 +2686,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         <label>Müşteri(ler)</label>
                         <input type="text" id="infoCustomers" class="filter-name-input" placeholder="Müşteri(ler)" />
                     </div>
+                    <div style="grid-column: span 3;">
+                        <label>Web Sitesi</label>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="url" id="infoWebsite" class="filter-name-input" style="flex: 1;"
+                                   placeholder="www.firma.com" oninput="_infoWebsiteSync()" />
+                            <a id="infoWebsiteOpen" href="#" target="_blank" rel="noopener noreferrer"
+                               class="btn btn-secondary" style="white-space: nowrap; display: none;">🔗 Siteyi aç</a>
+                        </div>
+                    </div>
                     <div>
                         <label>Sorumlu Kişi</label>
                         <input type="text" id="infoPrimaryName" class="filter-name-input" placeholder="Ad Soyad" />
@@ -6300,6 +6309,29 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         // ======== Tedarikçi Bilgileri Modal Fonksiyonları ========
+        // "www.firma.com" gibi şemasız adresleri https'e tamamlar.
+        // YALNIZCA http/https kabul edilir: bu değer kapsamlı raporda
+        // bağlantı olarak basılıyor, javascript: gibi şemalar girmemeli.
+        function _infoSiteUrl(v) {
+            const t = String(v || '').trim();
+            if (!t) return '';
+            const aday = /^https?:\/\//i.test(t) ? t : 'https://' + t.replace(/^\/+/, '');
+            try {
+                const u = new URL(aday);
+                return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '';
+            } catch (e) { return ''; }
+        }
+
+        // Geçerli adres varsa "Siteyi aç" düğmesini göster
+        function _infoWebsiteSync() {
+            const inp = document.getElementById('infoWebsite');
+            const a = document.getElementById('infoWebsiteOpen');
+            if (!inp || !a) return;
+            const u = _infoSiteUrl(inp.value);
+            a.href = u || '#';
+            a.style.display = u ? '' : 'none';
+        }
+
         function openSupplierInfoModal(supplierName) {
             const modal = document.getElementById('supplierInfoModal');
             if (!modal) {
@@ -6317,6 +6349,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             document.getElementById('infoMaterial').value = info.material || '';
             document.getElementById('infoType').value = info.type || '';
             document.getElementById('infoCustomers').value = info.customers || '';
+            document.getElementById('infoWebsite').value = info.website || '';
+            _infoWebsiteSync();
             document.getElementById('infoPrimaryName').value = info.primaryName || '';
             document.getElementById('infoTitle').value = info.title || '';
             document.getElementById('infoPrimaryEmail').value = info.primaryEmail || '';
@@ -8599,6 +8633,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 material: document.getElementById('infoMaterial').value || '',
                 type: document.getElementById('infoType').value || '',
                 customers: document.getElementById('infoCustomers').value || '',
+                website: document.getElementById('infoWebsite').value || '',
                 primaryName: document.getElementById('infoPrimaryName').value || '',
                 title: document.getElementById('infoTitle').value || '',
                 primaryEmail: document.getElementById('infoPrimaryEmail').value || '',
@@ -20645,6 +20680,7 @@ function sinifTavaniSebep(s){
                     { label: 'Malzeme(ler)', value: supplierInfo.material },
                     { label: 'Üretici/Satıcı', value: supplierInfo.type },
                     { label: 'Müşteri(ler)', value: supplierInfo.customers },
+                    { label: 'Web Sitesi', value: supplierInfo.website, link: true },
                     { label: 'Sorumlu Kişi', value: supplierInfo.primaryName },
                     { label: 'Ünvan', value: supplierInfo.title },
                     { label: 'E-posta', value: supplierInfo.primaryEmail },
@@ -20674,7 +20710,11 @@ function sinifTavaniSebep(s){
                         infoHTML += `
                             <div style="padding: 10px; background: #f0f9ff; border-left: 3px solid #2196f3; border-radius: 4px;">
                                 <div style="font-size: 0.85em; color: #666; margin-bottom: 3px;">${icon} ${field.label}</div>
-                                <div style="font-size: 0.95em; font-weight: 500; color: #333; word-break: break-word;">${field.value}</div>
+                                <div style="font-size: 0.95em; font-weight: 500; color: #333; word-break: break-word;">${
+                                    field.link && _infoSiteUrl(field.value)
+                                        ? `<a href="${_infoSiteUrl(field.value).replace(/"/g, '&quot;')}" target="_blank" rel="noopener noreferrer" style="color:#1565c0">${String(field.value).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</a>`
+                                        : field.value
+                                }</div>
                             </div>
                         `;
                     }
