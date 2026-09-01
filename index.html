@@ -1934,6 +1934,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <button class="btn btn-primary" style="background: #1565c0; border-color: #1565c0; padding: 6px 12px; font-size: 0.85em;" onclick="exportSelectedPerformanceReportsExcel(true)">📊 Excel (Grafikli)</button>
                 </div>
                 
+                <!-- Çeyreklik Performans Bildirimi -->
+                <div style="display: flex; gap: 8px; padding: 8px; background: #fff3e0; border-radius: 8px; border: 1px solid #fb8c00; align-items: center; flex-wrap: wrap;">
+                    <span style="font-weight: 600; color: #e65100; font-size: 0.9em;">📧 Çeyreklik Performans Bildirimi:</span>
+                    <button class="btn btn-primary" style="background: #fb8c00; border-color: #fb8c00; padding: 6px 12px; font-size: 0.85em;"
+                            onclick="openPerfBildirim()">📋 Listeyi hazırla ve onayla</button>
+                    <span style="font-size: 0.8em; color: #8d6e63;">Ankara + Çerkezköy · onaysız mail gitmez</span>
+                </div>
+
                 <!-- Toplu Hedef Güncelleme -->
                 <div style="display: flex; gap: 8px; padding: 8px; background: #e3f2fd; border-radius: 8px; border: 1px solid #2196f3; align-items: center; flex-wrap: wrap;">
                     <span style="font-weight: 600; color: #1565c0; font-size: 0.9em;">🎯 Toplu Hedef Güncelleme (Seçili):</span>
@@ -2764,6 +2772,41 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeSupplierInfoModal()">Kapat</button>
                 <button class="btn btn-primary" onclick="saveSupplierInfo()">Kaydet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Çeyreklik Performans Bildirimi — onay ekranı -->
+    <div id="perfBildirimModal" class="modal-overlay" style="display: none;">
+        <div class="modal-dialog" style="max-width: 1150px; width: 96%; max-height: 88vh; overflow: auto;">
+            <div class="modal-header">
+                <h3>📧 Çeyreklik Performans Bildirimi — <span id="perfBildirimCeyrek"></span></h3>
+                <button class="modal-close" onclick="closePerfBildirim()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="perfBildirimOzet" style="margin-bottom: 12px;"></div>
+                <div style="max-height: 46vh; overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px;">
+                    <table class="table" style="width: 100%; font-size: .86em;">
+                        <thead style="position: sticky; top: 0; background: #fafafa;">
+                            <tr>
+                                <th style="width: 34px;"><input type="checkbox" id="perfHepsi" onchange="_perfHepsiSec(this)"></th>
+                                <th>Tedarikçi</th><th>Lokasyon</th><th>Alıcı</th>
+                                <th style="text-align:right">PPM</th><th style="text-align:right">Hedef</th>
+                                <th style="text-align:right">Hata</th><th style="text-align:right">Hedef</th>
+                                <th>Durum</th>
+                            </tr>
+                        </thead>
+                        <tbody id="perfBildirimSatirlar"></tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 10px; font-size: .82em; color: #666;">
+                    Onayladığında liste Drive'a yazılır; gönderimi Apps Script yapar (senin Gmail
+                    hesabından). Her gönderimin bir kopyası sana BCC olarak gelir.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePerfBildirim()">Kapat</button>
+                <button class="btn btn-primary" id="perfOnayBtn" onclick="perfKuyrugaAl()">✅ Onayla ve kuyruğa al</button>
             </div>
         </div>
     </div>
@@ -3942,6 +3985,159 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
         
         // Tedarikçi durumunu al (yoksa varsayılan: ONAYLI)
+        // ══════════════════════════════════════════════════════════
+        //  ÇEYREKLİK TEDARİKÇİ PERFORMANS BİLDİRİMİ
+        // ══════════════════════════════════════════════════════════
+        // Yılda 4 kez (1 Ocak/Nisan/Temmuz/Ekim) Ankara ve Çerkezköy
+        // tedarikçilerine performans maili. Gönderim ONAYA bağlıdır:
+        // kuyruk burada hazırlanır, kullanıcı onaylar, Apps Script
+        // gönderir. Onaysız hiçbir mail dışarı çıkmaz.
+        const PERF_LOKASYON   = ['Ankara', 'Çerkezköy'];
+        const PERF_DRIVE_AD   = 'PERFORMANS_KUYRUK.json';
+
+        function _perfCeyrek(d) {
+            d = d || new Date();
+            return d.getFullYear() + '-Q' + (Math.floor(d.getMonth() / 3) + 1);
+        }
+
+        // Basit ama işe yarar e-posta kontrolü: boşluksuz, tek @, noktalı alan adı.
+        // Amaç geçerliliği kanıtlamak değil, AÇIKÇA bozuk adresi dışarı
+        // göndermemek (yanlış adrese giden performans maili geri alınamaz).
+        function _perfMailGecerli(e) {
+            e = String(e || '').trim();
+            return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+        }
+
+        // Kuyruk adayları: ONAYLI + lokasyonu Ankara ya da Çerkezköy.
+        // Adresi olmayan/bozuk olanlar ATLANMAZ, "eksik" olarak işaretlenir:
+        // sessizce düşerlerse kimin haber almadığı görünmez.
+        function _perfAdaylar(yil) {
+            yil = yil || new Date().getFullYear();
+            const kaynak = (typeof allResults !== 'undefined' && allResults.length)
+                ? allResults : (lastFilteredResults || []);
+            return kaynak
+                .filter(sp => getSupplierStatus(sp.name) === 'ONAYLI')
+                .filter(sp => (sp.lokasyon || []).some(l => PERF_LOKASYON.indexOf(l) >= 0))
+                .map(sp => {
+                    const info = getSupplierInfo(sp.name) || {};
+                    const to = String(info.primaryEmail || '').trim();
+                    const cc = _infoYedekOku(info)
+                        .map(y => String(y.email || '').trim())
+                        .filter(_perfMailGecerli);
+                    const p = buildPerformanceData(sp.name, yil) || {};
+                    const eksik = [];
+                    if (!to) eksik.push('Sorumlu kişi e-postası yok');
+                    else if (!_perfMailGecerli(to)) eksik.push('E-posta biçimi bozuk: ' + to);
+                    if (!p.ppmTarget && !p.ppmActual && !p.defectTarget && !p.defectActual)
+                        eksik.push(yil + ' için performans verisi yok');
+                    return {
+                        ad: sp.name,
+                        lokasyon: (sp.lokasyon || []).filter(l => PERF_LOKASYON.indexOf(l) >= 0),
+                        to: to, cc: cc,
+                        yil: yil,
+                        ppmHedef: Number(p.ppmTarget) || 0,
+                        ppm: Number(p.ppmActual) || 0,
+                        ppmSonraki: Math.round(Number(p.ppmNextTarget) || 0),
+                        hataHedef: Number(p.defectTarget) || 0,
+                        hata: Number(p.defectActual) || 0,
+                        hataSonraki: Math.round(Number(p.defectNextTarget) || 0),
+                        eksik: eksik
+                    };
+                })
+                .sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
+        }
+
+        let _perfListe = [];
+
+        function openPerfBildirim() {
+            const yil = new Date().getFullYear();
+            _perfListe = _perfAdaylar(yil);
+            document.getElementById('perfBildirimCeyrek').textContent = _perfCeyrek() + ' · ' + yil + ' yılı verisi';
+
+            const gonderilebilir = _perfListe.filter(r => !r.eksik.length).length;
+            const eksikli = _perfListe.length - gonderilebilir;
+            document.getElementById('perfBildirimOzet').innerHTML =
+                `<div style="padding:10px; background:#e8f5e9; border-left:4px solid #43a047; border-radius:4px;">
+                    <b>${gonderilebilir}</b> tedarikçiye gönderilebilir.
+                    ${eksikli ? `<span style="color:#e65100"> <b>${eksikli}</b> tedarikçi eksik bilgi yüzünden listede işaretli DEĞİL.</span>` : ''}
+                 </div>`;
+
+            document.getElementById('perfBildirimSatirlar').innerHTML = _perfListe.map((r, i) => {
+                const kilitli = r.eksik.length > 0;
+                const alici = kilitli ? '<span style="color:#c62828">—</span>'
+                    : _infoAttr(r.to) + (r.cc.length ? `<div style="font-size:.85em;color:#777">CC: ${_infoAttr(r.cc.join(', '))}</div>` : '');
+                const durum = kilitli
+                    ? `<span style="color:#e65100">⚠️ ${_infoAttr(r.eksik.join(' · '))}</span>`
+                    : '<span style="color:#2e7d32">Hazır</span>';
+                return `<tr${kilitli ? ' style="background:#fff8e1"' : ''}>
+                    <td><input type="checkbox" class="perf-sec" data-ix="${i}" ${kilitli ? 'disabled' : 'checked'}></td>
+                    <td style="font-weight:600">${_infoAttr(r.ad)}</td>
+                    <td style="font-size:.9em;color:#666">${_infoAttr(r.lokasyon.join(', '))}</td>
+                    <td style="font-size:.9em">${alici}</td>
+                    <td style="text-align:right">${r.ppm}</td>
+                    <td style="text-align:right;color:#666">${r.ppmHedef}</td>
+                    <td style="text-align:right">${r.hata}</td>
+                    <td style="text-align:right;color:#666">${r.hataHedef}</td>
+                    <td style="font-size:.85em">${durum}</td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="9" style="padding:16px;color:#888">Ankara / Çerkezköy lokasyonlu onaylı tedarikçi bulunamadı.</td></tr>';
+
+            document.getElementById('perfHepsi').checked = gonderilebilir > 0;
+            document.getElementById('perfBildirimModal').style.display = 'flex';
+        }
+
+        function closePerfBildirim() {
+            document.getElementById('perfBildirimModal').style.display = 'none';
+        }
+
+        function _perfHepsiSec(cb) {
+            document.querySelectorAll('#perfBildirimSatirlar .perf-sec:not(:disabled)')
+                .forEach(x => { x.checked = cb.checked; });
+        }
+
+        // Onaylananlari Drive'a yaz. Gonderimi Apps Script yapar; buradan
+        // hicbir mail gitmez.
+        async function perfKuyrugaAl() {
+            const secili = Array.from(document.querySelectorAll('#perfBildirimSatirlar .perf-sec:checked'))
+                .map(x => _perfListe[+x.dataset.ix])
+                .filter(r => r && !r.eksik.length);
+            if (!secili.length) { showAlert('❌ Seçili gönderilebilir tedarikçi yok.', 'warning'); return; }
+
+            const ceyrek = _perfCeyrek();
+            if (!confirm(secili.length + ' tedarikçiye ' + ceyrek + ' performans maili gönderilecek.\n\n'
+                + secili.slice(0, 8).map(r => '• ' + r.ad + ' → ' + r.to).join('\n')
+                + (secili.length > 8 ? '\n… ve ' + (secili.length - 8) + ' tedarikçi daha' : '')
+                + '\n\nOnaylıyor musunuz?')) return;
+
+            const btn = document.getElementById('perfOnayBtn');
+            btn.disabled = true; btn.textContent = '⏳ Kuyruğa yazılıyor…';
+            try {
+                const ayar = getDriveSettings();
+                if (!ayar) throw new Error('Drive Script URL tanımlı değil');
+                const kuyruk = {
+                    ceyrek: ceyrek,
+                    olusturma: new Date().toISOString(),
+                    durum: 'onaylandi',
+                    // BCC burada YAZILMAZ: gonderen hesabi Apps Script bilir
+                    // (Session.getEffectiveUser). Buraya uydurma bir adres
+                    // koymak sessizce bos BCC uretirdi.
+                    kayitlar: secili.map(r => Object.assign({}, r, { eksik: undefined, gonderildi: false }))
+                };
+                await fetch(ayar.url, {
+                    method: 'POST', mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'save', secret: ayar.secret,
+                        name: PERF_DRIVE_AD, content: JSON.stringify(kuyruk) })
+                });
+                showAlert('✅ ' + secili.length + ' tedarikçi ' + ceyrek + ' kuyruğuna alındı. Gönderimi Apps Script yapacak.', 'success');
+                closePerfBildirim();
+            } catch (e) {
+                showAlert('❌ Kuyruğa yazılamadı: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false; btn.textContent = '✅ Onayla ve kuyruğa al';
+            }
+        }
+
         function getSupplierStatus(supplierName) {
             const normalizedName = normalizeName(supplierName);
             return supplierStatusMap.get(normalizedName) || 'ONAYLI';
