@@ -2985,6 +2985,21 @@ function _cmms8dDevral() {
 
     const a = p.alanlar;
     const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+
+    // Baslik (Head Data) — yalnizca CMMS'in bildikleri gelir.
+    // Hatali parca adedi alanlari bilerek bos: makine arizasinin tekrar
+    // sayisi hatali parca adedi DEGILDIR.
+    const h = a.head || {};
+    set('f8d_title',             h.title);
+    set('f8d_subject',           h.subject);
+    set('f8d_defectDescription', h.defectDescription);
+    set('f8d_partName',          h.partName);
+    set('f8d_partNumber',        h.partNumber);
+    set('f8d_startDate',         h.startDate);
+    set('f8d_currentDate',       h.currentDate);
+    set('f8d_detectionPoint',    h.detectionPoint);
+    set('f8d_customer',          h.customer);
+    set('f8d_additionalInfo',    h.additionalInfo);
     set('f8d_d2_problem',        a.d2problem);
     set('f8d_d2_symptom',        a.d2symptom);
     set('f8d_d2_errorLocation',  a.d2errorLocation);
