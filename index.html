@@ -2671,11 +2671,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                     <div style="grid-column: span 3;">
                         <label>Malzeme(ler)</label>
-                        <input type="text" id="infoMaterial" class="filter-name-input" placeholder="Malzeme(ler)" />
+                        <input type="text" id="infoMaterial" class="filter-name-input" placeholder="Malzeme(ler)" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div style="grid-column: span 3;">
                         <label>Üretici/Satıcı</label>
-                        <select id="infoType" class="filter-name-input">
+                        <select id="infoType" class="filter-name-input" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore>
                             <option value="">Seçiniz</option>
                             <option value="Üretici">Üretici</option>
                             <option value="Satıcı">Satıcı</option>
@@ -2684,40 +2684,40 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </div>
                     <div style="grid-column: span 3;">
                         <label>Müşteri(ler)</label>
-                        <input type="text" id="infoCustomers" class="filter-name-input" placeholder="Müşteri(ler)" />
+                        <input type="text" id="infoCustomers" class="filter-name-input" placeholder="Müşteri(ler)" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div style="grid-column: span 3;">
                         <label>Web Sitesi</label>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <input type="url" id="infoWebsite" class="filter-name-input" style="flex: 1;"
-                                   placeholder="www.firma.com" oninput="_infoWebsiteSync()" />
+                                   placeholder="www.firma.com" oninput="_infoWebsiteSync()" autocomplete="url" data-lpignore="true" data-1p-ignore data-bwignore />
                             <a id="infoWebsiteOpen" href="#" target="_blank" rel="noopener noreferrer"
                                class="btn btn-secondary" style="white-space: nowrap; display: none;">🔗 Siteyi aç</a>
                         </div>
                     </div>
                     <div>
                         <label>Sorumlu Kişi</label>
-                        <input type="text" id="infoPrimaryName" class="filter-name-input" placeholder="Ad Soyad" />
+                        <input type="text" id="infoPrimaryName" class="filter-name-input" placeholder="Ad Soyad" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>Ünvan</label>
-                        <input type="text" id="infoTitle" class="filter-name-input" placeholder="Ünvan" />
+                        <input type="text" id="infoTitle" class="filter-name-input" placeholder="Ünvan" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>E-posta</label>
-                        <input type="email" id="infoPrimaryEmail" class="filter-name-input" placeholder="email@firma.com" />
+                        <input type="email" id="infoPrimaryEmail" class="filter-name-input" placeholder="email@firma.com" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>GSM</label>
-                        <input type="text" id="infoGsm" class="filter-name-input" placeholder="0(5xx) xxx xx xx" />
+                        <input type="text" id="infoGsm" class="filter-name-input" placeholder="0(5xx) xxx xx xx" autocomplete="tel" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>Telefon2</label>
-                        <input type="text" id="infoPhone2" class="filter-name-input" placeholder="Telefon 2" />
+                        <input type="text" id="infoPhone2" class="filter-name-input" placeholder="Telefon 2" autocomplete="tel" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>Dahili</label>
-                        <input type="text" id="infoExtension" class="filter-name-input" placeholder="Dahili" />
+                        <input type="text" id="infoExtension" class="filter-name-input" placeholder="Dahili" autocomplete="tel-extension" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div style="grid-column: span 3;">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
@@ -2733,31 +2733,31 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </div>
                     <div>
                         <label>PSCR Sorumlusu</label>
-                        <input type="text" id="infoPscrName" class="filter-name-input" placeholder="Ad Soyad" />
+                        <input type="text" id="infoPscrName" class="filter-name-input" placeholder="Ad Soyad" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>Ünvan</label>
-                        <input type="text" id="infoPscrTitle" class="filter-name-input" placeholder="Ünvan" />
+                        <input type="text" id="infoPscrTitle" class="filter-name-input" placeholder="Ünvan" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>E-posta</label>
-                        <input type="email" id="infoPscrEmail" class="filter-name-input" placeholder="email@firma.com" />
+                        <input type="email" id="infoPscrEmail" class="filter-name-input" placeholder="email@firma.com" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>GSM</label>
-                        <input type="text" id="infoPscrGsm" class="filter-name-input" placeholder="0(5xx) xxx xx xx" />
+                        <input type="text" id="infoPscrGsm" class="filter-name-input" placeholder="0(5xx) xxx xx xx" autocomplete="tel" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>Telefon2</label>
-                        <input type="text" id="infoPscrPhone2" class="filter-name-input" placeholder="Telefon 2" />
+                        <input type="text" id="infoPscrPhone2" class="filter-name-input" placeholder="Telefon 2" autocomplete="tel" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div>
                         <label>Dahili</label>
-                        <input type="text" id="infoPscrExtension" class="filter-name-input" placeholder="Dahili" />
+                        <input type="text" id="infoPscrExtension" class="filter-name-input" placeholder="Dahili" autocomplete="tel-extension" data-lpignore="true" data-1p-ignore data-bwignore />
                     </div>
                     <div style="grid-column: span 3;">
                         <label>Adres</label>
-                        <textarea id="infoAddress" class="filter-name-input" rows="3" placeholder="Adres"></textarea>
+                        <textarea id="infoAddress" class="filter-name-input" rows="3" placeholder="Adres" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore></textarea>
                     </div>
                 </div>
             </div>
@@ -6320,13 +6320,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // Eski kayıtlarda tek yedek kişi vardı (backupName/backupTitle/...).
         // Okuma sırası: backups dizisi varsa o, yoksa eski alanlardan tek
         // kişi üretilir. Böylece hiçbir mevcut kayıt kaybolmaz.
+        // ac: autocomplete. Tarayici alan tipini kendi tahmin ederse
+        // "Dahili" alanini e-posta sanip kullanicinin adresini yaziyor.
         const _YEDEK_ALAN = [
-            { k:'name',      etiket:'Ad Soyad',  tip:'text',  ip:'Ad Soyad' },
-            { k:'title',     etiket:'Ünvan',     tip:'text',  ip:'Ünvan' },
-            { k:'email',     etiket:'E-posta',   tip:'email', ip:'email@firma.com' },
-            { k:'gsm',       etiket:'GSM',       tip:'text',  ip:'0(5xx) xxx xx xx' },
-            { k:'phone2',    etiket:'Telefon2',  tip:'text',  ip:'Telefon 2' },
-            { k:'extension', etiket:'Dahili',    tip:'text',  ip:'Dahili' }
+            { k:'name',      etiket:'Ad Soyad',  tip:'text',  ip:'Ad Soyad',        ac:'off' },
+            { k:'title',     etiket:'Ünvan',     tip:'text',  ip:'Ünvan',           ac:'off' },
+            { k:'email',     etiket:'E-posta',   tip:'email', ip:'email@firma.com', ac:'off' },
+            { k:'gsm',       etiket:'GSM',       tip:'text',  ip:'0(5xx) xxx xx xx',ac:'tel' },
+            { k:'phone2',    etiket:'Telefon2',  tip:'text',  ip:'Telefon 2',       ac:'tel' },
+            { k:'extension', etiket:'Dahili',    tip:'text',  ip:'Dahili',          ac:'tel-extension' }
         ];
 
         function _infoYedekOku(info) {
@@ -6354,6 +6356,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 `<div>
                     <label style="font-size:.9em">${a.etiket}</label>
                     <input type="${a.tip}" data-y="${a.k}" class="filter-name-input"
+                           autocomplete="${a.ac}" data-lpignore="true" data-1p-ignore data-bwignore
                            placeholder="${a.ip}" value="${_infoAttr(y[a.k])}" />
                 </div>`).join('');
             return `<div class="yedek-satir" style="border:1px solid #e5e7eb; border-radius:6px; padding:10px; margin-bottom:10px;">
