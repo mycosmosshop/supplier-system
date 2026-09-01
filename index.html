@@ -4038,7 +4038,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     const cc = _infoYedekOku(info)
                         .map(y => String(y.email || '').trim())
                         .filter(_perfMailGecerli);
-                    const p = buildPerformanceData(sp.name, yil) || {};
+                    // NOT: fonksiyonun adi buildPerformanceDataForSupplier ve
+                    // ISIM degil TEDARIKCI NESNESI aliyor.
+                    const p = buildPerformanceDataForSupplier(sp, yil) || {};
                     const eksik = [];
                     if (!to) eksik.push('Sorumlu kişi e-postası yok');
                     else if (!_perfMailGecerli(to)) eksik.push('E-posta biçimi bozuk: ' + to);
