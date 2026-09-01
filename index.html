@@ -8106,8 +8106,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // Bu sayfa TEDARIKCI performansi icin. Ic DOF'ler (CMMS bakim
                 // kaydi, genel vb.) tedarikci gibi sayilmamali — kaynak
                 // "Tedarikci" olanlar ayrilir, digerleri ic 8D olarak anilir.
-                const acik   = acikHepsi.filter(r => (r.source || 'Tedarikçi') === 'Tedarikçi');
-                const acikIc = acikHepsi.filter(r => (r.source || 'Tedarikçi') !== 'Tedarikçi');
+                // Bu sayfa TEDARIKCI performansi. Ic DOF'ler (CMMS bakim kaydi,
+                // genel vb.) buraya HIC girmez — sayilmaz, yazilmaz. Kendi
+                // listeleri 8D Raporlar modulunde.
+                const acik = acikHepsi.filter(r => (r.source || 'Tedarikçi') === 'Tedarikçi');
                 const acikFirma = new Set(acik.map(r => r.supplierName).filter(Boolean));
 
                 // Tedarikciden yeni cevap: paylasimli raporlarin Drive
@@ -8124,7 +8126,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         }
                     } catch (e) { /* cevrimdisi / dosya yok -> sessiz gec */ }
                 }
-                if (!cevaplar.length && !acik.length && !acikIc.length) return;
+                if (!cevaplar.length && !acik.length) return;
 
                 const k = document.querySelector('.container') || document.getElementById('alertContainer');
                 if (!k) return;
@@ -8140,10 +8142,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     + ' <span style="color:#666">(' + cevaplar.slice(0, 3).map(x =>
                         String(x).replace(/[<>&]/g, '')).join(', ')
                     + (cevaplar.length > 3 ? ' …' : '') + ')</span>');
-                if (acik.length) parca.push('<b>' + acik.length + ' açık tedarikçi 8D</b> var'
+                if (acik.length) parca.push('<b>' + acik.length + ' açık 8D</b> var'
                     + (acikFirma.size ? ' (' + acikFirma.size + ' tedarikçi)' : ''));
-                if (acikIc.length) parca.push('<b>' + acikIc.length + ' açık iç 8D</b>'
-                    + ' <span style="color:#666">(tedarikçi kaynaklı değil)</span>');
                 kutu.innerHTML = '<span>' + (yeni ? '🔔' : '📋') + '</span>'
                     + '<span>' + parca.join(' · ') + '</span>'
                     + '<button style="margin-left:auto;padding:6px 12px;background:#1e3c72;color:#fff;'
