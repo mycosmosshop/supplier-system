@@ -2983,6 +2983,13 @@ function _cmms8dDevral() {
     const df = document.getElementById('deleteFormBtn');
     if (df) df.style.display = 'none';
 
+    // IC 8D: kaynak "Genel / Diger". Tedarikci alani yalnizca kaynak
+    // "Tedarikci" iken zorunlu; varsayilanda kalirsa kaydederken
+    // "Tedarikci seciniz!" diyor — oysa bu ic bir DOF.
+    const srcEl = document.getElementById('meta_source');
+    if (srcEl) srcEl.value = 'Genel';
+    if (typeof onSourceChange === 'function') onSourceChange(bas);
+
     const a = p.alanlar;
     const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
 
