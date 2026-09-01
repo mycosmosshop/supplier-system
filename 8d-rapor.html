@@ -2173,17 +2173,25 @@ function _yerelSb8dSatir(r, yonetici) {
     const ico = st === 'Closed' ? '✓' : st === 'In Progress' ? '◐' : '○';
     const no = (r.head && r.head.reportNumber) || '—';
     const kaynak = (r.source && r.source !== 'Tedarikçi') ? r.source : (r.supplierName || '—');
+    // Tespit yeri zaten lokasyon bilgisidir; yoksa kaynaga duser.
+    const yer = (r.head && r.head.detectionPoint) || kaynak;
+    // Yerel id'ler 'y' onekli: Supabase id'leriyle ayni sayilar olabilir,
+    // karisirsa toplu silme yanlis kaydi siler.
+    const sid = 'y' + r.id;
+    const sec = _sb8dSelected.has(sid);
     const tarih = _isoToTrShort((r.head && r.head.startDate) || r.timestamp || '');
     return '<tr style="border-bottom:1px solid #eef2f7;cursor:pointer;background:#fcfdff;" '
         + 'onclick="openReportForEdit(' + r.id + ')" '
         + 'onmouseover="this.style.background=\'#f1f5f9\'" '
         + 'onmouseout="this.style.background=\'#fcfdff\'">'
-        + '<td style="padding:6px 8px;"></td>'
+        + '<td style="padding:6px 8px;" onclick="event.stopPropagation()">'
+        + '<input type="checkbox" ' + (sec ? 'checked ' : '')
+        + 'onclick="_toggle8dSelect(\'' + sid + '\',event)"></td>'
         + (yonetici ? '<td style="padding:8px 6px;text-align:center;">' + _kaynakBaklava(r) + '</td>' : '')
         + '<td style="padding:8px 10px;font-weight:700;white-space:nowrap;">'
         + _zilIsareti(r) + esc(no) + '</td>'
         + '<td style="padding:8px 10px;">' + esc((r.head && r.head.title) || r.konu || '') + '</td>'
-        + '<td style="padding:8px 10px;white-space:nowrap;">' + esc(kaynak) + '</td>'
+        + '<td style="padding:8px 10px;white-space:nowrap;">' + esc(yer) + '</td>'
         + '<td style="padding:8px 10px;white-space:nowrap;color:#475569;">📅 ' + tarih + '</td>'
         + '<td style="padding:8px 10px;white-space:nowrap;">'
         + '<span class="status-badge ' + cls + '">' + ico + ' ' + esc(st) + '</span></td>'
@@ -2991,7 +2999,19 @@ function _cmms8dDevral() {
     if (typeof onSourceChange === 'function') onSourceChange(bas);
 
     const a = p.alanlar;
-    const set = (id, v) => { const el = document.getElementById(id); if (el && v) el.value = v; };
+    // <select>'e karsiligi olmayan deger atamak sessizce hicbir sey yapmaz
+    // (Tespit Yeri boyle bos kaliyordu). Secenek yoksa eklenir.
+    const set = (id, v) => {
+        const el = document.getElementById(id);
+        if (!el || !v) return;
+        if (el.tagName === 'SELECT' &&
+            ![].some.call(el.options, o => o.value === v)) {
+            const o = document.createElement('option');
+            o.value = o.textContent = v;
+            el.appendChild(o);
+        }
+        el.value = v;
+    };
 
     // Baslik (Head Data) — yalnizca CMMS'in bildikleri gelir.
     // Hatali parca adedi alanlari bilerek bos: makine arizasinin tekrar
@@ -3335,10 +3355,29 @@ function _toggle8dSelect(id,ev){ ev.stopPropagation(); if(_sb8dSelected.has(id))
 function _selectAllSb8d(shown){ shown.forEach(s=>_sb8dSelected.add(s.id)); _paintSb8dBody(); }
 function _clearSelSb8d(){ _sb8dSelected.clear(); _paintSb8dBody(); }
 async function _deleteSelectedSb8d(){
-  const ids=[..._sb8dSelected];
-  if(!ids.length) return;
-  if(!confirm('Seçili '+ids.length+' kayıt SİLİNECEK.\n\n• Yalnız Supabase (paylaşımlı arşiv) ve bu listeden kalkar.\n• LeanSys\'e KESİNLİKLE dokunulmaz.\n\nDevam?')) return;
+  const hepsi=[..._sb8dSelected];
+  if(!hepsi.length) return;
+  // Yerel kayitlar IndexedDB'de, Supabase kayitlari uzakta; ID'ler ayni
+  // sayi olabilir. 'y' onekli olanlari AYIRMADAN silmek, ayni id'li
+  // alakasiz bir Supabase kaydini silerdi.
+  const yerel=hepsi.filter(x=>String(x).charAt(0)==='y').map(x=>+String(x).slice(1));
+  const ids  =hepsi.filter(x=>String(x).charAt(0)!=='y');
+  if(!confirm('Seçili '+hepsi.length+' kayıt SİLİNECEK.\n\n'
+    +(ids.length?('• '+ids.length+' kayıt Supabase (paylaşımlı arşiv) ve bu listeden kalkar\n'):'')
+    +(yerel.length?('• '+yerel.length+' kayıt kendi kaydımız — bu tarayıcıdaki yerel arşivden silinir\n'):'')
+    +'• LeanSys\'e KESİNLİKLE dokunulmaz.\n\nDevam?')) return;
   let ok=0, err=0;
+  for(const yid of yerel){
+    try{
+      await new Promise((cz,rd)=>{
+        const tx=db.transaction([STORE_8D],'readwrite');
+        const rq=tx.objectStore(STORE_8D).delete(yid);
+        rq.onsuccess=cz; rq.onerror=rd;
+      });
+      ok++;
+    }catch(e){ err++; }
+  }
+  if(yerel.length){ try{ await refreshList(); }catch(e){} }
   for(const id of ids){
     try{
       const res=await fetch(_8D_SUPA+"/rest/v1/dof_8d_reports?id=eq."+id,{method:'DELETE',headers:_8dSbH({Prefer:'return=minimal'})});
