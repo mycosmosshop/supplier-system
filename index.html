@@ -4199,6 +4199,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 showAlert('❌ Deneme adresi geçerli değil.', 'warning'); return;
             }
 
+            // Deneme: ayni liste, ayni akis — yalnizca ALICI degisir.
+            // Ceyrek etiketine (DENEME) eklenir ki gercek ceyregin onayi
+            // sayilmasin; ad da [DENEME] ile isaretlenir.
+            const gonderimTarihi = document.getElementById('perfGonderimTarihi').value;
+            if (!gonderimTarihi) { showAlert('❌ Gönderim tarihi seçilmedi.', 'warning'); return; }
+
             // Gonderim ayina kadar olan aylari cikar: Mart'ta gonderiliyorsa
             // Ocak, Subat, Mart. Sevkiyati olmayan ay atlanir (o ay is
             // yapilmamis; "PPM 0" yazmak yaniltir).
@@ -4218,11 +4224,6 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 return a;
             };
 
-            // Deneme: ayni liste, ayni akis — yalnizca ALICI degisir.
-            // Ceyrek etiketine (DENEME) eklenir ki gercek ceyregin onayi
-            // sayilmasin; ad da [DENEME] ile isaretlenir.
-            const gonderimTarihi = document.getElementById('perfGonderimTarihi').value;
-            if (!gonderimTarihi) { showAlert('❌ Gönderim tarihi seçilmedi.', 'warning'); return; }
             const yilEt = new Date().getFullYear();
             // Mailde gorunen DONEM etiketi yalnizca yil olsun; gonderim
             // tarihi ayri alanda duruyor, konuya iki kez yazilmasin.
