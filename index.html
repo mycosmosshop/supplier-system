@@ -2784,6 +2784,20 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 <button class="modal-close" onclick="closePerfBildirim()">✕</button>
             </div>
             <div class="modal-body">
+                <!-- Deneme modu: gerçek liste + gerçek onay akışı, alıcı sen -->
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+                            padding:8px 10px; background:#fff8e1; border:1px solid #ffb300;
+                            border-radius:6px; margin-bottom:12px;">
+                    <label style="display:flex; align-items:center; gap:6px; margin:0; cursor:pointer;">
+                        <input type="checkbox" id="perfDeneme" onchange="_perfDenemeDegisti()">
+                        <span style="font-weight:600; color:#e65100;">🧪 Deneme</span>
+                    </label>
+                    <span style="font-size:.85em; color:#8d6e63;">Mailler tedarikçiye DEĞİL, bu adrese gider:</span>
+                    <input type="email" id="perfDenemeAdres" class="filter-name-input" disabled
+                           autocomplete="off" data-lpignore="true" data-1p-ignore
+                           placeholder="kendi e-posta adresin" style="flex:1; min-width:220px; max-width:320px;"
+                           oninput="_perfDenemeAdresKaydet()">
+                </div>
                 <div id="perfBildirimOzet" style="margin-bottom: 12px;"></div>
                 <div style="max-height: 46vh; overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px;">
                     <table class="table" style="width: 100%; font-size: .86em;">
@@ -4083,7 +4097,30 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }).join('') || '<tr><td colspan="9" style="padding:16px;color:#888">Ankara / Çerkezköy lokasyonlu onaylı tedarikçi bulunamadı.</td></tr>';
 
             document.getElementById('perfHepsi').checked = gonderilebilir > 0;
+            // Deneme kutusu her acilista KAPALI baslar: unutulup gercek
+            // gonderimin denemeye kacmasi (ya da tersi) olmasin.
+            document.getElementById('perfDeneme').checked = false;
+            _perfDenemeDegisti();
             document.getElementById('perfBildirimModal').style.display = 'flex';
+        }
+
+        // Deneme adresi KODA yazilmaz (depo herkese acik) — kullanici girer,
+        // tarayicida saklanir.
+        function _perfDenemeAdresKaydet() {
+            try { localStorage.setItem('perfDenemeAdres',
+                document.getElementById('perfDenemeAdres').value.trim()); } catch (e) {}
+        }
+
+        function _perfDenemeDegisti() {
+            const acik = document.getElementById('perfDeneme').checked;
+            const alan = document.getElementById('perfDenemeAdres');
+            alan.disabled = !acik;
+            if (acik) {
+                try { alan.value = alan.value || localStorage.getItem('perfDenemeAdres') || ''; } catch (e) {}
+                alan.focus();
+            }
+            const btn = document.getElementById('perfOnayBtn');
+            btn.textContent = acik ? '🧪 Deneme gönderimi için kuyruğa al' : '✅ Onayla ve kuyruğa al';
         }
 
         function closePerfBildirim() {
@@ -4103,10 +4140,26 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 .filter(r => r && !r.eksik.length);
             if (!secili.length) { showAlert('❌ Seçili gönderilebilir tedarikçi yok.', 'warning'); return; }
 
-            const ceyrek = _perfCeyrek();
-            if (!confirm(secili.length + ' tedarikçiye ' + ceyrek + ' performans maili gönderilecek.\n\n'
-                + secili.slice(0, 8).map(r => '• ' + r.ad + ' → ' + r.to).join('\n')
-                + (secili.length > 8 ? '\n… ve ' + (secili.length - 8) + ' tedarikçi daha' : '')
+            const deneme = document.getElementById('perfDeneme').checked;
+            const denemeAdres = document.getElementById('perfDenemeAdres').value.trim();
+            if (deneme && !_perfMailGecerli(denemeAdres)) {
+                showAlert('❌ Deneme adresi geçerli değil.', 'warning'); return;
+            }
+
+            // Deneme: ayni liste, ayni akis — yalnizca ALICI degisir.
+            // Ceyrek etiketine (DENEME) eklenir ki gercek ceyregin onayi
+            // sayilmasin; ad da [DENEME] ile isaretlenir.
+            const ceyrek = _perfCeyrek() + (deneme ? ' (DENEME)' : '');
+            const gidecek = secili.map(r => deneme
+                ? Object.assign({}, r, { ad: '[DENEME] ' + r.ad, to: denemeAdres, cc: [] })
+                : r);
+
+            if (!confirm((deneme
+                    ? '🧪 DENEME — ' + gidecek.length + ' mailin HEPSİ ' + denemeAdres
+                      + ' adresine gidecek, tedarikçilere GİTMEYECEK.\n\n'
+                    : gidecek.length + ' tedarikçiye ' + ceyrek + ' performans maili gönderilecek.\n\n')
+                + gidecek.slice(0, 8).map(r => '• ' + r.ad + ' → ' + r.to).join('\n')
+                + (gidecek.length > 8 ? '\n… ve ' + (gidecek.length - 8) + ' tane daha' : '')
                 + '\n\nOnaylıyor musunuz?')) return;
 
             const btn = document.getElementById('perfOnayBtn');
@@ -4121,7 +4174,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     // BCC burada YAZILMAZ: gonderen hesabi Apps Script bilir
                     // (Session.getEffectiveUser). Buraya uydurma bir adres
                     // koymak sessizce bos BCC uretirdi.
-                    kayitlar: secili.map(r => Object.assign({}, r, { eksik: undefined, gonderildi: false }))
+                    deneme: deneme,
+                    kayitlar: gidecek.map(r => Object.assign({}, r, { eksik: undefined, gonderildi: false }))
                 };
                 await fetch(ayar.url, {
                     method: 'POST', mode: 'no-cors',
@@ -4129,7 +4183,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     body: JSON.stringify({ action: 'save', secret: ayar.secret,
                         name: PERF_DRIVE_AD, content: JSON.stringify(kuyruk) })
                 });
-                showAlert('✅ ' + secili.length + ' tedarikçi ' + ceyrek + ' kuyruğuna alındı. Gönderimi Apps Script yapacak.', 'success');
+                showAlert((deneme ? '🧪 DENEME: ' : '✅ ') + gidecek.length
+                    + (deneme ? ' mail ' + denemeAdres + ' adresine gitmek üzere kuyruğa alındı.'
+                              : ' tedarikçi ' + ceyrek + ' kuyruğuna alındı. Gönderimi Apps Script yapacak.'), 'success');
                 closePerfBildirim();
             } catch (e) {
                 showAlert('❌ Kuyruğa yazılamadı: ' + e.message, 'error');
