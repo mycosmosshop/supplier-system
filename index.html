@@ -10620,9 +10620,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // HAM puan tabani: eskiden once yuvarlaniyordu (89,51 -> 90) ve ayni satirda
             // Tedarikci Sinifi B iken Duzeltilmis Sinif A cikiyordu. Sinif ham degerden.
             var base = (+s.tedarikcipuani||0)*100;
-            var ak = base + s.iatfDuzeltme; if(!isFinite(ak)) ak=0; if(ak<0) ak=0;
+            // PR06: DTP = MAKS(0 ; MİN(TDP + Σkesinti ; 100)). Üst sınır
+            // yoktu; STP tavansızken TDP 100'ü aşabildiği için gerekli.
+            var ak = base + s.iatfDuzeltme; if(!isFinite(ak)) ak=0;
+            if(ak<0) ak=0; if(ak>100) ak=100;
             s.duzeltilmisPuan = ak;
-            s.duzeltilmisSinif = (ak>=90)?'A':(ak>=80?'B':(ak>=70?'C':'D'));
+            var _ay = Math.round(ak);   // PR06 Rev04: sınıf yuvarlanmış DTP'den
+            s.duzeltilmisSinif = (_ay>=90)?'A':(_ay>=80?'B':(_ay>=60?'C':'D'));
             s.duzeltilmisSinif = sinifTavaniUygula(s.duzeltilmisSinif, s);        // PR06 sınıf tavanı
             s.sinifTavaniNot = sinifTavaniSebep(s);
             var ppm=+s.ppm||+s.currentPPM||0, ppmHedef=+s.ppmTarget||0;
@@ -10633,7 +10637,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // tavan uygulanmis her tedarikci en az MEDIUM.
             var tavanVar = false;
             try { tavanVar = !!sinifTavaniSebep(s); } catch(e){}
-            if(ak<70 || (x>0&&y==='Tedarikçi') || (ag>0&&ah==='Tedarikçi')) s.riskAnalizi='🔴 HIGH – Kritik Tedarikçi';
+            // PR06 Rev04 Tablo 17: HIGH eşiği DTP < 60 (sınıf sınırıyla aynı).
+            if(ak<60 || (x>0&&y==='Tedarikçi') || (ag>0&&ah==='Tedarikçi')) s.riskAnalizi='🔴 HIGH – Kritik Tedarikçi';
             else if(ak<90 || tavanVar || (ppmHedef>0&&ppm>ppmHedef) || (aa>0&&ab==='Tedarikçi') || (ad==='Evet'&&ae==='Hayır')) s.riskAnalizi='🟠 MEDIUM – İyileştirme Gerekli';
             else s.riskAnalizi='🟢 LOW – Stabil Tedarikçi';
             return s;
@@ -11549,7 +11554,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     if (allTamamValues.length > 0) {
                         tamamAvg = allTamamValues.reduce((a,b)=>a+b,0) / allTamamValues.length;
                         if (tamamAvg <= 1) tamamAvg *= 100;
-                        result.tamamlanmaPuan = tamamAvg;
+                        // PR06 5.3.4: STP = MİN((Gelen/Sipariş)×100 ; 100).
+                        // Fazla teslimat puanı ARTIRMAZ; tavansızken bazı
+                        // tedarikçi puanları %100'ü aşabiliyordu.
+                        result.tamamlanmaPuan = Math.min(100, tamamAvg);
                     } else {
                         result.tamamlanmaPuan = 100;
                     }
@@ -11751,20 +11759,29 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                  result.hataPuan * 0.10);
             } else {
                 // VDA denetimi olmayan tedarikçiler
-                result.tedarikcipuani = (kalitePuanNormalized * 0.05 + 
-                                 result.ppmPuan * 0.40 + 
-                                 donusOrani8DNormalized * 0.10 + 
-                                 terminPuanNormalized * 0.20 + 
-                                 tamamlanmaPuanNormalized * 0.10 + 
-                                 result.hataPuan * 0.15);
+                result.tedarikcipuani = (kalitePuanNormalized * 0.05 +
+                                 result.ppmPuan * 0.40 +
+                                 // PR06 Rev04 Tablo 12/13: boşalan VDA %20'si
+                                 // PPM (+10) ve TERMİN (+10) kalemlerine dağıtılır.
+                                 // Hata, Sipariş Tamamlama, Kalite Belgesi ve 8D
+                                 // ağırlıkları DEĞİŞMEZ. ERP Rev02'de kalmıştı ve
+                                 // PR06 örneğinde 82,05 üretiyordu; doğrusu 81,45.
+                                 donusOrani8DNormalized * 0.05 +
+                                 terminPuanNormalized * 0.30 +
+                                 tamamlanmaPuanNormalized * 0.10 +
+                                 result.hataPuan * 0.10);
             }
             
             // Tedarikçi sınıfı hesaplama
-            if (result.tedarikcipuani >= 0.9) {
+            // PR06 Rev04: sınıf YUVARLANMIŞ puandan (89,5 → 90 → A).
+            // Ham değerden bakınca kayan nokta yüzünden tam 90,0 bile
+            // B çıkabiliyordu.
+            const _yuvarlanmis = Math.round(result.tedarikcipuani * 100);
+            if (_yuvarlanmis >= 90) {
                 result.tedarikcisınıfı = 'A';
-            } else if (result.tedarikcipuani >= 0.8) {
+            } else if (_yuvarlanmis >= 80) {
                 result.tedarikcisınıfı = 'B';
-            } else if (result.tedarikcipuani >= 0.7) {   // PR06: D < %70
+            } else if (_yuvarlanmis >= 60) {   // PR06 Rev04: C 60–79, D < 60
                 result.tedarikcisınıfı = 'C';
             } else {
                 result.tedarikcisınıfı = 'D';
@@ -12161,7 +12178,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     tedarikcisınıfı = 'A';
                 } else if (tedarikcipuani >= 0.8) {
                     tedarikcisınıfı = 'B';
-                } else if (tedarikcipuani >= 0.7) {   // PR06: D < %70
+                } else if (tedarikcipuani >= 0.6) {   // PR06 Rev04: C 60–79, D < 60
                     tedarikcisınıfı = 'C';
                 }
                 tedarikcisınıfı = sinifTavaniUygula(tedarikcisınıfı, supplier);   // PR06 sınıf tavanı
@@ -14278,9 +14295,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
         // Tedarikçi sınıfını hesaplayan fonksiyon
         function calculateTedarikcisınıfı(tedarikcipuani) {
-            if (tedarikcipuani >= 0.9) return 'A';
-            if (tedarikcipuani >= 0.8) return 'B';
-            if (tedarikcipuani >= 0.7) return 'C';   // PR06: D < %70 (düzeltilmiş sınıfla aynı eşik)
+            const _y = Math.round(tedarikcipuani * 100);   // PR06 Rev04: yuvarlanmış puandan
+            if (_y >= 90) return 'A';
+            if (_y >= 80) return 'B';
+            if (_y >= 60) return 'C';   // PR06 Rev04: C 60–79, D < 60
             return 'D';
         }
 
@@ -15351,21 +15369,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (supplier.iatf) {
                 puan = 100;
             } else if (supplier.iso9001) {
-                // ISO 9001 taban: 70%
-                puan = 70;
-                
-                // ISO 9001 + ISO 14001: 75%
-                if (supplier.iso14001 && !supplier.iso45001) {
-                    puan = 75;
-                }
-                // ISO 9001 + ISO 45001: 75%
-                else if (supplier.iso45001 && !supplier.iso14001) {
-                    puan = 75;
-                }
-                // ISO 9001 + ISO 14001 + ISO 45001: 80%
-                else if (supplier.iso14001 && supplier.iso45001) {
-                    puan = 80;
-                }
+                // PR06 Rev04 Tablo 9: ISO 9001 tabanı 80, +10 ISO 14001,
+                // +10 ISO 45001, tavan MİN(...;100).
+                // ERP'de taban 70 ve bonuslar +5/+10 idi (eski skala).
+                puan = 80;
+                if (supplier.iso14001) puan += 10;
+                if (supplier.iso45001) puan += 10;
+                puan = Math.min(100, puan);
             }
             
             supplier.kalitePuan = puan;
@@ -16593,22 +16603,14 @@ function sinifTavaniSebep(s){
                 if (supplier.iatf) {
                     puan = 100;
                 } else if (supplier.iso9001) {
-                    // ISO 9001 taban: 70%
-                    puan = 70;
-                    
-                    // ISO 9001 + ISO 14001: 75%
-                    if (supplier.iso14001 && !supplier.iso45001) {
-                        puan = 75;
-                    }
-                    // ISO 9001 + ISO 45001: 75%
-                    else if (supplier.iso45001 && !supplier.iso14001) {
-                        puan = 75;
-                    }
-                    // ISO 9001 + ISO 14001 + ISO 45001: 80%
-                    else if (supplier.iso14001 && supplier.iso45001) {
-                        puan = 80;
-                    }
-                }
+                // PR06 Rev04 Tablo 9: ISO 9001 tabanı 80, +10 ISO 14001,
+                // +10 ISO 45001, tavan MİN(...;100).
+                // ERP'de taban 70 ve bonuslar +5/+10 idi (eski skala).
+                puan = 80;
+                if (supplier.iso14001) puan += 10;
+                if (supplier.iso45001) puan += 10;
+                puan = Math.min(100, puan);
+            }
                 
                 supplier.kalitePuan = puan;
                 
