@@ -1935,16 +1935,22 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 </div>
                 
                 <!-- Performans Bildirimi (gönderim tarihini kullanıcı seçer) -->
-                <div id="perfHatirlatmaBanner"></div>
                 <div style="display: flex; gap: 8px; padding: 8px; background: #fff3e0; border-radius: 8px; border: 1px solid #fb8c00; align-items: center; flex-wrap: wrap;">
                     <span style="font-weight: 600; color: #e65100; font-size: 0.9em;">📧 Performans Bildirimi:</span>
                     <button class="btn btn-primary" style="background: #fb8c00; border-color: #fb8c00; padding: 6px 12px; font-size: 0.85em;"
                             onclick="openPerfBildirim()">📋 Listeyi hazırla ve onayla</button>
-                    <span style="font-size: 0.8em; color: #8d6e63;">Tablodan seçtiklerin · tarihi sen seçersin · onaysız mail gitmez</span>
+                    <!-- Hatirlatma rozeti AYNI cubukta: ayri genis serit yer kapliyordu -->
+                    <span id="perfHatirlatmaBanner"></span>
                     <span style="font-size: 0.8em; color: #8d6e63; margin-left: auto;">⏰ Hatırlat: her</span>
-                    <input type="number" id="perfHatirlatmaAy" min="1" max="12" step="1" style="width: 52px; padding: 3px 6px; border: 1px solid #fb8c00; border-radius: 4px; font-size: 0.85em;"
-                           onchange="_perfHatirlatmaAyKaydet()">
-                    <span style="font-size: 0.8em; color: #8d6e63;">ayda</span>
+                    <input type="number" id="perfHatirlatmaAy" min="1" max="12" step="1" style="width: 46px; padding: 3px 5px; border: 1px solid #fb8c00; border-radius: 4px; font-size: 0.85em;"
+                           onchange="_perfHatirlatmaAyKaydet()" title="Kaç ayda bir hatırlatılsın">
+                    <span style="font-size: 0.8em; color: #8d6e63;">ayda · ayın</span>
+                    <input type="number" id="perfHatirlatmaGunBas" min="1" max="31" step="1" style="width: 42px; padding: 3px 5px; border: 1px solid #fb8c00; border-radius: 4px; font-size: 0.85em;"
+                           onchange="_perfHatirlatmaAyKaydet()" title="Uyarının görüneceği ilk gün">
+                    <span style="font-size: 0.8em; color: #8d6e63;">–</span>
+                    <input type="number" id="perfHatirlatmaGunSon" min="1" max="31" step="1" style="width: 42px; padding: 3px 5px; border: 1px solid #fb8c00; border-radius: 4px; font-size: 0.85em;"
+                           onchange="_perfHatirlatmaAyKaydet()" title="Uyarının görüneceği son gün">
+                    <span style="font-size: 0.8em; color: #8d6e63;">günleri</span>
                 </div>
 
                 <!-- Toplu Hedef Güncelleme -->
@@ -2849,9 +2855,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         <tbody id="perfBildirimSatirlar"></tbody>
                     </table>
                 </div>
-                <div style="margin-top: 10px; font-size: .82em; color: #666;">
-                    Onayladığında liste Drive'a yazılır; gönderimi Apps Script yapar (senin Gmail
-                    hesabından). Her gönderimin bir kopyası sana BCC olarak gelir.
+                <div style="margin-top: 10px; font-size: .82em; color: #666; line-height:1.6;">
+                    <b>Liste tablodan seçtiklerindir</b> — hiçbir satır seçmediysen Ankara + Çerkezköy
+                    onaylı tedarikçiler gelir. Yukarıdaki aramayla listede olmayan tedarikçiyi
+                    ekleyebilirsin. <b>Gönderim tarihini sen seçersin</b>; o güne kadar bekler.
+                    <b>Onaylamadan hiçbir mail gitmez.</b><br>
+                    Onayladığında liste Drive'a yazılır; gönderimi Outlook (Sanifoam hesabın) ya da
+                    Apps Script yapar. Her gönderimin bir kopyası sana BCC olarak gelir.
                 </div>
             </div>
             <div class="modal-footer">
@@ -4144,11 +4154,35 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             return Math.min(12, Math.max(1, n));
         }
 
+        // Uyarinin gorunecegi ay-ici gun araligi. Uyari surekli durmasin,
+        // ayin basinda hatirlatsin diye.
+        function _perfHatirlatmaGunAraligi() {
+            let b = 1, s2 = 5;
+            try {
+                b = parseInt(localStorage.getItem('perfHatirlatmaGunBas'), 10) || 1;
+                s2 = parseInt(localStorage.getItem('perfHatirlatmaGunSon'), 10) || 5;
+            } catch (e) {}
+            b = Math.min(31, Math.max(1, b));
+            s2 = Math.min(31, Math.max(1, s2));
+            if (s2 < b) s2 = b;                 // ters girilirse tek gun say
+            return [b, s2];
+        }
+
         function _perfHatirlatmaAyKaydet() {
             const el = document.getElementById('perfHatirlatmaAy');
             const n = Math.min(12, Math.max(1, parseInt(el.value, 10) || 3));
             el.value = n;
-            try { localStorage.setItem('perfHatirlatmaAy', String(n)); } catch (e) {}
+            const gb = document.getElementById('perfHatirlatmaGunBas');
+            const gs = document.getElementById('perfHatirlatmaGunSon');
+            let b = Math.min(31, Math.max(1, parseInt(gb.value, 10) || 1));
+            let e2 = Math.min(31, Math.max(1, parseInt(gs.value, 10) || 5));
+            if (e2 < b) e2 = b;
+            gb.value = b; gs.value = e2;
+            try {
+                localStorage.setItem('perfHatirlatmaAy', String(n));
+                localStorage.setItem('perfHatirlatmaGunBas', String(b));
+                localStorage.setItem('perfHatirlatmaGunSon', String(e2));
+            } catch (e) {}
             _perfHatirlatmaKontrol();
         }
 
@@ -4165,6 +4199,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (!kap) return;
             const ayEl = document.getElementById('perfHatirlatmaAy');
             if (ayEl && !ayEl.value) ayEl.value = _perfHatirlatmaAyOku();
+            const [gunBas, gunSon] = _perfHatirlatmaGunAraligi();
+            const gbEl = document.getElementById('perfHatirlatmaGunBas');
+            const gsEl = document.getElementById('perfHatirlatmaGunSon');
+            if (gbEl && !gbEl.value) gbEl.value = gunBas;
+            if (gsEl && !gsEl.value) gsEl.value = gunSon;
 
             let son = '';
             try { son = localStorage.getItem('perfSonGonderim') || ''; } catch (e) {}
@@ -4175,16 +4214,19 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const vade = _perfAyEkle(son, _perfHatirlatmaAyOku());
             if (_perfGunStr() < vade) { kap.innerHTML = ''; return; }
 
+            // Vadesi gecmis olsa da uyari YALNIZCA secilen gun araliginda
+            // gorunur: her gun duran uyari bir sure sonra okunmaz olur.
+            const bugunGun = new Date().getDate();
+            if (bugunGun < gunBas || bugunGun > gunSon) { kap.innerHTML = ''; return; }
+
             kap.innerHTML =
-                `<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-                             padding:10px 12px; margin-bottom:8px; background:#fff3e0;
-                             border:2px solid #fb8c00; border-radius:8px;">
-                    <span style="font-size:1.1em;">⏰</span>
-                    <span style="font-weight:600; color:#e65100;">Performans bildirimi zamanı geldi.</span>
-                    <span style="font-size:.85em; color:#8d6e63;">Son gönderim: ${_perfTarihGoster(son)} · periyot: ${_perfHatirlatmaAyOku()} ay</span>
-                    <button class="btn btn-primary" style="background:#fb8c00; border-color:#fb8c00; padding:5px 14px; font-size:.85em;"
-                            onclick="openPerfBildirim()">📋 Listeyi hazırla</button>
-                 </div>`;
+                `<span style="display:inline-flex; gap:6px; align-items:center;
+                              padding:3px 10px; background:#e65100; color:#fff;
+                              border-radius:12px; font-size:.82em; font-weight:600; cursor:pointer;"
+                       onclick="openPerfBildirim()"
+                       title="Son gönderim: ${_perfTarihGoster(son)} · periyot: ${_perfHatirlatmaAyOku()} ay">
+                    ⏰ Zamanı geldi — son gönderim ${_perfTarihGoster(son)}
+                 </span>`;
         }
         document.addEventListener('DOMContentLoaded', _perfHatirlatmaKontrol);
 
