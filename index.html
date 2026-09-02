@@ -4413,6 +4413,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const tdp = (sp.tedarikcipuani === undefined || sp.tedarikcipuani === null)
                 ? tk.toplam : (Number(sp.tedarikcipuani) || 0) * 100;
             const dtp = Number(sp.duzeltilmisPuan) || 0;
+            const tavan = (typeof sinifTavaniSebepIki === 'function') ? sinifTavaniSebepIki(sp) : null;
             const hesapSat = tk.kalemler.map(kl =>
                 `<tr><td style="${B}">${kl.tr}<div style="font-weight:400;font-size:12px;color:#546e7a">${kl.en}</div>`
                 + (kl.notTr ? `<div style="font-size:12px;color:#ef6c00">${kl.notTr} / ${kl.notEn}</div>` : '')
@@ -4457,7 +4458,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 + `<td style="${B}"></td><td style="${B};text-align:right">${_perfPuanMetni(dtp)}</td></tr>`
                 + `<tr><td style="${B}">SINIF<div style="font-weight:400;font-size:12px;color:#546e7a">CLASS</div>`
                 + `<div style="font-weight:400;font-size:13px;color:#37474f;line-height:1.6">Yuvarlanmış <b>${Math.round(dtp)}</b> → A ≥90 · B 80–89 · C 60–79 · D &lt;60`
-                + `<br><span style="color:#546e7a">Rounded score determines the class</span></div></td>`
+                + `<br><span style="color:#546e7a">Rounded score determines the class</span>`
+                // Puan A'yi verse de sinif B cikabiliyor. Sebebi yazmazsak
+                // mail kendi icinde celisir: "97 → A" deyip B basar.
+                + (tavan
+                    ? `<div style="margin-top:5px;color:#b45309;font-weight:600">⚠ Sınıf tavanı: ${_infoAttr(tavan.tr)}`
+                      + `<div style="font-weight:400;color:#8d6e63">Class ceiling: ${_infoAttr(tavan.en)}</div></div>`
+                    : '')
+                + `</div></td>`
                 + `<td style="${B}"></td>`
                 + `<td style="${B};text-align:center;font-weight:700;font-size:18px;color:#fff;background:${sinifRenk}">${_infoAttr(sinif)}</td></tr>`
                 + '</table>'
@@ -15859,16 +15867,24 @@ async function buluttaYayinla(sessiz){
     }
 }
 
-function sinifTavaniSebep(s){
+function sinifTavaniSebepIki(s){
             try{
-                if (!s || typeof getSupplierCategory !== 'function') return '';
-                if (getSupplierCategory(s.name) !== 'Otomotiv') return '';
-                if (s.iatf) return '';
+                if (!s || typeof getSupplierCategory !== 'function') return null;
+                if (getSupplierCategory(s.name) !== 'Otomotiv') return null;
+                if (s.iatf) return null;
                 return s.iso9001
-                    ? 'Tip A (Otomotiv) tedarikçide geçerli IATF 16949 belgesi yok → sınıf en fazla B (PR06 sınıf tavanı)'
-                    : 'Tip A (Otomotiv) tedarikçide IATF 16949 ve ISO 9001 belgesi yok → sınıf en fazla C; '
-                      + 'ancak Genel Müdür onayı ve PL33 sistem geliştirme planı ile çalışılabilir (PR06 sınıf tavanı)';
-            }catch(e){ return ''; }
+                    ? { tr: 'Tip A (Otomotiv) tedarikçide geçerli IATF 16949 belgesi yok → sınıf en fazla B (PR06 sınıf tavanı)',
+                        en: 'Type A (Automotive) supplier without a valid IATF 16949 certificate → class capped at B (PR06 class ceiling)' }
+                    : { tr: 'Tip A (Otomotiv) tedarikçide IATF 16949 ve ISO 9001 belgesi yok → sınıf en fazla C; '
+                            + 'ancak Genel Müdür onayı ve PL33 sistem geliştirme planı ile çalışılabilir (PR06 sınıf tavanı)',
+                        en: 'Type A (Automotive) supplier without IATF 16949 and ISO 9001 → class capped at C; '
+                            + 'work may continue with General Manager approval and a PL33 system development plan (PR06 class ceiling)' };
+            }catch(e){ return null; }
+        }
+        // Turkce yuzu: eski cagiranlar aynen calissin.
+        function sinifTavaniSebep(s){
+            const x = sinifTavaniSebepIki(s);
+            return x ? x.tr : '';
         }
         // Sınıf hücresinin TEK kaynağı. Sertifika/puan düzenlendiğinde satır yerinde
         // tazeleniyor; ⚠ ayrı yerde üretilirse (eskiden öyleydi) IATF eklenince harf
