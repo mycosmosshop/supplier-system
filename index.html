@@ -2783,12 +2783,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
     <!-- Puan dökümü — sınıf rozetine tıklayınca -->
     <div id="puanDokumuModal" class="modal-overlay" style="display: none;">
-        <div class="modal-dialog" style="max-width: 760px; width: 95%; max-height: 88vh; overflow: auto;">
+        <div class="modal-dialog" style="max-width: 820px; width: 96%; max-height: 92vh; overflow-y: auto; overflow-x: hidden;">
             <div class="modal-header">
-                <h3 id="puanDokumuBaslik">🧮 Puan Dökümü</h3>
+                <h3 id="puanDokumuBaslik" style="font-size:1.05rem">🧮 Puan Dökümü</h3>
                 <button class="modal-close" onclick="puanDokumuKapat()">✕</button>
             </div>
-            <div class="modal-body" id="puanDokumuGovde"></div>
+            <div class="modal-body" id="puanDokumuGovde" style="padding:14px 16px; overflow-x:hidden;"></div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="puanDokumuKapat()">Kapat</button>
             </div>
@@ -15619,23 +15619,33 @@ function sinifTavaniSebep(s){
                 ['Kalite Belgesi', 'kalite', ''],
                 ['8D Performans', 'd8', '']
             ];
+            const H = 'padding:5px 8px;border:1px solid #e0e0e0;word-break:break-word';
             let toplam = 0;
+            const formulParca = [];
             const satirlar = kalemler.map(([etiket, k, aciklama]) => {
                 if (!y[k]) return '';
                 const katki = p[k] * y[k];
                 toplam += katki;
+                formulParca.push(`(${etiket} × ${y[k].toFixed(2).replace('.', ',')})`);
                 return `<tr>
-                    <td style="padding:6px 10px;border:1px solid #e0e0e0">${etiket}
-                        ${aciklama ? `<div style="font-size:.8em;color:#ef6c00">${aciklama}</div>` : ''}</td>
-                    <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">${s1(p[k])}</td>
-                    <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">${y[k].toFixed(2).replace('.', ',')}</td>
-                    <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right;font-weight:600">${s1(katki)}</td>
+                    <td style="${H}">${etiket}
+                        ${aciklama ? `<div style="font-size:.78em;color:#ef6c00">${aciklama}</div>` : ''}</td>
+                    <td style="${H};text-align:right;white-space:nowrap">${s1(p[k])} × ${y[k].toFixed(2).replace('.', ',')}</td>
+                    <td style="${H};text-align:right;font-weight:600">${s1(katki)}</td>
                 </tr>`;
             }).join('');
 
             const kesinti = +sp.iatfDuzeltme || 0;
             const dtp = +sp.duzeltilmisPuan || 0;
             const tavan = sinifTavaniSebep(sp);
+            // TDP KAYITTAN okunur; dokumdeki satir toplami yalnizca
+            // gosterim icin. Ikisi ayri yuvarlanirsa "81,4 + 0 = 81,5"
+            // gibi kendi icinde tutarsiz bir satir cikiyordu.
+            const tdpKayit = (sp.tedarikcipuani === undefined || sp.tedarikcipuani === null)
+                ? toplam : (+sp.tedarikcipuani || 0) * 100;
+            // Satir toplami kayitla tutmuyorsa bunu SOYLE: sessizce
+            // farkli iki sayi gostermek dokumu guvenilmez yapar.
+            const sapma = Math.abs(tdpKayit - toplam) > 0.05;
 
             const kes = [];
             if ((+sp.musteriAksaklikSayisi||0) > 0 && sp.musteriAksaklikSorumlu === 'Tedarikçi')
@@ -15648,42 +15658,49 @@ function sinifTavaniSebep(s){
                 kes.push('Bildirim var, PPAP onayı yok → −5');
 
             document.getElementById('puanDokumuBaslik').textContent = '🧮 Puan Dökümü — ' + sp.name;
+            const sinifSon = sp.duzeltilmisSinif || sp.tedarikcisınıfı || '-';
             document.getElementById('puanDokumuGovde').innerHTML = `
-                <div style="font-size:.9em;color:#555;margin-bottom:10px">
+                <div style="font-size:.86em;color:#555;margin-bottom:8px;line-height:1.45">
                     ${denetimli ? '✅ Geçerli VDA/denetim puanı <b>var</b> — denetimli ağırlıklar'
                                 : '⚠️ Geçerli VDA/denetim puanı <b>yok</b> — boşalan %20, PPM (+10) ve Termin (+10) kalemlerine dağıtıldı'}
-                    <span style="color:#888"> · PR06 Rev04</span>
+                    <span style="color:#888">· PR06 Rev04</span>
                 </div>
-                <table style="border-collapse:collapse;width:100%;font-size:.92em">
+                <div style="font-size:.8em;color:#37474f;background:#eceff1;border-left:3px solid #607d8b;
+                            padding:7px 9px;border-radius:4px;margin-bottom:10px;line-height:1.5;word-break:break-word">
+                    <b>TDP</b> = ${formulParca.join(' + ')}
+                </div>
+                <table style="border-collapse:collapse;width:100%;font-size:.88em;table-layout:fixed">
+                    <colgroup><col style="width:52%"><col style="width:26%"><col style="width:22%"></colgroup>
                     <thead><tr style="background:#f4f6f8">
-                        <th style="padding:6px 10px;border:1px solid #e0e0e0;text-align:left">Kalem</th>
-                        <th style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">Puan (0–100)</th>
-                        <th style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">Ağırlık</th>
-                        <th style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">Katkı</th>
+                        <th style="${H};text-align:left">Kalem</th>
+                        <th style="${H};text-align:right">Puan × Ağırlık</th>
+                        <th style="${H};text-align:right">Katkı</th>
                     </tr></thead>
                     <tbody>${satirlar}
                     <tr style="background:#fafbfc;font-weight:700">
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0">TEDARİKÇİ PUANI (TDP)</td>
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0"></td>
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">%100</td>
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">${s1(toplam)}</td>
+                        <td style="${H}">TEDARİKÇİ PUANI (TDP)
+                            ${sapma ? `<div style="font-size:.8em;font-weight:400;color:#c62828">⚠ Kayıttaki puan ${s1(tdpKayit)}; satır toplamı ${s1(toplam)} — kalem puanları güncellenmemiş olabilir</div>` : ''}</td>
+                        <td style="${H};text-align:right">toplam</td>
+                        <td style="${H};text-align:right">${s1(tdpKayit)}</td>
                     </tr></tbody>
                 </table>
-                <table style="border-collapse:collapse;width:100%;font-size:.92em;margin-top:12px">
-                    <tr><td style="padding:6px 10px;border:1px solid #e0e0e0;width:60%">IATF 8.4.2.4 kesintileri
-                        ${kes.length ? `<div style="font-size:.85em;color:#c62828">${kes.join('<br>')}</div>`
-                                     : '<div style="font-size:.85em;color:#2e7d32">Tedarikçi kaynaklı olay yok</div>'}</td>
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right;font-weight:600">${kesinti ? s1(kesinti) : '0'}</td></tr>
+                <table style="border-collapse:collapse;width:100%;font-size:.88em;margin-top:10px;table-layout:fixed">
+                    <colgroup><col style="width:78%"><col style="width:22%"></colgroup>
+                    <tr><td style="${H}">IATF 8.4.2.4 kesintileri
+                        ${kes.length ? `<div style="font-size:.82em;color:#c62828;line-height:1.5">${kes.join('<br>')}</div>`
+                                     : '<div style="font-size:.82em;color:#2e7d32">Tedarikçi kaynaklı olay yok</div>'}</td>
+                        <td style="${H};text-align:right;font-weight:600">${kesinti ? s1(kesinti) : '0'}</td></tr>
                     <tr style="background:#e8f5e9;font-weight:700">
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0">DÜZELTİLMİŞ PUAN (DTP)
-                            <div style="font-size:.8em;font-weight:400;color:#555">MAKS(0 ; MİN(TDP + kesinti ; 100))</div></td>
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">${s1(dtp)}</td></tr>
-                    <tr><td style="padding:6px 10px;border:1px solid #e0e0e0">SINIF
-                            <div style="font-size:.8em;color:#555">Yuvarlanmış ${Math.round(dtp)} → A ≥90 · B 80–89 · C 60–79 · D &lt;60</div>
-                            ${tavan ? `<div style="font-size:.85em;color:#b45309;margin-top:4px">⚠ Sınıf tavanı: ${tavan}</div>` : ''}</td>
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;font-size:1.1em">${sp.duzeltilmisSinif || sp.tedarikcisınıfı || '-'}</td></tr>
-                    <tr><td style="padding:6px 10px;border:1px solid #e0e0e0">RİSK</td>
-                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:center">${sp.riskAnalizi || '-'}</td></tr>
+                        <td style="${H}">DÜZELTİLMİŞ PUAN (DTP)
+                            <div style="font-size:.82em;font-weight:400;color:#555;line-height:1.5">
+                                MAKS(0 ; MİN(${s1(tdpKayit)} ${kesinti < 0 ? '− ' + s1(-kesinti) : '+ 0'} ; 100)) = <b>${s1(dtp)}</b></div></td>
+                        <td style="${H};text-align:right">${s1(dtp)}</td></tr>
+                    <tr><td style="${H}">SINIF
+                            <div style="font-size:.82em;color:#555;line-height:1.5">Yuvarlanmış <b>${Math.round(dtp)}</b> → A ≥90 · B 80–89 · C 60–79 · D &lt;60</div>
+                            ${tavan ? `<div style="font-size:.82em;color:#b45309;margin-top:3px;line-height:1.5">⚠ Sınıf tavanı: ${tavan}</div>` : ''}</td>
+                        <td style="${H};text-align:center;font-weight:700;font-size:1.2em">${sinifSon}</td></tr>
+                    <tr><td style="${H}">RİSK</td>
+                        <td style="${H};text-align:center;font-size:.85em">${sp.riskAnalizi || '-'}</td></tr>
                 </table>`;
             document.getElementById('puanDokumuModal').style.display = 'flex';
         }
