@@ -1940,7 +1940,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <span style="font-weight: 600; color: #e65100; font-size: 0.9em;">📧 Performans Bildirimi:</span>
                     <button class="btn btn-primary" style="background: #fb8c00; border-color: #fb8c00; padding: 6px 12px; font-size: 0.85em;"
                             onclick="openPerfBildirim()">📋 Listeyi hazırla ve onayla</button>
-                    <span style="font-size: 0.8em; color: #8d6e63;">Ankara + Çerkezköy · tarihi sen seçersin · onaysız mail gitmez</span>
+                    <span style="font-size: 0.8em; color: #8d6e63;">Tablodan seçtiklerin · tarihi sen seçersin · onaysız mail gitmez</span>
                     <span style="font-size: 0.8em; color: #8d6e63; margin-left: auto;">⏰ Hatırlat: her</span>
                     <input type="number" id="perfHatirlatmaAy" min="1" max="12" step="1" style="width: 52px; padding: 3px 6px; border: 1px solid #fb8c00; border-radius: 4px; font-size: 0.85em;"
                            onchange="_perfHatirlatmaAyKaydet()">
@@ -4050,11 +4050,20 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // sessizce düşerlerse kimin haber almadığı görünmez.
         function _perfAdaylar(yil) {
             yil = yil || new Date().getFullYear();
-            const kaynak = (typeof allResults !== 'undefined' && allResults.length)
+            const tumu = (typeof allResults !== 'undefined' && allResults.length)
                 ? allResults : (lastFilteredResults || []);
+            // TABLODA SECTIGIN satirlar gelir. Once lokasyon (Ankara/
+            // Çerkezköy) dayatiliyordu; artik kime gonderilecegine kullanici
+            // karar veriyor, bu ekran yalnizca son onayi aliyor.
+            const secili = (typeof selectedRows !== 'undefined' && selectedRows && selectedRows.size)
+                ? tumu.filter(sp => selectedRows.has(sp.mapKey || sp.name))
+                : null;
+            // Hicbir satir secilmemisse ekran bos acilmasin: eski davranis
+            // (ONAYLI + Ankara/Çerkezköy) yedek olarak kalir.
+            const kaynak = (secili && secili.length) ? secili
+                : tumu.filter(sp => getSupplierStatus(sp.name) === 'ONAYLI'
+                                 && (sp.lokasyon || []).some(l => PERF_LOKASYON.indexOf(l) >= 0));
             return kaynak
-                .filter(sp => getSupplierStatus(sp.name) === 'ONAYLI')
-                .filter(sp => (sp.lokasyon || []).some(l => PERF_LOKASYON.indexOf(l) >= 0))
                 .map(sp => {
                     const info = getSupplierInfo(sp.name) || {};
                     const to = String(info.primaryEmail || '').trim();
@@ -4077,7 +4086,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     const _12 = (a) => Array.isArray(a) ? a.slice(0, 12) : [];
                     return {
                         ad: sp.name,
-                        lokasyon: (sp.lokasyon || []).filter(l => PERF_LOKASYON.indexOf(l) >= 0),
+                        lokasyon: (sp.lokasyon || []),
                         to: to, cc: cc,
                         yil: yil,
                         _sevk: _12(sp.monthlySevk),
