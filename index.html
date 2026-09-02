@@ -2825,6 +2825,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                            style="max-width:180px;" onchange="_perfTarihDegisti()">
                     <span id="perfTarihBilgi" style="font-size:.85em; color:#558b2f;"></span>
                 </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                    <span style="font-size:.9em; color:#555;">🔍</span>
+                    <input type="text" id="perfArama" class="filter-name-input" style="flex:1; min-width:240px;"
+                           placeholder="Tedarikçi ara — listede yoksa ekleyebilirsin"
+                           autocomplete="off" data-lpignore="true" data-1p-ignore
+                           oninput="_perfAramaDegisti()">
+                    <span id="perfAramaBilgi" style="font-size:.82em; color:#8d6e63;"></span>
+                </div>
+                <div id="perfEklenebilir" style="margin-bottom:10px;"></div>
                 <div id="perfBildirimOzet" style="margin-bottom: 12px;"></div>
                 <div style="max-height: 46vh; overflow: auto; border: 1px solid #e0e0e0; border-radius: 6px;">
                     <table class="table" style="width: 100%; font-size: .86em;">
@@ -4078,7 +4087,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 : tumu.filter(sp => getSupplierStatus(sp.name) === 'ONAYLI'
                                  && (sp.lokasyon || []).some(l => PERF_LOKASYON.indexOf(l) >= 0));
             return kaynak
-                .map(sp => {
+                .map(sp => _perfAdayYap(sp, yil))
+                .sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
+        }
+
+        // Tek tedarikci icin aday kaydi. Ayri fonksiyon: arama ile
+        // sonradan eklenen tedarikci de AYNI kurallardan gecsin.
+        function _perfAdayYap(sp, yil) {
+            return (sp => {
                     const info = getSupplierInfo(sp.name) || {};
                     const to = String(info.primaryEmail || '').trim();
                     const cc = _infoYedekOku(info)
@@ -4115,10 +4131,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         hataHedef: Number(p.defectTarget) || 0,
                         hata: Number(p.defectActual) || 0,
                         hataSonraki: Math.round(Number(p.defectNextTarget) || 0),
-                        engel: engel, uyari: uyari, eksik: eksik
+                        engel: engel, uyari: uyari, eksik: eksik,
+                        _secili: !engel.length && !uyari.length   // hazir olan isaretli gelir
                     };
-                })
-                .sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
+                })(sp);
         }
 
         // ── ERP içi hatırlatma: son gönderimden N ay geçtiyse şerit göster ──
@@ -4324,7 +4340,81 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     ${engelli ? ` <span style="color:#c62828"><b>${engelli}</b> tedarikçinin e-posta adresi yok — gönderilemez.</span>` : ''}
                  </div>`;
 
+            document.getElementById('perfArama').value = '';
+            document.getElementById('perfEklenebilir').innerHTML = '';
+            document.getElementById('perfAramaBilgi').textContent = '';
+            _perfSatirCiz();
+            document.getElementById('perfHepsi').checked = hazir > 0;
+            // Deneme kutusu her acilista KAPALI baslar
+            document.getElementById('perfDeneme').checked = false;
+            _perfDenemeDegisti();
+            document.getElementById('perfBildirimModal').style.display = 'flex';
+        }
+
+        // Secim KAYITTA tutulur (_secili). DOM'da tutulsaydi arama ile
+        // suzulen satirin checkbox'i kaybolur ve secim sessizce silinirdi.
+        function _perfSecimDegisti(ix, secili) {
+            if (_perfListe[ix]) _perfListe[ix]._secili = !!secili;
+            _perfOzetTazele();
+        }
+
+        function _perfOzetTazele() {
+            const hazir   = _perfListe.filter(r => !r.engel.length && !r.uyari.length).length;
+            const uyarili = _perfListe.filter(r => !r.engel.length && r.uyari.length).length;
+            const engelli = _perfListe.filter(r => r.engel.length).length;
+            const secili  = _perfListe.filter(r => r._secili && !r.engel.length).length;
+            document.getElementById('perfBildirimOzet').innerHTML =
+                `<div style="padding:10px; background:#e8f5e9; border-left:4px solid #43a047; border-radius:4px;">
+                    <b>${secili}</b> tedarikçi seçili · ${hazir} hazır
+                    ${uyarili ? ` <span style="color:#ef6c00">· <b>${uyarili}</b> veri eksik (seçilebilir)</span>` : ''}
+                    ${engelli ? ` <span style="color:#c62828">· <b>${engelli}</b> adres yok (gönderilemez)</span>` : ''}
+                 </div>`;
+        }
+
+        function _perfAramaDegisti() {
+            _perfSatirCiz();
+            const q = (document.getElementById('perfArama').value || '').trim().toLocaleLowerCase('tr');
+            const kap = document.getElementById('perfEklenebilir');
+            const bilgi = document.getElementById('perfAramaBilgi');
+            if (q.length < 2) { kap.innerHTML = ''; bilgi.textContent = ''; return; }
+
+            // Listede OLMAYAN eslesmeler: tabloda secilmemis olsalar da
+            // buradan eklenebilsinler.
+            const varOlan = new Set(_perfListe.map(r => r.ad));
+            const disarida = (allResults || [])
+                .filter(sp => !varOlan.has(sp.name)
+                           && String(sp.name || '').toLocaleLowerCase('tr').includes(q))
+                .slice(0, 8);
+            bilgi.textContent = disarida.length ? disarida.length + ' tedarikçi listede yok' : '';
+            kap.innerHTML = disarida.length
+                ? `<div style="padding:8px 10px; background:#e3f2fd; border-left:4px solid #1976d2; border-radius:4px;">
+                     <div style="font-size:.85em; color:#0d47a1; margin-bottom:6px;">Listede yok — eklemek için tıkla:</div>
+                     ${disarida.map(sp => `<button type="button" class="btn btn-secondary"
+                          style="padding:3px 10px; font-size:.82em; margin:2px 4px 2px 0;"
+                          onclick="perfAdayEkle('${_infoAttr(sp.name).replace(/'/g, "&#39;")}')">
+                          ＋ ${_infoAttr(sp.name)}</button>`).join('')}
+                   </div>`
+                : '';
+        }
+
+        function perfAdayEkle(ad) {
+            const sp = (allResults || []).find(x => x.name === ad);
+            if (!sp) { showAlert('❌ Tedarikçi bulunamadı: ' + ad, 'warning'); return; }
+            if (_perfListe.some(r => r.ad === sp.name)) { showAlert('Zaten listede.', 'info'); return; }
+            const yil = new Date().getFullYear();
+            const kayit = _perfAdayYap(sp, yil);
+            kayit._secili = !kayit.engel.length;      // elle eklendi: adres varsa isaretli gelsin
+            _perfListe.push(kayit);
+            _perfListe.sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
+            _perfAramaDegisti();
+            showAlert('✅ ' + sp.name + ' listeye eklendi.', 'success');
+        }
+
+        function _perfSatirCiz() {
+            const q = (document.getElementById('perfArama')?.value || '').trim().toLocaleLowerCase('tr');
+            _perfOzetTazele();
             document.getElementById('perfBildirimSatirlar').innerHTML = _perfListe.map((r, i) => {
+                if (q && !String(r.ad).toLocaleLowerCase('tr').includes(q)) return '';
                 const kilitli = r.engel.length > 0;          // yalnizca ADRES engeli kilitler
                 const alici = kilitli ? '<span style="color:#c62828">—</span>'
                     : _infoAttr(r.to) + (r.cc.length ? `<div style="font-size:.85em;color:#777">CC: ${_infoAttr(r.cc.join(', '))}</div>` : '');
@@ -4340,7 +4430,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     : (r.uyari.length ? '<span style="color:#ef6c00">Eksik veri</span>'
                                       : '<span style="color:#2e7d32">Hazır</span>');
                 return `<tr${kilitli ? ' style="background:#ffebee"' : (r.uyari.length ? ' style="background:#fff8e1"' : '')}>
-                    <td><input type="checkbox" class="perf-sec" data-ix="${i}" ${kilitli ? 'disabled' : (r.uyari.length ? '' : 'checked')}></td>
+                    <td><input type="checkbox" class="perf-sec" data-ix="${i}"
+                        ${kilitli ? 'disabled' : (r._secili ? 'checked' : '')}
+                        onchange="_perfSecimDegisti(${i}, this.checked)"></td>
                     <td style="font-weight:600">${_infoAttr(r.ad)}${not}</td>
                     <td style="font-size:.9em;color:#666">${_infoAttr(r.lokasyon.join(', '))}</td>
                     <td style="font-size:.9em">${alici}</td>
@@ -4350,14 +4442,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <td style="text-align:right;color:#666">${r.hataHedef}</td>
                     <td style="font-size:.85em">${durum}</td>
                 </tr>`;
-            }).join('') || '<tr><td colspan="9" style="padding:16px;color:#888">Ankara / Çerkezköy lokasyonlu onaylı tedarikçi bulunamadı.</td></tr>';
-
-            document.getElementById('perfHepsi').checked = hazir > 0;
-            // Deneme kutusu her acilista KAPALI baslar: unutulup gercek
-            // gonderimin denemeye kacmasi (ya da tersi) olmasin.
-            document.getElementById('perfDeneme').checked = false;
-            _perfDenemeDegisti();
-            document.getElementById('perfBildirimModal').style.display = 'flex';
+            }).join('') || `<tr><td colspan="9" style="padding:16px;color:#888">${
+                q ? 'Aramaya uyan tedarikçi listede yok.' : 'Tabloda tedarikçi seçilmemiş.'}</td></tr>`;
         }
 
         // Deneme adresi KODA yazilmaz (depo herkese acik) — kullanici girer,
@@ -4394,16 +4480,23 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         function _perfHepsiSec(cb) {
+            // GORUNEN satirlari secer: arama varken gizli satirlarin
+            // secimine dokunmaz (kullanici onlari gormuyor).
             document.querySelectorAll('#perfBildirimSatirlar .perf-sec:not(:disabled)')
-                .forEach(x => { x.checked = cb.checked; });
+                .forEach(x => {
+                    x.checked = cb.checked;
+                    const ix = +x.dataset.ix;
+                    if (_perfListe[ix]) _perfListe[ix]._secili = cb.checked;
+                });
+            _perfOzetTazele();
         }
 
         // Onaylananlari Drive'a yaz. Gonderimi Apps Script yapar; buradan
         // hicbir mail gitmez.
         async function perfKuyrugaAl() {
-            const secili = Array.from(document.querySelectorAll('#perfBildirimSatirlar .perf-sec:checked'))
-                .map(x => _perfListe[+x.dataset.ix])
-                .filter(r => r && !r.engel.length);   // veri eksigi kullanicinin karari
+            // Secim KAYITTAN okunur: arama ile suzulen satirin checkbox'i
+            // DOM'da olmaz, DOM'dan okusaydik o secimler sessizce duserdi.
+            const secili = _perfListe.filter(r => r._secili && !r.engel.length);
             if (!secili.length) { showAlert('❌ Seçili gönderilebilir tedarikçi yok.', 'warning'); return; }
 
             const deneme = document.getElementById('perfDeneme').checked;
