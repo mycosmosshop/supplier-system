@@ -2781,6 +2781,20 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         </div>
     </div>
 
+    <!-- Puan dökümü — sınıf rozetine tıklayınca -->
+    <div id="puanDokumuModal" class="modal-overlay" style="display: none;">
+        <div class="modal-dialog" style="max-width: 760px; width: 95%; max-height: 88vh; overflow: auto;">
+            <div class="modal-header">
+                <h3 id="puanDokumuBaslik">🧮 Puan Dökümü</h3>
+                <button class="modal-close" onclick="puanDokumuKapat()">✕</button>
+            </div>
+            <div class="modal-body" id="puanDokumuGovde"></div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="puanDokumuKapat()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Performans Bildirimi — onay ekranı -->
     <div id="perfBildirimModal" class="modal-overlay" style="display: none;">
         <div class="modal-dialog" style="max-width: 1150px; width: 96%; max-height: 88vh; overflow: auto;">
@@ -15562,8 +15576,119 @@ function sinifTavaniSebep(s){
             const not = sinifTavaniSebep(s);
             const t = not ? ' title="' + not.replace(/"/g, '&quot;') + '"' : '';
             const h = sinif || 'D';
+            // Rozete tiklayinca puan dokumu acilir: "82,5% -> B" yaziyordu
+            // ama nereden geldigi gorunmuyordu.
+            const ad = String(s && s.name || '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const tik = ' onclick="puanDokumuAc(\'' + ad + '\')" style="cursor:pointer"'
+                      + ' title="' + (not ? not.replace(/"/g, '&quot;') + ' — ' : '')
+                      + 'Hesabı görmek için tıkla"';
             return (not ? '<span' + t + ' style="color:#b45309;font-weight:800;cursor:help;margin-right:4px">⚠</span>' : '')
-                 + '<span class="' + (cls || 'supplier-class') + ' class-' + String(h).toLowerCase() + '"' + t + '>' + h + '</span>';
+                 + '<span class="' + (cls || 'supplier-class') + ' class-' + String(h).toLowerCase() + '"' + tik + '>' + h + '</span>';
+        }
+
+        // ── Puan dökümü (PR06 Bölüm 6.1 biçiminde) ──
+        // Kalem puanlarını ve ağırlıkları KAYITTAN okur, yeniden
+        // hesaplamaz: formül değişince döküm de değişir, kopya oluşmaz.
+        function puanDokumuAc(ad){
+            const sp = (allResults || []).find(x => x.name === ad);
+            if (!sp) { showAlert('❌ Tedarikçi bulunamadı: ' + ad, 'error'); return; }
+
+            const denetimli = (+sp.vdaPuan || 0) > 0;
+            const y = denetimli
+                ? { vda:0.20, ppm:0.30, termin:0.20, tamam:0.10, hata:0.10, kalite:0.05, d8:0.05 }
+                : { vda:0,    ppm:0.40, termin:0.30, tamam:0.10, hata:0.10, kalite:0.05, d8:0.05 };
+
+            // 0–100 olcegi: ppmPuan ve hataPuan kayitta 0–1 tutulur
+            const p = {
+                vda:    +sp.vdaPuan || 0,
+                ppm:    (+sp.ppmPuan || 0) * 100,
+                termin: +sp.terminPuan || 0,
+                tamam:  +sp.tamamlanmaPuan || 0,
+                hata:   (+sp.hataPuan || 0) * 100,
+                kalite: +sp.kalitePuan || 0,
+                d8:     sp.donusOrani8D === undefined ? 100 : (+sp.donusOrani8D || 0)
+            };
+            const s1 = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
+
+            const kalemler = [
+                ['VDA / Denetim', 'vda', denetimli ? '' : 'Geçerli denetim yok — kalem kullanılmaz'],
+                ['PPM', 'ppm', denetimli ? '' : 'VDA yokken +10'],
+                ['Termin', 'termin', denetimli ? '' : 'VDA yokken +10'],
+                ['Sipariş Tamamlama', 'tamam', ''],
+                ['Hata', 'hata', ''],
+                ['Kalite Belgesi', 'kalite', ''],
+                ['8D Performans', 'd8', '']
+            ];
+            let toplam = 0;
+            const satirlar = kalemler.map(([etiket, k, aciklama]) => {
+                if (!y[k]) return '';
+                const katki = p[k] * y[k];
+                toplam += katki;
+                return `<tr>
+                    <td style="padding:6px 10px;border:1px solid #e0e0e0">${etiket}
+                        ${aciklama ? `<div style="font-size:.8em;color:#ef6c00">${aciklama}</div>` : ''}</td>
+                    <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">${s1(p[k])}</td>
+                    <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">${y[k].toFixed(2).replace('.', ',')}</td>
+                    <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right;font-weight:600">${s1(katki)}</td>
+                </tr>`;
+            }).join('');
+
+            const kesinti = +sp.iatfDuzeltme || 0;
+            const dtp = +sp.duzeltilmisPuan || 0;
+            const tavan = sinifTavaniSebep(sp);
+
+            const kes = [];
+            if ((+sp.musteriAksaklikSayisi||0) > 0 && sp.musteriAksaklikSorumlu === 'Tedarikçi')
+                kes.push(`Müşteri aksaklığı ${sp.musteriAksaklikSayisi} olay → −${Math.min(sp.musteriAksaklikSayisi*10,20)}`);
+            if ((+sp.ekstraNavlunSayisi||0) > 0 && sp.ekstraNavlunSorumlu === 'Tedarikçi')
+                kes.push(`Ekstra navlun ${sp.ekstraNavlunSayisi} olay → −${Math.min(sp.ekstraNavlunSayisi*5,10)}`);
+            if ((+sp.sahaProblemSayisi||0) > 0 && sp.sahaProblemSorumlu === 'Tedarikçi')
+                kes.push(`Saha/garanti ${sp.sahaProblemSayisi} olay → −${Math.min(sp.sahaProblemSayisi*15,25)}`);
+            if (sp.ozelDurum === 'Evet' && sp.ppapOnay === 'Hayır')
+                kes.push('Bildirim var, PPAP onayı yok → −5');
+
+            document.getElementById('puanDokumuBaslik').textContent = '🧮 Puan Dökümü — ' + sp.name;
+            document.getElementById('puanDokumuGovde').innerHTML = `
+                <div style="font-size:.9em;color:#555;margin-bottom:10px">
+                    ${denetimli ? '✅ Geçerli VDA/denetim puanı <b>var</b> — denetimli ağırlıklar'
+                                : '⚠️ Geçerli VDA/denetim puanı <b>yok</b> — boşalan %20, PPM (+10) ve Termin (+10) kalemlerine dağıtıldı'}
+                    <span style="color:#888"> · PR06 Rev04</span>
+                </div>
+                <table style="border-collapse:collapse;width:100%;font-size:.92em">
+                    <thead><tr style="background:#f4f6f8">
+                        <th style="padding:6px 10px;border:1px solid #e0e0e0;text-align:left">Kalem</th>
+                        <th style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">Puan (0–100)</th>
+                        <th style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">Ağırlık</th>
+                        <th style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">Katkı</th>
+                    </tr></thead>
+                    <tbody>${satirlar}
+                    <tr style="background:#fafbfc;font-weight:700">
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0">TEDARİKÇİ PUANI (TDP)</td>
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0"></td>
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">%100</td>
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">${s1(toplam)}</td>
+                    </tr></tbody>
+                </table>
+                <table style="border-collapse:collapse;width:100%;font-size:.92em;margin-top:12px">
+                    <tr><td style="padding:6px 10px;border:1px solid #e0e0e0;width:60%">IATF 8.4.2.4 kesintileri
+                        ${kes.length ? `<div style="font-size:.85em;color:#c62828">${kes.join('<br>')}</div>`
+                                     : '<div style="font-size:.85em;color:#2e7d32">Tedarikçi kaynaklı olay yok</div>'}</td>
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right;font-weight:600">${kesinti ? s1(kesinti) : '0'}</td></tr>
+                    <tr style="background:#e8f5e9;font-weight:700">
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0">DÜZELTİLMİŞ PUAN (DTP)
+                            <div style="font-size:.8em;font-weight:400;color:#555">MAKS(0 ; MİN(TDP + kesinti ; 100))</div></td>
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:right">${s1(dtp)}</td></tr>
+                    <tr><td style="padding:6px 10px;border:1px solid #e0e0e0">SINIF
+                            <div style="font-size:.8em;color:#555">Yuvarlanmış ${Math.round(dtp)} → A ≥90 · B 80–89 · C 60–79 · D &lt;60</div>
+                            ${tavan ? `<div style="font-size:.85em;color:#b45309;margin-top:4px">⚠ Sınıf tavanı: ${tavan}</div>` : ''}</td>
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;font-size:1.1em">${sp.duzeltilmisSinif || sp.tedarikcisınıfı || '-'}</td></tr>
+                    <tr><td style="padding:6px 10px;border:1px solid #e0e0e0">RİSK</td>
+                        <td style="padding:6px 10px;border:1px solid #e0e0e0;text-align:center">${sp.riskAnalizi || '-'}</td></tr>
+                </table>`;
+            document.getElementById('puanDokumuModal').style.display = 'flex';
+        }
+        function puanDokumuKapat(){
+            document.getElementById('puanDokumuModal').style.display = 'none';
         }
         function sinifTavaniUygula(sinif, s){
             if (!sinif || !sinifTavaniSebep(s)) return sinif;
@@ -26669,7 +26794,10 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                     scoreCell.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
                     scoreCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196f3' } };
                     scoreCell.border = borderThin;
-                    ws.getRow(formulaRow).height = 50;
+                    // Tedarikçi puanı bloğu 4 satır formül taşıyor; sabit 50
+                    // birimde son satır kırpılıyordu.
+                    ws.getRow(formulaRow).height = Math.max(50,
+                        String(scoreCell.value || '').split('\n').length * 13 + 10);
                     formulaRow++;
                     
                     // Formül detayları tablosu - okunaklr
@@ -26749,7 +26877,21 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         formulaCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFf5f5f5' : 'FFffffff' } };
                         formulaCell.border = borderThin;
                         
-                        ws.getRow(formulaRow).height = 32;
+                        // Sabit 32 yükseklik uzun formülleri kırpıyordu.
+                        // D–L birleşik hücre ~118 karakter/satır alıyor;
+                        // TR ve EN alt alta olduğu için ikisi ayrı sarılır.
+                        // 9 punto satır ≈ 12 birim, +8 birim iç boşluk.
+                        const _satirSay = (metin, genislik) => {
+                            let n = 0;
+                            String(metin || '').split('\n').forEach(p => {
+                                n += Math.max(1, Math.ceil(p.length / genislik));
+                            });
+                            return n;
+                        };
+                        const _fSatir = Math.max(
+                            _satirSay(item.formulaTr, 118) + _satirSay(item.formulaEn, 118),
+                            _satirSay(item.labelTr, 30) + _satirSay(item.labelEn, 30));
+                        ws.getRow(formulaRow).height = Math.max(32, _fSatir * 12 + 8);
                         formulaRow++;
                     });
                     
