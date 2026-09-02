@@ -1935,11 +1935,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 </div>
                 
                 <!-- Performans Bildirimi (gönderim tarihini kullanıcı seçer) -->
+                <div id="perfHatirlatmaBanner"></div>
                 <div style="display: flex; gap: 8px; padding: 8px; background: #fff3e0; border-radius: 8px; border: 1px solid #fb8c00; align-items: center; flex-wrap: wrap;">
                     <span style="font-weight: 600; color: #e65100; font-size: 0.9em;">📧 Performans Bildirimi:</span>
                     <button class="btn btn-primary" style="background: #fb8c00; border-color: #fb8c00; padding: 6px 12px; font-size: 0.85em;"
                             onclick="openPerfBildirim()">📋 Listeyi hazırla ve onayla</button>
                     <span style="font-size: 0.8em; color: #8d6e63;">Ankara + Çerkezköy · tarihi sen seçersin · onaysız mail gitmez</span>
+                    <span style="font-size: 0.8em; color: #8d6e63; margin-left: auto;">⏰ Hatırlat: her</span>
+                    <input type="number" id="perfHatirlatmaAy" min="1" max="12" step="1" style="width: 52px; padding: 3px 6px; border: 1px solid #fb8c00; border-radius: 4px; font-size: 0.85em;"
+                           onchange="_perfHatirlatmaAyKaydet()">
+                    <span style="font-size: 0.8em; color: #8d6e63;">ayda</span>
                 </div>
 
                 <!-- Toplu Hedef Güncelleme -->
@@ -4090,6 +4095,57 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 .sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
         }
 
+        // ── ERP içi hatırlatma: son gönderimden N ay geçtiyse şerit göster ──
+        function _perfHatirlatmaAyOku() {
+            let n = 3;
+            try { n = parseInt(localStorage.getItem('perfHatirlatmaAy'), 10) || 3; } catch (e) {}
+            return Math.min(12, Math.max(1, n));
+        }
+
+        function _perfHatirlatmaAyKaydet() {
+            const el = document.getElementById('perfHatirlatmaAy');
+            const n = Math.min(12, Math.max(1, parseInt(el.value, 10) || 3));
+            el.value = n;
+            try { localStorage.setItem('perfHatirlatmaAy', String(n)); } catch (e) {}
+            _perfHatirlatmaKontrol();
+        }
+
+        // "YYYY-AA-GG" + n ay (yerel takvim; UTC kaymasi olmasin)
+        function _perfAyEkle(tarihStr, n) {
+            const p = String(tarihStr).split('-').map(Number);
+            const d = new Date(p[0], (p[1] - 1) + n, p[2] || 1);
+            const pad = (x) => String(x).padStart(2, '0');
+            return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        }
+
+        function _perfHatirlatmaKontrol() {
+            const kap = document.getElementById('perfHatirlatmaBanner');
+            if (!kap) return;
+            const ayEl = document.getElementById('perfHatirlatmaAy');
+            if (ayEl && !ayEl.value) ayEl.value = _perfHatirlatmaAyOku();
+
+            let son = '';
+            try { son = localStorage.getItem('perfSonGonderim') || ''; } catch (e) {}
+            // Hic gercek gonderim yoksa uyari gosterme: ozelligi hic
+            // kullanmayan kullaniciya surekli serit gurultu olur.
+            if (!son) { kap.innerHTML = ''; return; }
+
+            const vade = _perfAyEkle(son, _perfHatirlatmaAyOku());
+            if (_perfGunStr() < vade) { kap.innerHTML = ''; return; }
+
+            kap.innerHTML =
+                `<div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+                             padding:10px 12px; margin-bottom:8px; background:#fff3e0;
+                             border:2px solid #fb8c00; border-radius:8px;">
+                    <span style="font-size:1.1em;">⏰</span>
+                    <span style="font-weight:600; color:#e65100;">Performans bildirimi zamanı geldi.</span>
+                    <span style="font-size:.85em; color:#8d6e63;">Son gönderim: ${_perfTarihGoster(son)} · periyot: ${_perfHatirlatmaAyOku()} ay</span>
+                    <button class="btn btn-primary" style="background:#fb8c00; border-color:#fb8c00; padding:5px 14px; font-size:.85em;"
+                            onclick="openPerfBildirim()">📋 Listeyi hazırla</button>
+                 </div>`;
+        }
+        document.addEventListener('DOMContentLoaded', _perfHatirlatmaKontrol);
+
         let _perfListe = [];
 
         function openPerfBildirim() {
@@ -4277,6 +4333,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 showAlert((deneme ? '🧪 DENEME: ' : '✅ ') + gidecek.length + ' mail '
                     + (deneme ? denemeAdres + ' adresine ' : 'tedarikçilere ')
                     + neZaman + ' gönderilmek üzere kuyruğa alındı.', 'success');
+                // Hatirlatma damgasi — DENEME SAYILMAZ: test yapmak
+                // "gonderdim" degildir, sayilirsa gercek gonderim hic
+                // hatirlatilmadan atlanir.
+                if (!deneme) {
+                    try { localStorage.setItem('perfSonGonderim', gonderimTarihi); } catch (e) {}
+                    _perfHatirlatmaKontrol();
+                }
                 closePerfBildirim();
             } catch (e) {
                 showAlert('❌ Kuyruğa yazılamadı: ' + e.message, 'error');
