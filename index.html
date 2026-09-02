@@ -4092,6 +4092,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         _sevk: _12(sp.monthlySevk),
                         _iade: _12(sp.monthlyIade),
                         _hata: _12(sp.monthlyHata),
+                        _termin: _12(sp.monthlyTerminPuan),
+                        _tamam: _12(sp.monthlyTamamlanmaPuan),
+                        _sp: sp,                      // rapor govdesi icin (kuyruga YAZILMAZ)
                         ppmHedef: Number(p.ppmTarget) || 0,
                         ppm: Number(p.ppmActual) || 0,
                         ppmSonraki: Math.round(Number(p.ppmNextTarget) || 0),
@@ -4154,6 +4157,134 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                  </div>`;
         }
         document.addEventListener('DOMContentLoaded', _perfHatirlatmaKontrol);
+
+
+        // ── Performans maili gövdesi (Excel raporuyla aynı düzen) ──
+        // Veri tedarikçi nesnesinde; HTML burada kurulur ve kuyruğa yazılır.
+        // Böylece iki gönderici de AYNI gövdeyi kullanır, kopya kalmaz.
+        function _perfPuanMetni(v) {
+            const n = Number(v);
+            return isNaN(n) ? '-' : (Math.round(n * 10) / 10).toString().replace('.', ',');
+        }
+        function _perfSayi(n) {
+            const x = Number(n);
+            if (isNaN(x)) return '-';
+            return Math.round(x).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+
+        // Excel'deki puan kurallarinin AYNISI (kopya degil, tek yerde:
+        // burasi maile giden tek kaynak).
+        function _perfPpmPuan(ppm, hedef) {
+            const t = Number(hedef) || 1000;
+            if (!ppm) return 100;
+            if (ppm <= t / 4) return 100;
+            if (ppm <= t / 2) return 90;
+            if (ppm <= t) return 70;
+            if (ppm <= t * 1.5) return 50;
+            if (ppm <= t * 2) return 30;
+            return 0;
+        }
+        function _perfHataPuan(hata, hedef) {
+            const t = Number(hedef) || 2;
+            if (!hata) return 100;
+            if (t / hata > 1) return 100;
+            return Math.max(0, Math.min(100, (t / hata) * 100));
+        }
+
+        function _perfRaporGovde(sp, r, aylar, tarih) {
+            const B = 'border:1px solid #cfd8dc;padding:6px 9px';
+            const yil = r.yil;
+            const ayNo = aylar.map(a => a.no);
+
+            // Aylık tablo bloğu: başlık şeridi + ay numaraları + değerler
+            const ayBlok = (baslikTr, baslikEn, renk, degerler) =>
+                '<table style="border-collapse:collapse;width:100%;font-size:12px;margin:10px 0 0">'
+                + `<tr><td colspan="${ayNo.length}" style="${B};background:${renk};color:#fff;`
+                + `font-weight:700;text-align:center;line-height:1.3">${baslikTr}`
+                + `<div style="font-weight:400;font-size:11px">${baslikEn}</div></td></tr>`
+                + '<tr>' + ayNo.map(n => `<td style="${B};text-align:center;background:#eceff1">${n}</td>`).join('') + '</tr>'
+                + '<tr>' + degerler.map(v => `<td style="${B};text-align:center">${v}</td>`).join('') + '</tr>'
+                + '</table>';
+
+            const ppmOrt = aylar.length
+                ? Math.round(aylar.reduce((t, a) => t + a.ppm, 0) / aylar.length) : 0;
+
+            // Hedef / gerçekleşme başlığı
+            const bas =
+                '<table style="border-collapse:collapse;width:100%;font-size:13px">'
+                + `<tr><td style="${B};background:#eceff1;font-weight:700;width:34%">Tedarikçi Adı<div style="font-weight:400;font-size:11px">Supplier Name</div></td>`
+                + `<td style="${B};text-align:center;font-weight:700;background:#e3f2fd" colspan="2">${_infoAttr(r.ad)}</td></tr>`
+                + `<tr><td style="${B}"></td>`
+                + `<td style="${B};background:#2e7d32;color:#fff;text-align:center;font-weight:700">Hedef ${yil}<div style="font-weight:400;font-size:11px">Target ${yil}</div></td>`
+                + `<td style="${B};background:#ef6c00;color:#fff;text-align:center;font-weight:700">${yil} Gerçekleşen<div style="font-weight:400;font-size:11px">Realized ${yil}</div></td></tr>`
+                + `<tr><td style="${B};background:#fff3e0;font-weight:700">PPM</td>`
+                + `<td style="${B};text-align:center">${_perfSayi(r.ppmHedef)}</td>`
+                + `<td style="${B};text-align:center">${_perfSayi(r.ppm)}</td></tr>`
+                + `<tr><td style="${B};background:#fce4ec;font-weight:700">Hata Tekrarı<div style="font-weight:400;font-size:11px">Number of Quality Incidents</div></td>`
+                + `<td style="${B};text-align:center">${_perfSayi(r.hataHedef)}</td>`
+                + `<td style="${B};text-align:center">${_perfSayi(r.hata)}</td></tr>`
+                + `<tr><td style="${B};background:#e8f5e9" colspan="2"><b>Gözden Geçirme Tarihi</b></td>`
+                + `<td style="${B};text-align:center">${_perfTarihGoster(tarih)}</td></tr>`
+                + '</table>';
+
+            // IATF ek değerlendirme
+            const iatfSat = (tr, en, deger) =>
+                `<tr><td style="${B};font-weight:600;width:55%">${tr}<div style="font-weight:400;font-size:11px">${en}</div></td>`
+                + `<td style="${B};text-align:center">${deger}</td></tr>`;
+            const olaySorumlu = (sayi, sorumlu) =>
+                `${Number(sayi) || 0} / ${sorumlu ? _infoAttr(sorumlu) : '-'}`;
+
+            const sinif = sp.duzeltilmisSinif || sp.tedarikcisınıfı || '-';
+            const sinifRenk = sinif === 'A' ? '#2e7d32' : sinif === 'B' ? '#f9a825'
+                            : sinif === 'C' ? '#ef6c00' : '#c62828';
+            const risk = sp.riskAnalizi || '-';
+            const riskRenk = /HIGH/i.test(risk) ? '#c62828' : /MEDIUM/i.test(risk) ? '#ef6c00' : '#2e7d32';
+
+            const iatf =
+                `<div style="${B};background:#1e3c72;color:#fff;font-weight:700;text-align:center;margin-top:16px">`
+                + 'IATF EK DEĞERLENDİRME (8.4.2.4 / 8.4.2.5)'
+                + '<div style="font-weight:400;font-size:11px">ADDITIONAL IATF EVALUATION</div></div>'
+                + '<table style="border-collapse:collapse;width:100%;font-size:12px">'
+                + iatfSat('Müşteri Aksaklığı (Olay / Sorumlu)', 'Customer Disruption (Count / Owner)',
+                          olaySorumlu(sp.musteriAksaklikSayisi, sp.musteriAksaklikSorumlu))
+                + iatfSat('Ekstra Navlun (Olay / Sorumlu)', 'Premium Freight (Count / Owner)',
+                          olaySorumlu(sp.ekstraNavlunSayisi, sp.ekstraNavlunSorumlu))
+                + iatfSat('Saha/Garanti Problemi (Sayı / Sorumlu)', 'Field/Warranty Issue (Count / Owner)',
+                          olaySorumlu(sp.sahaProblemSayisi, sp.sahaProblemSorumlu))
+                + iatfSat('Özel Durum Bildirimi', 'Special Status Notification', sp.ozelDurum || 'Hayır')
+                + iatfSat('PPAP / Onay Durumu', 'PPAP / Approval Status', sp.ppapOnay || 'Gerekmiyor')
+                + iatfSat('IATF Puan Düzeltmesi', 'IATF Score Adjustment', _perfPuanMetni(sp.iatfDuzeltme || 0))
+                + `<tr><td style="${B};font-weight:700;background:#e8f5e9">DÜZELTİLMİŞ TEDARİKÇİ PUANI (NİHAİ)<div style="font-weight:400;font-size:11px">ADJUSTED SUPPLIER SCORE (FINAL)</div></td>`
+                + `<td style="${B};text-align:center;font-weight:700;background:#e8f5e9">${_perfPuanMetni((Number(sp.duzeltilmisPuan) || 0))}%</td></tr>`
+                + `<tr><td style="${B};font-weight:700">DÜZELTİLMİŞ SINIF<div style="font-weight:400;font-size:11px">ADJUSTED CLASS</div></td>`
+                + `<td style="${B};text-align:center;font-weight:700;color:#fff;background:${sinifRenk}">${_infoAttr(sinif)}</td></tr>`
+                + `<tr><td style="${B};font-weight:700">RİSK ANALİZİ SONUCU<div style="font-weight:400;font-size:11px">RISK ANALYSIS RESULT</div></td>`
+                + `<td style="${B};text-align:center;font-weight:700;color:${riskRenk}">${_infoAttr(risk)}</td></tr>`
+                + '</table>';
+
+            return '<div style="font-family:Segoe UI,Arial,sans-serif;font-size:13px;color:#1f2937;max-width:860px">'
+                + '<p>Sayın Yetkili,</p>'
+                + `<p><b>${_infoAttr(r.ad)}</b> firmasının ${yil} yılı tedarikçi performans değerlendirmesi aşağıdadır.</p>`
+                + bas
+                + `<div style="${B};background:#1e3c72;color:#fff;font-weight:700;text-align:center;margin-top:16px">`
+                + `📊 PERFORMANS GRAFİKLERİ | Sınıf: ${_infoAttr(sp.tedarikcisınıfı || '-')} | Tedarikçi Puanı: ${_perfPuanMetni((Number(sp.tedarikcipuani) || 0) * 100)}% | Ortalama PPM: ${_perfSayi(ppmOrt)} | Aylar: ${ayNo.join(', ')}`
+                + `<div style="font-weight:400;font-size:11px">PERFORMANCE CHARTS | Class: ${_infoAttr(sp.tedarikcisınıfı || '-')} | Supplier Score: ${_perfPuanMetni((Number(sp.tedarikcipuani) || 0) * 100)}% | Avg. PPM: ${_perfSayi(ppmOrt)}</div></div>`
+                + ayBlok('AYLIK HATA SAYISI', 'MONTHLY DEFECTS', '#c62828', aylar.map(a => _perfSayi(a.hata)))
+                + ayBlok('AYLIK İADE PPM', 'MONTHLY RETURN PPM', '#ef6c00', aylar.map(a => _perfSayi(a.ppm)))
+                + ayBlok('AYLIK PPM PUANI', 'MONTHLY PPM SCORE', '#1976d2', aylar.map(a => _perfPuanMetni(_perfPpmPuan(a.ppm, r.ppmHedef))))
+                + ayBlok('AYLIK HATA PUANI', 'MONTHLY DEFECT SCORE', '#f4511e', aylar.map(a => _perfPuanMetni(_perfHataPuan(a.hata, r.hataHedef))))
+                + ayBlok('TERMİN PUANI', 'DELIVERY SCORE', '#3949ab', aylar.map(a => _perfPuanMetni(a.termin)))
+                + ayBlok('TAMAMLANMA PUANI', 'COMPLETION SCORE', '#00695c', aylar.map(a => _perfPuanMetni(a.tamamlanma)))
+                + '<table style="border-collapse:collapse;width:100%;font-size:12px;margin-top:10px">'
+                + `<tr><td style="${B};background:#8e24aa;color:#fff;font-weight:700;width:60%">VDA PUANI<div style="font-weight:400;font-size:11px">VDA SCORE</div></td><td style="${B};text-align:center;font-weight:700">${_perfPuanMetni(sp.vdaPuan || 0)}</td></tr>`
+                + `<tr><td style="${B};background:#43a047;color:#fff;font-weight:700">KALİTE BELGE PUANI<div style="font-weight:400;font-size:11px">QUALITY CERT SCORE</div></td><td style="${B};text-align:center;font-weight:700">${_perfPuanMetni(sp.kalitePuan || 0)}</td></tr>`
+                + `<tr><td style="${B};background:#0288d1;color:#fff;font-weight:700">8D DÖNÜŞ ORANI<div style="font-weight:400;font-size:11px">8D RETURN RATE</div></td><td style="${B};text-align:center;font-weight:700">${_perfPuanMetni(sp.donusOrani8D === undefined ? 100 : sp.donusOrani8D)}</td></tr>`
+                + '</table>'
+                + iatf
+                + '<p style="margin-top:16px">Değerlendirme ile ilgili sorularınız için bize dönebilirsiniz.</p>'
+                + '<p>İyi çalışmalar,<br><b>Sanifoam Kalite Yönetimi</b></p>'
+                + '</div>';
+        }
 
         let _perfListe = [];
 
@@ -4283,8 +4414,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     const iade = Number((r._iade || [])[i]) || 0;
                     const hata = Number((r._hata || [])[i]) || 0;
                     if (!sevk && !iade && !hata) continue;
-                    a.push({ ad: AY_ADI[i], sevk: sevk, iade: iade, hata: hata,
-                             ppm: sevk > 0 ? Math.round(iade / sevk * 1000000) : 0 });
+                    a.push({ no: i + 1, ad: AY_ADI[i], sevk: sevk, iade: iade, hata: hata,
+                             ppm: sevk > 0 ? Math.round(iade / sevk * 1000000) : 0,
+                             termin: Number((r._termin || [])[i] ?? 100) || 0,
+                             tamamlanma: Number((r._tamam || [])[i] ?? 100) || 0 });
                 }
                 return a;
             };
@@ -4300,7 +4433,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     ppm: Math.round(Number(r.ppm) || 0),          // 8166.4203… basiliyordu
                     ppmHedef: Math.round(Number(r.ppmHedef) || 0)
                 });
-                delete y._sevk; delete y._iade; delete y._hata;   // ham dizi kuyruga gitmesin
+                // Mail govdesi BURADA uretilir: ekranda gorunen veriyle
+                // giden mail ayni olsun, gonderenlerde kopya kalmasin.
+                try { y.govde = _perfRaporGovde(r._sp || {}, y, y.aylar, gonderimTarihi); }
+                catch (e) {
+                    // SESSIZ YUTMA YOK: gonderen sade govdeye duser ama
+                    // sebebi konsolda gorunur, yoksa neden basit mail
+                    // gittigi hic anlasilmaz.
+                    console.error('Performans gövdesi üretilemedi:', r.ad, e);
+                    y.govde = '';
+                }
+                delete y._sevk; delete y._iade; delete y._hata;
+                delete y._termin; delete y._tamam; delete y._sp;
                 return deneme
                     ? Object.assign(y, { ad: '[DENEME] ' + r.ad, to: denemeAdres, cc: [] })
                     : y;
