@@ -25250,7 +25250,20 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
 
         function _uygSatirlari(kayitlar, tedarikciAdi) {
             const hedef = normalizeName(tedarikciAdi);
-            return kayitlar.filter(k => normalizeName(k.cariAdi) === hedef);
+            const eslesen = kayitlar.filter(k => normalizeName(k.cariAdi) === hedef);
+            // TEKILLESTIR: LeanSys gorunumu ayni uygunsuzlugu birden cok
+            // satir donduruyor (olcum: 528 satirin 144'u birebir kopya).
+            // Ayni belgede farkli icerik HIC yok, o yuzden icerik bazli
+            // birlestirme gercek bir detay satirini gizleyemez.
+            // Kaynakta da elenir; burasi tazelenmemis veri icin.
+            const gorulen = new Set();
+            return eslesen.filter(k => {
+                const anahtar = Object.keys(k).filter(x => x !== 'id').sort()
+                    .map(x => x + '=' + String(k[x])).join('\u0001');
+                if (gorulen.has(anahtar)) return false;
+                gorulen.add(anahtar);
+                return true;
+            });
         }
 
         function _uygAlan(etiket, deger) {
