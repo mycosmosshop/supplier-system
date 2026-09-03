@@ -12853,6 +12853,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 if (r.monthlySevk) {
                     if (!r.manualTotalSevk) {
                         r.totalSevk = sumSelected(r.monthlySevk) + (r.hasKnownSevkMonths ? 0 : (r.unknownSevk || 0));
+                    } else {
+                        // Elle girilen TOPLAM sevkiyat, monthlySevk'e ORANTILI yazılır
+                        // (bkz. sevk düzenleme). Bu yüzden ay filtresi burada da
+                        // çalışmalıdır. Eskiden yıllık değer olduğu gibi kalıyordu:
+                        // "Ocak" seçilince Ocak sevki yıllık hacim gibi görünüyor,
+                        // iade ay filtresine uyduğu için PPM ~9 kat küçük çıkıyordu
+                        // (Ocak 92,3M ↔ yıllık 94,3M · PPM 103,93 ↔ analiz 882).
+                        var _msA = r.monthlySevk || [], _mTop = 0;
+                        for (var _i = 0; _i < _msA.length; _i++) _mTop += (+_msA[_i] || 0);
+                        if (_mTop > 0) {
+                            // Yıllık elle değer korunur: tüm aylar seçiliyken Σ = elle değer.
+                            var _yillik = (r.manualSevkYillik != null) ? Number(r.manualSevkYillik) : _mTop;
+                            r.totalSevk = sumSelected(_msA) * (_yillik / _mTop);
+                        }
+                        // Aylık dağılım yoksa süzülecek bir şey yok: elle girilen toplam kalır.
                     }
                     r.totalIade = sumSelected(r.monthlyIade) + (r.hasKnownIadeMonths ? 0 : (r.unknownIade || 0));
                     r.totalHata = sumSelected(r.monthlyHata) + (r.hasKnownHataMonths ? 0 : (r.unknownHata || 0));
@@ -15232,6 +15247,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // Yeni toplam sevkiyatı ata
                 supplier.totalSevk = value;
                 supplier.manualTotalSevk = true;
+                // Yıllık elle değeri AYRI sakla: recomputeAllWithSelectedMonths
+                // totalSevk'i ay filtresine göre yeniden yazıyor; oranı bundan kurar,
+                // yoksa her hesapta değer kayardı.
+                supplier.manualSevkYillik = value;
                 recordPerfOverride(supplierName, 'sevk', value);   // kalıcı: LeanSys yenilemesi ezmesin
                 
                 // Eğer aylık sevk verileri varsa, orantılı olarak güncelle
