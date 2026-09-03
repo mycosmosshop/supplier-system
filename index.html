@@ -25230,7 +25230,12 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             modal.style.display = 'flex';
             modal.setAttribute('data-supplier-name', supplier.name);
 
-            const months = Array.from(selectedMonths).sort((a,b)=>a-b);
+            // Ay filtresi bosken tablo eski degerleri gosterirken grafik
+            // bombos kaliyordu. Tablo bos ayda YENIDEN HESAPLAMIYOR; grafik
+            // de ayni kurala uysun, donemin gecerli aylarina dussun.
+            const _ayYok = selectedMonths.size === 0;
+            const months = _ayYok ? _gecerliAylar()
+                                  : Array.from(selectedMonths).sort((a,b)=>a-b);
             const monthLabels = months.map(m => `${m}.Ay`);
 
             // Ayarlanmış aylık PPM değerlerini kullan (monthlyPPM dizisi varsa)
@@ -25295,8 +25300,9 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 return Math.max(0, Math.min(100, (target / hata) * 100));
             });
 
-            document.getElementById('perfChartSupplierInfo').textContent =
-                `Seçili aylar: ${months.join(', ')}`;
+            document.getElementById('perfChartSupplierInfo').textContent = _ayYok
+                ? `⚠️ Ay filtresinde hiçbir ay seçili değil — dönemin ayları gösteriliyor: ${months.join(', ')}`
+                : `Seçili aylar: ${months.join(', ')}`;
             
             // Müşteri için grafikleri gizle/göster
             const hideElements = document.querySelectorAll('.hide-for-musteri');
