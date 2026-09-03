@@ -2042,6 +2042,22 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         <div id="tableContainer"></div>
     </div>
 
+    <!-- Uygunsuzluk Detay Modali (LeanSys kayitlari) -->
+    <div id="uygunsuzlukModal" class="modal-overlay" style="display: none;">
+        <div class="modal-dialog" style="max-width: 1100px; width: 95%;">
+            <div class="modal-header">
+                <h3 id="uygBaslik">⚠️ Uygunsuzluklar</h3>
+                <button class="modal-close" onclick="uygunsuzlukKapat()">✕</button>
+            </div>
+            <div class="modal-body" style="max-height: 72vh; overflow: auto;">
+                <div id="uygGovde"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="uygunsuzlukKapat()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Performans Grafik Modali -->
     <div id="performanceChartModal" class="modal-overlay" style="display: none;">
         <div class="modal-dialog" style="max-width: 1400px; width: 95%;">
@@ -2068,6 +2084,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <div class="stat-card" style="padding: 10px;">
                         <div class="stat-label">Aylık Hata Sayısı</div>
                         <canvas id="chartDefect" width="100%" height="180" style="width: 100%;"></canvas>
+                        <!-- Grafik "3 hata" diyor ama NE oldugu gorunmuyordu: LeanSys
+                             uygunsuzluk kayitlari ay-ay buradan acilir. -->
+                        <div id="chartUygButtons" style="display: grid; margin-top: 12px; padding-left: 130px; padding-right: 100px; gap: 0;"></div>
+                        <div style="text-align:center; font-size:.78em; color:#90a4ae; margin-top:4px;">
+                            Uygunsuzluğun ne olduğunu görmek için ayın kutusuna tıkla
+                        </div>
                     </div>
                     <div class="stat-card hide-for-musteri" style="padding: 10px;">
                         <div class="stat-label">VDA Puanı</div>
@@ -13311,12 +13333,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // ---- GELECEK AY KORUMASI ----------------------------------------------
         // Dönem içinde bulunulan YIL ise, henüz gelmemiş aylar seçilemez ve grafikte çizilmez.
         // (Ağustos'tayken 9-12. aylar boş sütun olarak görünüyor, "Seçili aylar: 1..12" yazıyordu.)
-        function _donemSonAy(){
+        // Donem yili TEK KAYNAK: hem gelecek-ay korumasi hem uygunsuzluk
+        // sorgusu ayni yili kullansin, ayrisirsa yanlis ay listelenir.
+        function _donemYili(){
             var ad = '';
             try { ad = localStorage.getItem('_currentPeriodName') || ''; } catch(e){}
             var m = String(ad).match(/(20\d{2})/);
+            return m ? +m[1] : new Date().getFullYear();
+        }
+        function _donemSonAy(){
+            var yil = _donemYili();
             var bugun = new Date();
-            var yil = m ? +m[1] : bugun.getFullYear();
             return (yil === bugun.getFullYear()) ? (bugun.getMonth() + 1) : 12;
         }
         function _gecerliAylar(){ var n=_donemSonAy(), a=[]; for(var i=1;i<=n;i++) a.push(i); return a; }
@@ -25199,6 +25226,126 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
 
         }
 
+        // ── LeanSys uygunsuzluk kayitlari (Supabase uygunsuzluk_records) ──
+        // Tablo LeanSys_Agent /uygunsuzluk ile tazelenir; buradan YALNIZCA okunur.
+        const _UYG_ONBELLEK = new Map();          // 'MM.YYYY' -> kayitlar
+
+        function _uygAySorgu(ay, yil) {
+            // uygunsuzlukTarih METIN ve 'dd.MM.yyyy' bicimli; ay suzmesi
+            // LIKE ile sunucuda yapilir (tum yili cekip elemekten ucuz).
+            return '*.' + String(ay).padStart(2, '0') + '.' + yil;
+        }
+
+        async function _uygAyGetir(ay, yil) {
+            const desen = _uygAySorgu(ay, yil);
+            if (_UYG_ONBELLEK.has(desen)) return _UYG_ONBELLEK.get(desen);
+            const url = PT_SUPA + '/rest/v1/uygunsuzluk_records?select=*'
+                      + '&uygunsuzlukTarih=like.' + encodeURIComponent(desen) + '&limit=2000';
+            const r = await fetch(url, { headers: { apikey: PT_ANON, Authorization: 'Bearer ' + PT_ANON } });
+            if (!r.ok) throw new Error('Supabase ' + r.status);
+            const kayitlar = await r.json();
+            _UYG_ONBELLEK.set(desen, kayitlar);
+            return kayitlar;
+        }
+
+        function _uygSatirlari(kayitlar, tedarikciAdi) {
+            const hedef = normalizeName(tedarikciAdi);
+            return kayitlar.filter(k => normalizeName(k.cariAdi) === hedef);
+        }
+
+        function _uygAlan(etiket, deger) {
+            if (deger === null || deger === undefined || String(deger).trim() === '') return '';
+            return `<div style="margin-bottom:4px"><span style="color:#78909c">${etiket}:</span> `
+                 + `<b>${_infoAttr(deger)}</b></div>`;
+        }
+
+        function _uygKart(k) {
+            const no = [k.uygunsuzlukSeri, k.uygunsuzlukSira].filter(Boolean).join('-') || '—';
+            const miktar = (k.hataliMiktar || k.hataliMiktar === 0)
+                ? `${k.hataliMiktar}${k.birim ? ' ' + _infoAttr(k.birim) : ''}` : '';
+            const kapali = String(k.kapatmaTarihi || '').trim();
+            return `<div style="border:1px solid #e0e0e0; border-left:4px solid ${kapali ? '#43a047' : '#e53935'};
+                                border-radius:6px; padding:12px 14px; margin-bottom:10px; background:#fff;">
+                <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                    <b style="color:#1e3c72; font-size:1.05em;">${_infoAttr(no)} · ${_infoAttr(k.uygunsuzlukTarih || '')}</b>
+                    <span style="font-size:.85em; padding:2px 10px; border-radius:12px; color:#fff;
+                                 background:${kapali ? '#43a047' : '#e53935'};">
+                        ${kapali ? 'Kapandı: ' + _infoAttr(kapali) : 'Açık'}</span>
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:2px 18px; font-size:.9em;">
+                    ${_uygAlan('Tip', k.tipi)}
+                    ${_uygAlan('Uygunsuzluk türü', k.uygunsuzlukTuru)}
+                    ${_uygAlan('Hata tipi', k.hataTipi)}
+                    ${_uygAlan('Hata kaynağı', k.hataKaynagi)}
+                    ${_uygAlan('Stok', [k.stokKodu, k.stokAdi].filter(Boolean).join(' — '))}
+                    ${_uygAlan('Hatalı miktar', miktar)}
+                    ${_uygAlan('Parti / kontrol', [k.partiHacmi, k.kontrolMiktar].filter(v => v || v === 0).join(' / '))}
+                    ${_uygAlan('Tespit yeri', k.tespitYeri)}
+                    ${_uygAlan('Makine', k.makine)}
+                    ${_uygAlan('Tespit eden', k.tespitEden)}
+                    ${_uygAlan('İş emri', k.isEmriKodu)}
+                </div>
+                ${k.tarif ? `<div style="margin-top:8px; padding:8px 10px; background:#fafafa; border-radius:4px;
+                                          font-size:.9em; white-space:pre-wrap;"><b>Tarif:</b> ${_infoAttr(k.tarif)}</div>` : ''}
+                ${k.karar ? `<div style="margin-top:6px; font-size:.9em;"><b>Karar:</b> ${_infoAttr(k.karar)}</div>` : ''}
+                ${k.sonuc ? `<div style="margin-top:4px; font-size:.9em;"><b>Sonuç:</b> ${_infoAttr(k.sonuc)}</div>` : ''}
+            </div>`;
+        }
+
+        async function uygunsuzlukAc(tedarikciAdi, ay, grafikSayisi) {
+            const yil = _donemYili();
+            document.getElementById('uygBaslik').textContent =
+                `⚠️ ${tedarikciAdi} — ${ay}. Ay ${yil} Uygunsuzlukları`;
+            const govde = document.getElementById('uygGovde');
+            govde.innerHTML = '<div style="padding:20px; color:#78909c">LeanSys kayıtları okunuyor…</div>';
+            document.getElementById('uygunsuzlukModal').style.display = 'flex';
+            try {
+                const hepsi = await _uygAyGetir(ay, yil);
+                const kayitlar = _uygSatirlari(hepsi, tedarikciAdi);
+                // DURUSTLUK: grafikteki sayi Excel/supplier_monthly'den, kayitlar
+                // LeanSys'ten geliyor. Tutmuyorsa sessiz kalma.
+                const fark = (grafikSayisi !== undefined && grafikSayisi !== null)
+                          && Number(grafikSayisi) !== kayitlar.length;
+                const ozet = `<div style="padding:10px 12px; border-radius:6px; margin-bottom:12px;
+                        background:${fark ? '#fff3e0' : '#e8f5e9'};
+                        border-left:4px solid ${fark ? '#fb8c00' : '#43a047'};">
+                    LeanSys'te <b>${kayitlar.length}</b> uygunsuzluk kaydı bulundu.
+                    ${fark ? `<span style="color:#e65100">Grafikte bu ay <b>${grafikSayisi}</b> hata görünüyor —
+                              grafik Excel/aylık veriden, bu liste LeanSys uygunsuzluk kayıtlarından gelir;
+                              iki kaynak ayrışmış olabilir.</span>` : ''}
+                   </div>`;
+                govde.innerHTML = ozet + (kayitlar.length
+                    ? kayitlar.map(_uygKart).join('')
+                    : `<div style="padding:16px; color:#78909c">Bu ay için LeanSys'te bu tedarikçiye
+                       ait uygunsuzluk kaydı yok. (Kayıtlar LeanSys ajanının
+                       <b>/uygunsuzluk</b> tazelemesiyle gelir; tazelenmediyse boş görünür.)</div>`);
+            } catch (e) {
+                govde.innerHTML = `<div style="padding:16px; color:#c62828">Uygunsuzluk kayıtları okunamadı: `
+                                + _infoAttr(e.message) + '</div>';
+            }
+        }
+
+        function uygunsuzlukKapat() {
+            document.getElementById('uygunsuzlukModal').style.display = 'none';
+        }
+
+        // Hata grafiginin altina ay-ay uygunsuzluk dugmeleri
+        function createUygunsuzlukButtons(tedarikciAdi, months, defectSeries) {
+            const kap = document.getElementById('chartUygButtons');
+            if (!kap) return;
+            kap.style.gridTemplateColumns = `repeat(${months.length || 1}, 1fr)`;
+            kap.innerHTML = months.map((ay, i) => {
+                const n = Number((defectSeries || [])[i]) || 0;
+                const renk = n > 0 ? '#e53935' : '#cfd8dc';
+                return `<div style="display:flex; justify-content:center;">
+                    <button type="button" title="${ay}. Ay — uygunsuzluk kayıtlarını gör"
+                        onclick="uygunsuzlukAc('${_infoAttr(tedarikciAdi).replace(/'/g, "&#39;")}', ${ay}, ${n})"
+                        style="min-width:34px; padding:2px 6px; font-size:.78em; font-weight:700; cursor:pointer;
+                               color:#fff; background:${renk}; border:none; border-radius:4px;">${n}</button>
+                 </div>`;
+            }).join('');
+        }
+
         function openPerformanceCharts(supplierKey) {
             const modal = document.getElementById('performanceChartModal');
             if (!modal) return;
@@ -25423,6 +25570,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                         
                         // Sadece hata grafiklerini yeniden çiz
                         drawBarChart('chartDefect', monthLabels, defectSeriesNew, '#e53935', 'Hata Sayısı', null, defectCallback);
+                        createUygunsuzlukButtons(supplier.name, months, defectSeriesNew);
                         drawBarChart('chartDefectScore', monthLabels, defectScoreSeriesNew, '#f4511e', 'Hata Puanı');
                     }
                     input.remove();
@@ -25732,6 +25880,7 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
             window.currentSupplierForCallbacks = supplier; // Supplier referansını da kaydet
             
             drawBarChart('chartDefect', monthLabels, defectSeries, '#e53935', 'Hata Sayısı', null, defectCallback);
+            createUygunsuzlukButtons(supplier.name, months, defectSeries);
             
             // 8D Butonlarını oluştur (async olarak)
             create8DButtons(supplier.name, months);
