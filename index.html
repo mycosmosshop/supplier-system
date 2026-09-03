@@ -13448,11 +13448,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     var hasVda = (Number(r.vdaPuan) || 0) > 0;
                     var comp = [], termin = [], ppmp = [];
                     var sevkA = [], iadeA = [], tamamA = [];
-                    // Sistemin AY-FİLTRESİ mantığını BİREBİR taklit et (recomputeAllWithSelectedMonths):
-                    //  - SEVK: elle override varsa o ay için TAM override sevk (ay filtresi override'ı azaltmaz);
-                    //          override yoksa monthlySevk[m] + (aylara atanmamışsa unknownSevk).
-                    //  - İADE: monthlyIade[m] + (aylara atanmamışsa unknownIade).
-                    // (KPI her ayı bağımsız gösterir; bu yüzden override'lı ay sevk'i = sistem tek-ay görünümü.)
+                    // AYLIK SERİ, Lokasyon PPM Analizi ile AYNI tanımı kullanır:
+                    //   sevk = monthlySevk[m], iade = monthlyIade[m].
+                    // Eskiden override sevk HER AYA tam yazılıyordu ("tek-ay görünümü"):
+                    // aynı yıllık hacim 12 kez sayılıp aylık payda şişiyor, KPI'daki PPM
+                    // analizden kat kat küçük çıkıyordu (Ankara 2026: 104 ↔ 882).
+                    // Aya atanmamış hacim (unknownSevk/İade) de her aya ekleniyordu —
+                    // hangi aya ait olduğu bilinmiyor, 12 aya yazmak 12 kez saymaktır.
                     var _ovSevk = null;
                     try {
                         var _ovKey = _expPeriod + '||' + (typeof normalizeName === 'function' ? normalizeName(r.name) : (r.normalizedName || ''));
@@ -13460,11 +13462,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         if (_ov && _ov.sevk != null && Number(_ov.sevk) > 0) _ovSevk = Number(_ov.sevk);
                         else if (r.manualTotalSevk && Number(r.totalSevk) > 0) _ovSevk = Number(r.totalSevk);
                     } catch (e) { }
-                    var unkSevk = r.hasKnownSevkMonths ? 0 : (Number(r.unknownSevk) || 0);
-                    var unkIade = r.hasKnownIadeMonths ? 0 : (Number(r.unknownIade) || 0);
+                    // Override YILLIK bir toplam düzeltmesidir: aylara ORANTILI dağıtılır.
+                    // Böylece Σay = override kalır, aylar birbiriyle karşılaştırılabilir olur.
+                    // Aylık dağılım yoksa (Σay = 0) oran kurulamaz; uydurma dağıtım yapılmaz.
+                    var _msTop = 0; for (var _i = 0; _i < 12; _i++) _msTop += Number(ms[_i]) || 0;
+                    var _ovKat = (_ovSevk != null && _msTop > 0) ? (_ovSevk / _msTop) : null;
                     for (var m = 0; m < 12; m++) {
-                        var sevk = (_ovSevk != null) ? _ovSevk : ((Number(ms[m]) || 0) + unkSevk);
-                        var iade = (Number(mi[m]) || 0) + unkIade;
+                        var sevk = (Number(ms[m]) || 0) * (_ovKat != null ? _ovKat : 1);
+                        var iade = Number(mi[m]) || 0;
                         sevkA[m] = Math.round(sevk * 1000) / 1000; iadeA[m] = Math.round(iade * 1000) / 1000;
                         var hasTermin = mtp[m] != null;
                         tamamA[m] = (mtm[m] != null) ? Math.round(n01(mtm[m], 0) * 10000) / 10000 : null;
