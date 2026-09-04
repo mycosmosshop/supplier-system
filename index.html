@@ -1941,6 +1941,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             onclick="openPerfBildirim()">📋 Listeyi hazırla ve onayla</button>
                     <!-- Hatirlatma rozeti AYNI cubukta: ayri genis serit yer kapliyordu -->
                     <span id="perfHatirlatmaBanner"></span>
+                    <!-- Son gonderim tarihi: rozet yalnizca vade gelince
+                         cikiyor, tarih ise HER ZAMAN gorunmeli. -->
+                    <span id="perfSonGonderimEtiket" style="font-size: 0.8em; color: #6d4c41;"></span>
                     <span style="font-size: 0.8em; color: #8d6e63; margin-left: auto;">⏰ Hatırlat: her</span>
                     <input type="number" id="perfHatirlatmaAy" min="1" max="12" step="1" style="width: 46px; padding: 3px 5px; border: 1px solid #fb8c00; border-radius: 4px; font-size: 0.85em;"
                            onchange="_perfHatirlatmaAyKaydet()" title="Kaç ayda bir hatırlatılsın">
@@ -4353,6 +4356,45 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
         }
 
+        // Son gonderim tarihini yaz. localStorage MAKINEYE BAGLI: baska
+        // bilgisayarda bos gorunur. O yuzden Drive'daki kuyruktan da
+        // tazelenir (asagida), burasi yalnizca eldeki degeri gosterir.
+        function _perfSonGonderimYaz() {
+            const el = document.getElementById('perfSonGonderimEtiket');
+            if (!el) return;
+            let son = '';
+            try { son = localStorage.getItem('perfSonGonderim') || ''; } catch (e) {}
+            el.innerHTML = son
+                ? '\u{1F4C5} Son g\u00f6nderim: <b>' + _perfTarihGoster(son) + '</b>'
+                : '<span style="color:#9e9e9e" title="Hen\u00fcz ger\u00e7ek g\u00f6nderim yok '
+                  + '(\ud83e\uddea deneme say\u0131lmaz)">\u{1F4C5} Son g\u00f6nderim: kay\u0131t yok</span>';
+        }
+
+        // Drive'daki kuyruktan son GERCEK gonderimi al ve damgayi tazele.
+        // DENEME SAYILMAZ: test yapmak "gonderdim" degildir.
+        async function _perfSonGonderimTazele() {
+            try {
+                const ayar = getDriveSettings();
+                if (!ayar) return;
+                const u = ayar.url + '?action=getfile&name=' + encodeURIComponent(PERF_DRIVE_AD)
+                        + '&secret=' + encodeURIComponent(ayar.secret);
+                const y = await (await fetch(u)).json();
+                if (!y || !y.success || !y.content) return;
+                const k = typeof y.content === 'string' ? JSON.parse(y.content) : y.content;
+                if (!k || k.deneme) return;
+                const gonderilen = (k.kayitlar || []).some(r => r.gonderildi);
+                const t = String(k.gonderimTarihi || '');
+                if (!gonderilen || !t) return;
+                let eski = '';
+                try { eski = localStorage.getItem('perfSonGonderim') || ''; } catch (e) {}
+                // Geriye alma yok: eski tarih yenisini ezmesin
+                if (t > eski) {
+                    try { localStorage.setItem('perfSonGonderim', t); } catch (e) {}
+                    _perfHatirlatmaKontrol();
+                }
+            } catch (e) { /* cevrimdisi: eldeki deger kalir */ }
+        }
+
         function _perfHatirlatmaKontrol() {
             const kap = document.getElementById('perfHatirlatmaBanner');
             if (!kap) return;
@@ -4364,6 +4406,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (gbEl && !gbEl.value) gbEl.value = gunBas;
             if (gsEl && !gsEl.value) gsEl.value = gunSon;
 
+            _perfSonGonderimYaz();
             let son = '';
             try { son = localStorage.getItem('perfSonGonderim') || ''; } catch (e) {}
             // Hic gercek gonderim yoksa uyari gosterme: ozelligi hic
@@ -4388,6 +4431,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                  </span>`;
         }
         document.addEventListener('DOMContentLoaded', _perfHatirlatmaKontrol);
+        document.addEventListener('DOMContentLoaded', _perfSonGonderimTazele);
 
 
         // ── Performans maili gövdesi (Excel raporuyla aynı düzen) ──
