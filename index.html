@@ -4787,10 +4787,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
               + ' border:1px solid #fb8c00; border-radius:4px"> günleri</span>'
               + '</div>'
               + '<div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">'
-              + '<button onclick="_perfHatirlatmaIste(\'deneme\')" style="padding:6px 12px;'
+              + '<button ' + (_perfIstek ? 'disabled ' : '')
+              + 'onclick="_perfHatirlatmaIste(\'deneme\')" style="padding:6px 12px;'
               + ' border:1px solid #1565c0; background:#fff; color:#1565c0; border-radius:6px;'
               + ' cursor:pointer; font-size:.95em">🧪 Deneme hatırlatması iste</button>'
-              + '<button onclick="_perfHatirlatmaIste(\'gercek\')" style="padding:6px 12px;'
+              + '<button ' + (_perfIstek ? 'disabled ' : '')
+              + 'onclick="_perfHatirlatmaIste(\'gercek\')" style="padding:6px 12px;'
               + ' border:0; background:#e65100; color:#fff; border-radius:6px;'
               + ' cursor:pointer; font-size:.95em">⏰ Hatırlatmayı şimdi gönder</button>'
               + '</div>'
@@ -4836,7 +4838,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         content: JSON.stringify(istek) })
                 });
                 _perfIstek = istek;
-                _perfIstekDurumYaz();
+                _perfHatirlatmaKutuCiz();     // dugme kilitli hale gecsin
+                _perfIstekIzle();             // durumu kendiliginden tazele
                 showAlert((tip === 'deneme' ? '🧪 Deneme' : '⏰ Hatırlatma')
                     + ' isteği alındı — en geç 15 dakika içinde '
                     + 'volkan.pekatik@sanifoam.com.tr adresine gelir.', 'success');
@@ -4849,11 +4852,42 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const el = document.getElementById('perfIstekDurum');
             if (!el) return;
             if (!_perfIstek) { el.innerHTML = ''; return; }
-            // "Yapildi" demiyoruz: mail gorev calisinca gider, biz gormeyiz.
-            el.innerHTML = _perfIstek.durum === 'bekliyor'
-                ? '<span style="color:#1565c0">⏳ İstek sırada — görev en geç 15 dakikada bir '
-                  + 'çalışıyor. Geldiğinde yukarıdaki satır güncellenir.</span>'
-                : '<span style="color:#2e7d32">✓ İstek işlendi.</span>';
+            // Saat de yazilir: "bir sey oldu mu?" sorusunun cevabi ekranda kalsin.
+            const s = new Date(_perfIstek.istek).toLocaleTimeString('tr-TR',
+                { hour: '2-digit', minute: '2-digit' });
+            el.innerHTML =
+                '<div style="padding:6px 10px; background:#e3f2fd; border-left:3px solid #1565c0;'
+              + ' border-radius:4px; color:#0d47a1">'
+              + '⏳ <b>' + (_perfIstek.tip === 'deneme' ? 'Deneme' : 'Hatırlatma')
+              + ' isteği sıraya alındı</b> (' + s + '). Görev en geç 15 dakikada bir çalışıyor; '
+              + 'mail gelince yukarıdaki <b>Son '
+              + (_perfIstek.tip === 'deneme' ? 'deneme' : 'hatırlatma') + ' maili</b> satırı '
+              + 'kendiliğinden güncellenir.</div>';
+        }
+
+        // Istek sirada oldugu surece durumu tazele: kullanici ekrana bakip
+        // "oldu mu?" diye beklemesin. Modal kapaninca durur.
+        let _perfIzleZaman = null;
+        function _perfIstekIzle() {
+            if (_perfIzleZaman) clearInterval(_perfIzleZaman);
+            _perfIzleZaman = setInterval(async () => {
+                const acik = document.getElementById('perfBildirimModal');
+                if (!acik || acik.style.display === 'none' || !_perfIstek) {
+                    clearInterval(_perfIzleZaman); _perfIzleZaman = null; return;
+                }
+                const d = await _perfHatirlatmaDurumOku();
+                if (!d) return;
+                const alan = _perfIstek.tip === 'deneme' ? 'sonDeneme' : 'sonHatirlatma';
+                const onceki = (_perfHatirlatmaDurum || {})[alan];
+                _perfHatirlatmaDurum = d;
+                // Yeni damga geldiyse istek islenmis demektir.
+                if (d[alan] && d[alan] !== onceki) {
+                    _perfIstek = null;
+                    clearInterval(_perfIzleZaman); _perfIzleZaman = null;
+                    showAlert('✓ Mail gönderildi: ' + d[alan], 'success');
+                }
+                _perfHatirlatmaKutuCiz();
+            }, 30000);
         }
 
         function openPerfBildirim() {
