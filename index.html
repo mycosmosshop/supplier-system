@@ -4316,7 +4316,33 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 localStorage.setItem('perfHatirlatmaGunBas', String(b));
                 localStorage.setItem('perfHatirlatmaGunSon', String(e2));
             } catch (e) {}
+            // Ayari Drive'a da yaz: hatirlatma mailini atan zamanlanmis gorev
+            // (perf-mail/gonder.py) localStorage'i okuyamaz. Yazilamazsa
+            // sessizce gecilir - ekrandaki rozet localStorage ile calismaya
+            // devam eder, sadece mail hatirlatmasi eski periyodu kullanir.
+            _perfHatirlatmaDriveYaz(n, b, e2);
             _perfHatirlatmaKontrol();
+        }
+
+        // Drive'daki PERFORMANS_HATIRLATMA.json: {ay, gunBas, gunSon}
+        // no-cors -> yanit okunamaz; yazma islemi "atesle ve unut".
+        function _perfHatirlatmaDriveYaz(ay, gunBas, gunSon) {
+            try {
+                const ayar = getDriveSettings();
+                if (!ayar) return;
+                fetch(ayar.url, {
+                    method: 'POST', mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'save', secret: ayar.secret,
+                        name: 'PERFORMANS_HATIRLATMA.json',
+                        content: JSON.stringify({
+                            ay: ay, gunBas: gunBas, gunSon: gunSon,
+                            guncelleme: new Date().toISOString()
+                        })
+                    })
+                }).catch(() => {});
+            } catch (e) {}
         }
 
         // "YYYY-AA-GG" + n ay (yerel takvim; UTC kaymasi olmasin)
