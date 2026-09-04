@@ -4092,6 +4092,93 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // Numaralandirma uzun listede saymayi ve yeri bulmayi kolaylastirir.
         // Onay MODALLARINDA tedarikci listesi: kisaltma YOK. Uzun listede
         // modal tasmasin diye kendi icinde kaydirilir.
+        // Mail onay kutusu: TAM liste + istege bagli CC.
+        // Neden confirm() degil: yerlesik kutu metin alani alamiyor, kullanici
+        // "bu asamada CC ekleyebileyim" dedi. Promise doner: {onay, cc}.
+        //
+        // DENEME MODUNDA CC KAPALI: deneme modunun tek garantisi mailin
+        // tedarikcilere/uc kisilere GITMEMESI. CC eklenebilseydi bu garanti
+        // sessizce bozulurdu.
+        function _perfOnayKutusu(opt) {
+            return new Promise(function (bitir) {
+                var esc = function (t) {
+                    return String(t == null ? '' : t)
+                        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                };
+                var k = document.createElement('div');
+                k.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;'
+                    + 'align-items:center;justify-content:center;z-index:10060;padding:16px';
+                var satirlar = opt.satirlar.map(function (r, i) {
+                    return '<div style="padding:3px 0;border-bottom:1px solid #f0f0f0">'
+                        + '<b>' + (i + 1) + '.</b> ' + esc(r.ad)
+                        + ' <span style="color:#888">&rarr;</span> ' + esc(r.to)
+                        + (r.cc && r.cc.length
+                            ? '<span style="color:#888;font-size:.9em"> (CC: ' + esc(r.cc.join(', ')) + ')</span>'
+                            : '')
+                        + '</div>';
+                }).join('');
+                k.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:760px;width:100%;'
+                    + 'max-height:88vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.3)">'
+                    + '<div style="padding:20px 24px 0">' + opt.baslik + '</div>'
+                    + '<div style="margin:12px 24px;border:1px solid #e5e7eb;border-radius:8px;'
+                    + 'padding:10px 14px;overflow:auto;flex:1;min-height:0;font-size:.93em">' + satirlar + '</div>'
+                    + '<div style="padding:0 24px 4px">'
+                    + '<label style="font-weight:600;font-size:.92em">CC (istege bagli)</label>'
+                    + '<input id="perfOnayCc" type="text" placeholder="ornek@firma.com, ikinci@firma.com" '
+                    + 'style="width:100%;box-sizing:border-box;padding:9px 12px;margin-top:5px;'
+                    + 'border:1px solid #d1d5db;border-radius:8px;font-size:.95em">'
+                    + '<div style="color:#666;font-size:.85em;margin-top:5px">'
+                    + 'Virgül, noktalı virgül veya boşlukla ayırın. '
+                    + 'Tüm maillerin CC alanına eklenir.</div>'
+                    + '<div id="perfOnayHata" style="color:#c62828;font-size:.88em;margin-top:6px"></div>'
+                    + '</div>'
+                    + '<div style="padding:14px 24px 20px;text-align:right">'
+                    + '<button id="perfOnayVaz" style="padding:9px 20px;margin-right:8px;border:1px solid #ddd;'
+                    + 'background:#fff;border-radius:8px;cursor:pointer">İptal</button>'
+                    + '<button id="perfOnayTamam" style="padding:9px 22px;border:0;background:#1b5e20;color:#fff;'
+                    + 'border-radius:8px;cursor:pointer;font-weight:600">Onayla</button>'
+                    + '</div></div>';
+                document.body.appendChild(k);
+
+                var gir = k.querySelector('#perfOnayCc');
+                var hata = k.querySelector('#perfOnayHata');
+                if (opt.ccKapali) {
+                    gir.value = ''; gir.disabled = true;
+                    gir.placeholder = 'Deneme modunda CC eklenemez';
+                }
+                var kapat = function (sonuc) { k.remove(); document.removeEventListener('keydown', tus); bitir(sonuc); };
+                var tus = function (e) { if (e.key === 'Escape') kapat({ onay: false, cc: [] }); };
+                document.addEventListener('keydown', tus);
+                k.addEventListener('click', function (e) { if (e.target === k) kapat({ onay: false, cc: [] }); });
+                k.querySelector('#perfOnayVaz').onclick = function () { kapat({ onay: false, cc: [] }); };
+                k.querySelector('#perfOnayTamam').onclick = function () {
+                    var cc = _ccAyikla(gir.disabled ? '' : gir.value);
+                    // BOZUK ADRES SESSIZCE ATILMAZ: kullanici CC ekledigini
+                    // saniyor ama mail gitmiyor olurdu.
+                    var bozuk = cc.filter(function (a) { return !_perfMailGecerli(a); });
+                    if (bozuk.length) {
+                        hata.textContent = 'Geçersiz e-posta: ' + bozuk.join(', ');
+                        gir.focus(); return;
+                    }
+                    kapat({ onay: true, cc: cc });
+                };
+                setTimeout(function () { if (!gir.disabled) gir.focus(); }, 30);
+            });
+        }
+
+        // "a@x.com, b@y.com; c@z.com" -> ['a@x.com','b@y.com','c@z.com']
+        // Ayni adres iki kez yazilirsa bir kez alinir.
+        function _ccAyikla(metin) {
+            var ham = String(metin || '').split(/[,;\s]+/);
+            var out = [];
+            ham.forEach(function (a) {
+                a = a.trim();
+                if (a && out.indexOf(a) < 0) out.push(a);
+            });
+            return out;
+        }
+
         function _onayTedarikciListesi(liste) {
             return '<div style="max-height:40vh;overflow:auto">'
                 + liste.map(function (x, i) {
@@ -4819,12 +4906,29 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             const neZaman = gonderimTarihi <= _perfGunStr()
                 ? 'kısa süre içinde'
                 : _perfTarihGoster(gonderimTarihi) + ' tarihinde';
-            if (!confirm((deneme
-                    ? '🧪 DENEME — ' + gidecek.length + ' mailin HEPSİ ' + denemeAdres
-                      + ' adresine ' + neZaman + ' gidecek, tedarikçilere GİTMEYECEK.\n\n'
-                    : gidecek.length + ' tedarikçiye performans maili ' + neZaman + ' gönderilecek.\n\n')
-                + _onayListesi(gidecek, r => r.ad + ' → ' + r.to)
-                + '\n\nOnaylıyor musunuz?')) return;
+            const _baslik = deneme
+                ? '<div style="font-size:1.1em;font-weight:700">&#129514; DENEME</div>'
+                  + '<div style="margin-top:6px;color:#444">' + gidecek.length + ' mailin HEPSİ'
+                  + ' <b>' + denemeAdres + '</b> adresine ' + neZaman
+                  + ' gidecek, tedarikçilere GİTMEYECEK.</div>'
+                : '<div style="font-size:1.1em;font-weight:700">' + gidecek.length
+                  + ' tedarikçiye performans maili</div>'
+                  + '<div style="margin-top:6px;color:#444">' + neZaman + ' gönderilecek.</div>';
+            const _onay = await _perfOnayKutusu({
+                baslik: _baslik, satirlar: gidecek, ccKapali: deneme
+            });
+            if (!_onay.onay) return;
+            // Eklenen CC her maile yazilir; zaten var olan ve alicinin kendi
+            // adresi tekrar eklenmez (ayni kisiye iki kez gitmesin).
+            if (_onay.cc.length) {
+                gidecek.forEach(function (y) {
+                    var v = Array.isArray(y.cc) ? y.cc.slice() : [];
+                    _onay.cc.forEach(function (a) {
+                        if (v.indexOf(a) < 0 && a !== y.to) v.push(a);
+                    });
+                    y.cc = v;
+                });
+            }
 
             const btn = document.getElementById('perfOnayBtn');
             btn.disabled = true; btn.textContent = '⏳ Kuyruğa yazılıyor…';
