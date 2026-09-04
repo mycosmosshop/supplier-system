@@ -4086,6 +4086,24 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // Yerel takvim gunu olarak YYYY-AA-GG. toISOString UTC'ye cevirir
         // ve 03:00'ten once bir onceki gunu verir — daysDiff'te yasanan
         // kaymanin aynisi.
+        // Onay kutusunda TAM liste gosterilir - kisaltma YOK.
+        // Kullanici neyin gidecegini/silinecegini gormeden onaylamamali;
+        // "… ve 3 tane daha" gizlenen satirlar icin korumasiz onay demekti.
+        // Numaralandirma uzun listede saymayi ve yeri bulmayi kolaylastirir.
+        // Onay MODALLARINDA tedarikci listesi: kisaltma YOK. Uzun listede
+        // modal tasmasin diye kendi icinde kaydirilir.
+        function _onayTedarikciListesi(liste) {
+            return '<div style="max-height:40vh;overflow:auto">'
+                + liste.map(function (x, i) {
+                    return (i + 1) + '. ' + x.name + ' (' + x.docs.length + ' doküman)';
+                }).join('<br>')
+                + '</div>';
+        }
+
+        function _onayListesi(dizi, yaz) {
+            return dizi.map(function (x, i) { return (i + 1) + '. ' + yaz(x); }).join('\n');
+        }
+
         function _perfGunStr(d) {
             d = d || new Date();
             const p = n => String(n).padStart(2, '0');
@@ -4805,8 +4823,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     ? '🧪 DENEME — ' + gidecek.length + ' mailin HEPSİ ' + denemeAdres
                       + ' adresine ' + neZaman + ' gidecek, tedarikçilere GİTMEYECEK.\n\n'
                     : gidecek.length + ' tedarikçiye performans maili ' + neZaman + ' gönderilecek.\n\n')
-                + gidecek.slice(0, 8).map(r => '• ' + r.ad + ' → ' + r.to).join('\n')
-                + (gidecek.length > 8 ? '\n… ve ' + (gidecek.length - 8) + ' tane daha' : '')
+                + _onayListesi(gidecek, r => r.ad + ' → ' + r.to)
                 + '\n\nOnaylıyor musunuz?')) return;
 
             const btn = document.getElementById('perfOnayBtn');
@@ -9222,8 +9239,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (!yeni.length) return;
             setTimeout(() => {
                 if (!confirm(yeni.length + ' tedarikçi için hatırlatma maili hazırlanacak.\n\n'
-                    + yeni.slice(0, 8).map(x => '• ' + x.s.name + ' — ' + x.v.length + ' belge').join('\n')
-                    + (yeni.length > 8 ? '\n• … (' + (yeni.length - 8) + ' tedarikçi daha)' : '')
+                    + _onayListesi(yeni, x => x.s.name + ' — ' + x.v.length + ' belge')
                     + '\n\nTaslaklar sırayla açılacak; göndermeden önce hepsini görürsün.')) return;
                 yeni.forEach((x, i) => setTimeout(() => belgeHatirlat(x.s.name), i * 1200));
             }, 1200);
@@ -10222,8 +10238,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             };
             
             // Tedarikçi listesini oluştur
-            const supplierList = affectedSuppliers.slice(0, 5).map(s => `• ${s.name} (${s.docs.length} doküman)`).join('<br>');
-            const extraSuppliersText = affectedSuppliers.length > 5 ? `<br>• ...ve ${affectedSuppliers.length - 5} tedarikçi daha` : '';
+            // SILME onayi: liste kisaltilmaz - hangi tedarikcinin dokumanlarinin
+            // silinecegi tam gorunmeli. Satirlar numaralanir.
+            const supplierList = _onayTedarikciListesi(affectedSuppliers);
             
             let html = `
                 <div id="docActionModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 10002;">
@@ -10244,7 +10261,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         
                         <div style="margin-bottom: 20px; padding: 12px; background: #f5f5f5; border-radius: 6px; font-size: 0.85em;">
                             <div style="font-weight: 600; margin-bottom: 8px; color: #333;">Etkilenen Tedarikçiler:</div>
-                            <div style="color: #666;">${supplierList}${extraSuppliersText}</div>
+                            <div style="color: #666;">${supplierList}</div>
                         </div>
                         
                         <div style="margin-bottom: 15px;">
@@ -10327,8 +10344,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             }
             
             // İkinci onay modalı göster
-            const supplierList = affectedSuppliers.slice(0, 5).map(s => `• ${s.name} (${s.docs.length} doküman)`).join('<br>');
-            const extraSuppliersText = affectedSuppliers.length > 5 ? `<br>• ...ve ${affectedSuppliers.length - 5} tedarikçi daha` : '';
+            const supplierList = _onayTedarikciListesi(affectedSuppliers);
             
             let html = `
                 <div id="deleteConfirmModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 10003;">
@@ -10353,7 +10369,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         
                         <div style="margin-bottom: 20px; padding: 12px; background: #fff3cd; border-radius: 6px; border-left: 4px solid #ffc107;">
                             <div style="font-weight: 600; margin-bottom: 8px; color: #333;">Etkilenen Tedarikçiler (${affectedSuppliers.length}):</div>
-                            <div style="font-size: 0.85em; color: #666;">${supplierList}${extraSuppliersText}</div>
+                            <div style="font-size: 0.85em; color: #666;">${supplierList}</div>
                         </div>
                         
                         <div style="margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3; font-size: 0.9em;">
@@ -10464,8 +10480,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             };
             
             // Tedarikçi listesini oluştur
-            const supplierList = affectedSuppliers.slice(0, 5).map(s => `• ${s.name} (${s.docs.length} doküman)`).join('<br>');
-            const extraSuppliersText = affectedSuppliers.length > 5 ? `<br>• ...ve ${affectedSuppliers.length - 5} tedarikçi daha` : '';
+            const supplierList = _onayTedarikciListesi(affectedSuppliers);
             
             let html = `
                 <div id="moveDocsModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 10002;">
@@ -10486,7 +10501,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         
                         <div style="margin-bottom: 20px; padding: 12px; background: #f5f5f5; border-radius: 6px; font-size: 0.85em;">
                             <div style="font-weight: 600; margin-bottom: 8px; color: #333;">Etkilenen Tedarikçiler:</div>
-                            <div style="color: #666;">${supplierList}${extraSuppliersText}</div>
+                            <div style="color: #666;">${supplierList}</div>
                         </div>
                         
                         <div style="margin-bottom: 20px;">
