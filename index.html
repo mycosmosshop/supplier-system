@@ -2865,6 +2865,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     <span id="perfAramaBilgi" style="font-size:.82em; color:#8d6e63;"></span>
                 </div>
                 <div id="perfEklenebilir" style="margin-bottom:12px;"></div>
+                <!-- Hatirlatma durumu: "bana mail atildi mi?" sorusunun cevabi -->
+                <div id="perfHatirlatmaKutu" style="margin-bottom: 12px;"></div>
                 <div id="perfBildirimOzet" style="margin-bottom: 12px;"></div>
                 <div style="font-weight:600; color:#2e7d32; font-size:.9em; margin-bottom:4px;">
                     📨 Gönderilecekler — işareti kaldırdığın tedarikçi listeden çıkar
@@ -4708,6 +4710,58 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
         let _perfListe = [];
 
+        // Hatirlatma durumu Drive'dan okunur: hatirlatma mailini ATAN
+        // zamanlanmis gorevdir, tarayici bilmez. Gorev her gonderimden sonra
+        // PERFORMANS_HATIRLATMA_DURUM.json yazar.
+        let _perfHatirlatmaDurum = null;
+        async function _perfHatirlatmaDurumOku() {
+            try {
+                const ayar = getDriveSettings();
+                if (!ayar) return null;
+                const u = ayar.url + '?action=getfile&name=' + encodeURIComponent('PERFORMANS_HATIRLATMA_DURUM.json')
+                        + '&secret=' + encodeURIComponent(ayar.secret);
+                const y = await (await fetch(u)).json();
+                if (!y || !y.success || !y.content) return null;
+                return typeof y.content === 'string' ? JSON.parse(y.content) : y.content;
+            } catch (e) { return null; }
+        }
+
+        function _perfHatirlatmaKutuCiz() {
+            const kap = document.getElementById('perfHatirlatmaKutu');
+            if (!kap) return;
+            const ay = _perfHatirlatmaAyOku();
+            const [gb, gs] = _perfHatirlatmaGunAraligi();
+            let son = '';
+            try { son = localStorage.getItem('perfSonGonderim') || ''; } catch (e) {}
+            const vade = son ? _perfAyEkle(son, ay) : '';
+            const d = _perfHatirlatmaDurum || {};
+
+            // Kaynakta olmayan veri UYDURULMAZ: bilinmeyen alan "—" kalir.
+            const satir = (etiket, deger, renk) =>
+                '<div style="display:flex; gap:6px"><span style="color:#6d4c41; min-width:150px">'
+                + etiket + '</span><b' + (renk ? ' style="color:' + renk + '"' : '') + '>'
+                + (deger || '<span style="color:#9e9e9e">—</span>') + '</b></div>';
+
+            kap.innerHTML =
+                '<div style="padding:10px 12px; background:#fff8e1; border-left:4px solid #fb8c00;'
+              + ' border-radius:4px; font-size:.88em; line-height:1.7">'
+              + '<div style="font-weight:700; color:#e65100; margin-bottom:4px">⏰ Hatırlatma</div>'
+              + satir('Periyot:', 'her ' + ay + ' ayda bir, ayın ' + gb + '–' + gs + '\'i')
+              + satir('Son gönderim:', son ? _perfTarihGoster(son) : '')
+              + satir('Sonraki hatırlatma:', vade ? _perfTarihGoster(vade) : '')
+              + satir('Son hatırlatma maili:', d.sonHatirlatma || '', '#2e7d32')
+              + satir('Son deneme maili:', d.sonDeneme || '', '#1565c0')
+              + '<div style="margin-top:6px; color:#6d4c41">'
+              + 'Hatırlatma <b>' + (d.alici || 'volkan.pekatik@sanifoam.com.tr') + '</b> adresine gider; '
+              + 'tedarikçilere gitmez. Bilgisayarın açık olması yeter, bu ekranı açman gerekmez.'
+              + '</div>'
+              + '<div style="margin-top:6px; color:#6d4c41">🧪 Deneme almak için: '
+              + '<code style="background:#fff3e0; padding:1px 5px; border-radius:3px">'
+              + 'perf-mail klasöründe  python gonder.py --hatirlat-deneme --gonder</code>'
+              + ' (vadeyi beklemez, sırayı bozmaz)</div>'
+              + '</div>';
+        }
+
         function openPerfBildirim() {
             const yil = new Date().getFullYear();
             _perfListe = _perfAdaylar(yil);
@@ -4723,6 +4777,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Deneme kutusu her acilista KAPALI baslar
             document.getElementById('perfDeneme').checked = false;
             _perfDenemeDegisti();
+            _perfHatirlatmaKutuCiz();
+            // Drive yanitini BEKLEMEDEN modal acilir: ag yavassa ekran
+            // kilitlenmesin; yanit gelince kutu tazelenir.
+            _perfHatirlatmaDurumOku().then(d => {
+                if (d) { _perfHatirlatmaDurum = d; _perfHatirlatmaKutuCiz(); }
+            });
             document.getElementById('perfBildirimModal').style.display = 'flex';
         }
 
