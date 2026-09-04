@@ -4397,6 +4397,24 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             } catch (e) { /* cevrimdisi: eldeki deger kalir */ }
         }
 
+        // Ayar Drive'a yalnizca DEGISTIRILDIGINDE yaziliyordu: degeri bu
+        // ozellik eklenmeden once giren kullanicinin dosyasi hic olusmuyor,
+        // hatirlatma maili varsayilan 3 ayi kullaniyordu. Acilista dosya
+        // yoksa eldeki deger yayimlanir. VARSA DOKUNULMAZ - baska makinede
+        // yapilmis ayari ezmesin.
+        async function _perfHatirlatmaAyarYayimla() {
+            try {
+                const ayar = getDriveSettings();
+                if (!ayar) return;
+                const u = ayar.url + '?action=getfile&name=' + encodeURIComponent('PERFORMANS_HATIRLATMA.json')
+                        + '&secret=' + encodeURIComponent(ayar.secret);
+                const y = await (await fetch(u)).json();
+                if (y && y.success && y.content) return;      // zaten var
+                const [gb, gs] = _perfHatirlatmaGunAraligi();
+                _perfHatirlatmaDriveYaz(_perfHatirlatmaAyOku(), gb, gs);
+            } catch (e) { /* cevrimdisi: sonraki acilista denenir */ }
+        }
+
         function _perfHatirlatmaKontrol() {
             const kap = document.getElementById('perfHatirlatmaBanner');
             if (!kap) return;
@@ -4434,6 +4452,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
         document.addEventListener('DOMContentLoaded', _perfHatirlatmaKontrol);
         document.addEventListener('DOMContentLoaded', _perfSonGonderimTazele);
+        document.addEventListener('DOMContentLoaded', _perfHatirlatmaAyarYayimla);
 
 
         // ── Performans maili gövdesi (Excel raporuyla aynı düzen) ──
