@@ -4755,11 +4755,79 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
               + 'Hatırlatma <b>' + (d.alici || 'volkan.pekatik@sanifoam.com.tr') + '</b> adresine gider; '
               + 'tedarikçilere gitmez. Bilgisayarın açık olması yeter, bu ekranı açman gerekmez.'
               + '</div>'
-              + '<div style="margin-top:6px; color:#6d4c41">🧪 Deneme almak için: '
-              + '<code style="background:#fff3e0; padding:1px 5px; border-radius:3px">'
-              + 'perf-mail klasöründe  python gonder.py --hatirlat-deneme --gonder</code>'
-              + ' (vadeyi beklemez, sırayı bozmaz)</div>'
+              + '<div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap">'
+              + '<span style="color:#6d4c41">Periyot:</span>'
+              + '<span>her <input type="number" id="perfMAy" min="1" max="12" value="' + ay + '"'
+              + ' onchange="_perfKutuAyarKaydet()" style="width:44px; padding:2px 4px;'
+              + ' border:1px solid #fb8c00; border-radius:4px"> ayda,</span>'
+              + '<span>ayın <input type="number" id="perfMGunBas" min="1" max="31" value="' + gb + '"'
+              + ' onchange="_perfKutuAyarKaydet()" style="width:40px; padding:2px 4px;'
+              + ' border:1px solid #fb8c00; border-radius:4px"> –'
+              + ' <input type="number" id="perfMGunSon" min="1" max="31" value="' + gs + '"'
+              + ' onchange="_perfKutuAyarKaydet()" style="width:40px; padding:2px 4px;'
+              + ' border:1px solid #fb8c00; border-radius:4px"> günleri</span>'
+              + '</div>'
+              + '<div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">'
+              + '<button onclick="_perfHatirlatmaIste(\'deneme\')" style="padding:6px 12px;'
+              + ' border:1px solid #1565c0; background:#fff; color:#1565c0; border-radius:6px;'
+              + ' cursor:pointer; font-size:.95em">🧪 Deneme hatırlatması iste</button>'
+              + '<button onclick="_perfHatirlatmaIste(\'gercek\')" style="padding:6px 12px;'
+              + ' border:0; background:#e65100; color:#fff; border-radius:6px;'
+              + ' cursor:pointer; font-size:.95em">⏰ Hatırlatmayı şimdi gönder</button>'
+              + '</div>'
+              + '<div id="perfIstekDurum" style="margin-top:6px; color:#6d4c41"></div>'
               + '</div>';
+            _perfIstekDurumYaz();
+        }
+
+        // Modaldeki ayar kutulari ARAC CUBUGUYLA ayni degeri yazar:
+        // iki ayri kaynak olsaydi biri digerini sessizce eskitirdi.
+        function _perfKutuAyarKaydet() {
+            const es = [['perfMAy', 'perfHatirlatmaAy'],
+                        ['perfMGunBas', 'perfHatirlatmaGunBas'],
+                        ['perfMGunSon', 'perfHatirlatmaGunSon']];
+            es.forEach(([m, t]) => {
+                const a2 = document.getElementById(m), b2 = document.getElementById(t);
+                if (a2 && b2) b2.value = a2.value;
+            });
+            _perfHatirlatmaAyKaydet();   // dogrulama + kayit + Drive TEK yerde
+            _perfHatirlatmaKutuCiz();
+        }
+
+        // Sayfa yerel betigi cagiramaz (https -> 127.0.0.1 karma icerik engeli).
+        // Drive'a ISTEK yazilir; 15 dakikada bir calisan gorev okuyup yapar.
+        let _perfIstek = null;
+        async function _perfHatirlatmaIste(tip) {
+            const ayar = getDriveSettings();
+            if (!ayar) { showAlert('Drive Script URL tanımlı değil.', 'error'); return; }
+            const istek = { tip: tip, istek: new Date().toISOString(), durum: 'bekliyor' };
+            try {
+                await fetch(ayar.url, {
+                    method: 'POST', mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'save', secret: ayar.secret,
+                        name: 'PERFORMANS_HATIRLATMA_ISTEK.json',
+                        content: JSON.stringify(istek) })
+                });
+                _perfIstek = istek;
+                _perfIstekDurumYaz();
+                showAlert((tip === 'deneme' ? '🧪 Deneme' : '⏰ Hatırlatma')
+                    + ' isteği alındı — en geç 15 dakika içinde '
+                    + 'volkan.pekatik@sanifoam.com.tr adresine gelir.', 'success');
+            } catch (e) {
+                showAlert('İstek yazılamadı: ' + e.message, 'error');
+            }
+        }
+
+        function _perfIstekDurumYaz() {
+            const el = document.getElementById('perfIstekDurum');
+            if (!el) return;
+            if (!_perfIstek) { el.innerHTML = ''; return; }
+            // "Yapildi" demiyoruz: mail gorev calisinca gider, biz gormeyiz.
+            el.innerHTML = _perfIstek.durum === 'bekliyor'
+                ? '<span style="color:#1565c0">⏳ İstek sırada — görev en geç 15 dakikada bir '
+                  + 'çalışıyor. Geldiğinde yukarıdaki satır güncellenir.</span>'
+                : '<span style="color:#2e7d32">✓ İstek işlendi.</span>';
         }
 
         function openPerfBildirim() {
@@ -4781,7 +4849,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Drive yanitini BEKLEMEDEN modal acilir: ag yavassa ekran
             // kilitlenmesin; yanit gelince kutu tazelenir.
             _perfHatirlatmaDurumOku().then(d => {
-                if (d) { _perfHatirlatmaDurum = d; _perfHatirlatmaKutuCiz(); }
+                if (d) {
+                    _perfHatirlatmaDurum = d;
+                    // Gorev istegi isledi mi? Isledi ise bekleme yazisi kalksin.
+                    if (_perfIstek && d.istekDurum && d.istekDurum !== 'bekliyor') _perfIstek = null;
+                    _perfHatirlatmaKutuCiz();
+                }
             });
             document.getElementById('perfBildirimModal').style.display = 'flex';
         }
