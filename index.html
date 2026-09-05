@@ -15915,6 +15915,87 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             try{ if(supplierName) updateSupplierCells(supplierName); }catch(e){}   // kullanıcının yazdığını eski (gerçek) değere döndür
             return false;
         }
+        // HEDEFLER: kalıcı kayıt (ppmTarget_/hataHedefi_, senkronlanan) KAYNAKTIR.
+        //
+        // ÖNCEDEN buradaki akış TERSTİ: açılışta bellekteki (localStorage
+        // 'selectedSuppliers' anlık görüntüsünden gelen) değer kalıcı kaydın
+        // ÜZERİNE yazılıyordu. Eski/başka makineden gelmiş bir anlık görüntü,
+        // sonradan düzeltilmiş hedefleri sessizce varsayılana (1.000 PPM /
+        // 2 hata) geri çeviriyordu ve kayıp kalıcı oluyordu — 04.09.2026
+        // performans maillerinde 9.000 olan Çerkezköy hedefi böyle 1.000'e
+        // döndü, tedarikçi puanı 87 → 50,8 (sınıf B → D).
+        //
+        // Artık kalıcı kayıt varsa bellekteki değer ONDAN doldurulur; kalıcı
+        // kayıt yoksa (ilk kez) bellekteki değer kaydedilir.
+        // ── HEDEF KURTARMA (bir kez) ────────────────────────────────────
+        // 04.09.2026'da tedarikçilere GÖNDERİLEN performans maillerindeki
+        // hedefler kaynaktır: o mailler dış tarafa gitti, uygulama onlarla
+        // tutmak zorunda. Yukarıdaki kusur bu hedefleri varsayılana (1.000 /
+        // 2) geri çevirmişti. Aşağıdaki tablo kalıcı kayıt varsayılana
+        // düşmüşse onu mailin değeriyle geri yazar; kullanıcı sonradan başka
+        // bir değer girdiyse ONA DOKUNMAZ (yalnızca varsayılanı düzeltir).
+        // Bir kez çalışır, bayrağı localStorage'da tutulur.
+        const HEDEF_KURTARMA = [
+            // [tedarikçi adı parçası, PPM hedefi, hata hedefi]
+            ['sanifoam endustri ve tuketim urunleri san tic as eskisehir sube', 1000, 4],
+            ['sanifoam endustri ve tuketim urunleri san tic as cerkezkoy sube', 9000, 4],
+            ['sanifoam endustri ve tuketim urunleri san tic as bursa sube', 10000, 11],
+            ['kimyapsan', 1000, 2],
+            ['carcano', 450, 4],
+            ['berkosan', 1800, 4],
+            ['basf turk kimya', 150, 4],
+            ['avs ambalaj', 9000, 8],
+            ['alternatif plast', 9000, 12],
+            ['yeni itimat', 10000, 4],
+        ];
+        const HEDEF_KURTARMA_BAYRAK = 'hedefKurtarma_20260904';
+        const HEDEF_VARSAYILAN_PPM = 1000, HEDEF_VARSAYILAN_HATA = 2;
+
+        function hedefleriKurtar(zorla){
+            try{
+                if (!zorla && localStorage.getItem(HEDEF_KURTARMA_BAYRAK)) return 0;
+                if (!allResults || !allResults.length) return 0;
+                var n = 0;
+                HEDEF_KURTARMA.forEach(function(k){
+                    var parca = k[0], ppmH = k[1], hataH = k[2];
+                    var sup = allResults.find(function(r){
+                        return normalizeName(r.name || '').indexOf(parca) >= 0;
+                    });
+                    if (!sup) return;
+                    var kt = loadPPMTargetFromStorage(sup.name);
+                    // Yalnızca kayıt yoksa ya da VARSAYILANA düşmüşse düzelt.
+                    if (kt === null || kt === undefined || Number(kt) === HEDEF_VARSAYILAN_PPM) {
+                        if (Number(kt) !== ppmH) { savePPMTargetToStorage(sup.name, ppmH); sup.ppmTarget = ppmH; n++; }
+                    }
+                    var kh = loadHataHedefiFromStorage(sup.name);
+                    if (kh === null || kh === undefined || Number(kh) === HEDEF_VARSAYILAN_HATA) {
+                        if (Number(kh) !== hataH) { saveHataHedefiToStorage(sup.name, hataH); sup.hataHedefi = hataH; n++; }
+                    }
+                });
+                localStorage.setItem(HEDEF_KURTARMA_BAYRAK, new Date().toISOString());
+                if (n) {
+                    console.log('🎯 ' + n + ' hedef 04.09.2026 performans maillerindeki değerlere geri yüklendi.');
+                    allResults.forEach(function(r){ try{ recalculateSupplierScore(r); }catch(e){} });
+                }
+                return n;
+            }catch(e){ console.warn('hedef kurtarma:', e); return 0; }
+        }
+        window.hedefleriKurtar = hedefleriKurtar;
+
+        function hedefleriKalicidanUygula(s){
+            if (!s || !s.name) return;
+            try{
+                var kt = (typeof loadPPMTargetFromStorage === 'function') ? loadPPMTargetFromStorage(s.name) : null;
+                if (kt !== null && kt !== undefined && kt !== '') s.ppmTarget = kt;
+                else if (s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget);
+            }catch(e){}
+            try{
+                var kh = (typeof loadHataHedefiFromStorage === 'function') ? loadHataHedefiFromStorage(s.name) : null;
+                if (kh !== null && kh !== undefined && kh !== '') s.hataHedefi = kh;
+                else if (s.hataHedefi !== undefined && s.hataHedefi !== null) saveHataHedefiToStorage(s.name, s.hataHedefi);
+            }catch(e){}
+        }
+
         function _getPerfOverrides(){ try{ return JSON.parse(localStorage.getItem('supplierPerfOverrides')||'{}')||{}; }catch(e){ return {}; } }
         function _setPerfOverrides(o){ try{ localStorage.setItem('supplierPerfOverrides', JSON.stringify(o)); }catch(e){} }
         function recordPerfOverride(supplierName, field, value){
@@ -19754,7 +19835,8 @@ function sinifTavaniSebepIki(s){
                                 const data = JSON.parse(sd);
                                 if (data && data.length > 0) {
                                     allResults = data;
-                                    allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined && s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
+                                    allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
+                                    try{ hedefleriKurtar(); }catch(e){}
                                     try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                                     try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
                                     try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
@@ -20721,7 +20803,7 @@ function sinifTavaniSebepIki(s){
                         var data = JSON.parse(sd);
                         if (data && data.length) {
                             allResults = data;
-                            allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined && s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
+                            allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
                             try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                         }
                     }
@@ -21136,7 +21218,7 @@ function sinifTavaniSebepIki(s){
                         if (d0 && d0.length) {
                             allResults = d0;
                             if (sh) localStorage.setItem('_currentPeriodName', sh); else localStorage.removeItem('_currentPeriodName');
-                            allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined && s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
+                            allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
                             try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                             try{ loadSupplierCertData(); }catch(e){}
                             try{ loadSupplierStatusMap(); if (supplierStatusMap && supplierStatusMap.size) allResults.forEach(function(sp){ var k=normalizeName(sp.name); if(supplierStatusMap.has(k)) sp.status=supplierStatusMap.get(k); }); }catch(e){}
