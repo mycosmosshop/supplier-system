@@ -15945,8 +15945,27 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             // Yalnız VDA istenirse açıkça false geçilir; varsayılan TÜM alanlar.
             _ovSadeceLeansysDisi = (tumAlanlar === false);
             try{
-                period=(period||'').trim(); if(!period) return 0;
+                period=(period||'').trim();
                 var all=_getPerfOverrides(); var n=0;
+                // DÖNEM ADI UYUŞMAZLIĞI: kayıtlar "dönem||tedarikçi" anahtarıyla
+                // saklanır. Dönem etiketi değişirse (ya da henüz yazılmadıysa)
+                // hiçbir kayıt eşleşmez ve düzeltmeler SESSİZCE uygulanmaz.
+                // Bu durumda kayıtlı dönemlerden EN YENİSİNE düşülür.
+                var _varmi = Object.keys(all).some(function(k){ return period && k.indexOf(period+'||')===0; });
+                if(!_varmi){
+                    var _enYeni=null, _ts='';
+                    Object.keys(all).forEach(function(k){
+                        var t=(all[k]&&all[k].ts)||'';
+                        if(t>_ts){ _ts=t; _enYeni=k.slice(0,k.indexOf('||')); }
+                    });
+                    // ts damgası olmayan eski kayıtlar için: ilk dönemi kullan.
+                    if(!_enYeni){ var _ilk=Object.keys(all)[0]; if(_ilk) _enYeni=_ilk.slice(0,_ilk.indexOf('||')); }
+                    if(_enYeni){
+                        console.warn('Elle düzeltmeler: "'+period+'" döneminde kayıt yok → en yeni dönem kullanılıyor: '+_enYeni);
+                        period=_enYeni;
+                    }
+                }
+                if(!period) return 0;
                 window._applyingPerfOverrides = true;
                 try{
                     Object.keys(all).forEach(function(k){
