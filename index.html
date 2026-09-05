@@ -5870,7 +5870,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (!su) return;
             delete su.elle8D;
             otomatik8DUygula();
-            try { await save8DCounts(name, su.talepEdilen8D, su.cevaplanan8D, su.donusOrani8D); } catch (e) {}
+            try { await save8DCounts(name, su.talepEdilen8D, su.cevaplanan8D, su.donusOrani8D, false); } catch (e) {}
             if (typeof displayResults === 'function') displayResults();
             showAlert('\u21BA ' + name + ' 8D say\u0131lar\u0131 otomati\u011fe d\u00f6nd\u00fc: '
                 + su.talepEdilen8D + ' talep / ' + su.cevaplanan8D + ' cevap', 'success');
@@ -6004,7 +6004,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 alici ? 'success' : 'warning');
         }
 
-        function save8DCounts(supplierName, talepEdilen8D, cevaplanan8D, donusOrani8D) {
+        function save8DCounts(supplierName, talepEdilen8D, cevaplanan8D, donusOrani8D, elle8D) {
             return new Promise((resolve, reject) => {
                 if (!db) {
                     console.warn('IndexedDB hazır değil');
@@ -6023,6 +6023,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         talepEdilen8D: talepEdilen8D || 0,
                         cevaplanan8D: cevaplanan8D || 0,
                         donusOrani8D: donusOrani8D || 0,
+                        // Elle mi girildi? Sayfa yenilenince bu işaret olmazsa
+                        // otomatik hesap kullanıcının değerini yeniden ezerdi.
+                        elle8D: !!elle8D,
                         lastUpdated: new Date().toISOString()
                     };
                     
@@ -6104,7 +6107,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                             countsMap.set(item.normalizedName, {
                                 talepEdilen8D: talep,
                                 cevaplanan8D: cevap,
-                                donusOrani8D: donus
+                                donusOrani8D: donus,
+                                elle8D: !!item.elle8D
                             });
                         });
                         
@@ -13205,6 +13209,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     // (re-pull sonrası load8DCountsFromDB raporlardan kesin reconcile eder; rapor yoksa 0). Dönüş oranı = cevap/talep.
                     talepEdilen8D: counts8DMap.get(supplier.normalizedName)?.talepEdilen8D || 0,
                     cevaplanan8D: counts8DMap.get(supplier.normalizedName)?.cevaplanan8D || 0,
+                    // Elle girilmiş mi? Bu işaret taşınmazsa yeniden yükleme
+                    // sonrası otomatik hesap kullanıcının değerini yine ezerdi.
+                    elle8D: !!counts8DMap.get(supplier.normalizedName)?.elle8D,
                     donusOrani8D: (() => {
                         const talep = counts8DMap.get(supplier.normalizedName)?.talepEdilen8D || 0;
                         if (talep === 0) return 100; // Hiç 8D talebi yoksa %100
@@ -17920,7 +17927,7 @@ function sinifTavaniSebepIki(s){
                 }
                 
                 // 8D sayılarını IndexedDB'ye kaydet
-                save8DCounts(supplierName, supplier.talepEdilen8D, supplier.cevaplanan8D, supplier.donusOrani8D)
+                save8DCounts(supplierName, supplier.talepEdilen8D, supplier.cevaplanan8D, supplier.donusOrani8D, true)
                     .then(() => {
                         console.log('💾 8D sayıları manuel girişten IndexedDB\'ye kaydedildi');
                     })
@@ -34222,6 +34229,19 @@ Devam etmek istiyor musunuz?`;
                     
                     console.log('Tedarikçi bazında 8D sayıları:', Array.from(supplierCounts.entries()));
                     
+                    // VERİ YOK ≠ 8D YOK.
+                    // Yerel veri tabanında HİÇ 8D raporu yoksa bu "bu makineye
+                    // rapor indirilmemiş" demektir; elle girilmiş sayıları
+                    // sıfırlamak VERİ KAYBIDIR (sıfırlanan değerler sonra
+                    // dönem kaydına ve buluta da yazılıyordu). Bu durumda
+                    // hiçbir şeye dokunulmaz.
+                    if (allReports.length === 0) {
+                        console.warn('8D raporu bulunamadı — mevcut 8D sayıları KORUNDU '
+                            + '(veri yok demek 8D yok demek değildir).');
+                        resolve();
+                        return;
+                    }
+
                     // allResults'taki tedarikçileri güncelle
                     if (allResults && allResults.length > 0) {
                         let updatedCount = 0;
@@ -34231,6 +34251,10 @@ Devam etmek istiyor musunuz?`;
                             // İki farklı alan adını kontrol et
                             const supplierName = supplier['Tedarikçi Adı'] || supplier.name;
                             if (!supplierName) return;
+                            // Elle girilen değer kullanıcının kararıdır; otomatik
+                            // hesap onu ezmez (otomatik8DUygula ile aynı kural).
+                            // "↺ otomatiğe dön" ile bu işaret kaldırılabilir.
+                            if (supplier.elle8D) return;
                             
                             const counts = supplierCounts.get(supplierName.trim());
                             if (counts) {
