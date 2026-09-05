@@ -15975,18 +15975,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // Tam ad yerine kelime kümesi: aynı tedarikçi kayıtlarda iki ayrı
         // yazımla duruyor ("… san tic as cerkezkoy sube" ve boşluksuz
         // "… san tic ascerkezkoy sube"), tam ad araması bunu tutturamıyordu.
+        // [ [kelimeler], PPM hedefi, hata hedefi, termin puanı, tamamlanma puanı ]
+        // Termin/tamamlanma: 04.09.2026 maillerinin HEPSİNDE 100/100.
         const HEDEF_KURTARMA = [
-            [['sanifoam', 'eskisehir'], 1000, 4],
-            [['sanifoam', 'cerkezkoy'], 9000, 4],
-            [['sanifoam', 'bursa'], 10000, 11],
-            [['kimyapsan'], 1000, 2],
-            [['carcano'], 450, 4],
-            [['berkosan'], 1800, 4],
-            [['basf', 'kimya'], 150, 4],
-            [['avs', 'ambalaj'], 9000, 8],
-            [['alternatif', 'plast'], 9000, 12],
-            [['yeni', 'itimat'], 10000, 4],
+            [['sanifoam', 'eskisehir'], 1000, 4, 100, 100],
+            [['sanifoam', 'cerkezkoy'], 9000, 4, 100, 100],
+            [['sanifoam', 'bursa'], 10000, 11, 100, 100],
+            [['kimyapsan'], 1000, 2, 100, 100],
+            [['carcano'], 450, 4, 100, 100],
+            [['berkosan'], 1800, 4, 100, 100],
+            [['basf', 'kimya'], 150, 4, 100, 100],
+            [['avs', 'ambalaj'], 9000, 8, 100, 100],
+            [['alternatif', 'plast'], 9000, 12, 100, 100],
+            [['yeni', 'itimat'], 10000, 4, 100, 100],
         ];
+        const TERMIN_KURTARMA_BAYRAK = 'terminKurtarma_20260904';
         const HEDEF_KURTARMA_BAYRAK = 'hedefKurtarma_20260904';
         const HEDEF_VARSAYILAN_PPM = 1000, HEDEF_VARSAYILAN_HATA = 2;
 
@@ -16006,7 +16009,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             try{
                 // Bayrak yalnızca BAŞARILI kurtarmada yazılır (aşağıda), bu yüzden
                 // başarısız bir deneme kurtarmayı kalıcı olarak kapatmaz.
-                if (!zorla && localStorage.getItem(HEDEF_KURTARMA_BAYRAK)) return 0;
+                if (!zorla && localStorage.getItem(HEDEF_KURTARMA_BAYRAK)
+                           && localStorage.getItem(TERMIN_KURTARMA_BAYRAK)) return 0;
                 if (!allResults || !allResults.length) return 0;
                 var n = 0, eksik = [], bulunan = 0;
                 HEDEF_KURTARMA.forEach(function(k){
@@ -16026,6 +16030,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     if (kh === null || kh === undefined || Number(kh) === HEDEF_VARSAYILAN_HATA) {
                         if (Number(kh) !== hataH) { saveHataHedefiToStorage(sup.name, hataH); sup.hataHedefi = hataH; n++; }
                     }
+                    // TERMİN / TAMAMLANMA: maildeki değer KALICI düzeltme kaydına
+                    // yazılır (supplierPerfOverrides → senkron → her yüklemede geri
+                    // uygulanır). Yedek dosyasına doğrudan yazmak tutmadı: uygulama
+                    // kendi localStorage'ını otorite sayıp yedeği yeniden yazıyor.
+                    // Bu yüzden düzeltme BURADAN, uygulamanın kendi kayıt yoluyla girer.
+                    // Bir kez çalışır (ayrı bayrak); sonradan girdiğiniz değer ezilmez.
+                    if (!localStorage.getItem(TERMIN_KURTARMA_BAYRAK) && k.length >= 5) {
+                        var trmH = k[3], tmmH = k[4];
+                        if (Number(sup.terminPuan) !== trmH) {
+                            sup.terminPuan = trmH; recordPerfOverride(sup.name, 'trm', trmH); n++;
+                        }
+                        if (Number(sup.tamamlanmaPuan) !== tmmH) {
+                            sup.tamamlanmaPuan = tmmH; recordPerfOverride(sup.name, 'tmm', tmmH); n++;
+                        }
+                    }
                 });
                 console.log('🎯 Hedef kurtarma: ' + bulunan + ' tedarikçi bulundu, '
                     + n + ' hedef düzeltildi'
@@ -16037,6 +16056,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 // basarisiz denemeler kurtarmayi kilitlemez, basarili olunca da
                 // kullanicinin sonradan girecegi deger yeniden ezilmez.
                 if (n > 0) localStorage.setItem(HEDEF_KURTARMA_BAYRAK, new Date().toISOString());
+                if (bulunan > 0) localStorage.setItem(TERMIN_KURTARMA_BAYRAK, new Date().toISOString());
                 if (n) {
                     console.log('🎯 ' + n + ' hedef 04.09.2026 performans maillerindeki değerlere geri yüklendi.');
                     allResults.forEach(function(r){ try{ recalculateSupplierScore(r); }catch(e){} });
@@ -16069,7 +16089,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             try{
                 if (window._applyingPerfOverrides) return;   // yeniden-uygulama sırasında tekrar kaydetme
                 var period=(localStorage.getItem('_currentPeriodName')||'').trim();
-                if(!period) return;                          // dönem adı yoksa kalıcılaştırma yapma (nadir)
+                // Dönem adı henüz yazılmamışsa düzeltme SESSİZCE kayboluyordu: ekranda
+                // görünüyor, sonraki yüklemede yok. Paylaşılan ada, o da yoksa yıla düş.
+                if(!period){
+                    period=(localStorage.getItem('_sharedCurrentPeriodName')||'').trim()
+                        || ('Sanifoam ' + new Date().getFullYear());
+                    console.warn('Dönem adı yok; elle düzeltme "'+period+'" adıyla kaydedildi.');
+                }
                 var key=period+'||'+normalizeName(supplierName);
                 var all=_getPerfOverrides(); var o=all[key]||{};
                 o[field]=value; o.name=supplierName; o.ts=new Date().toISOString();
