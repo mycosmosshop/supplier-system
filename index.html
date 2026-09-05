@@ -15989,7 +15989,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             [['alternatif', 'plast'], 9000, 12, 100, 100],
             [['yeni', 'itimat'], 10000, 4, 100, 100],
         ];
-        const TERMIN_KURTARMA_BAYRAK = 'terminKurtarma_20260904';
+        // v2: ilk turda ESKI duzeltme kayitlari (Cerkezkoy trm:99, Eskisehir
+        // trm:89, AVS 98/97, Berkosan tmm:96) applyPerfOverrides tarafindan geri
+        // uygulaniyordu; kurtarma artik ondan SONRA calisiyor ve o kayitlari da
+        // maildeki degere getiriyor. Yeni bayrak = bir tur daha calis.
+        const TERMIN_KURTARMA_BAYRAK = 'terminKurtarma_20260904_v2';
         const HEDEF_KURTARMA_BAYRAK = 'hedefKurtarma_20260904';
         const HEDEF_VARSAYILAN_PPM = 1000, HEDEF_VARSAYILAN_HATA = 2;
 
@@ -16038,11 +16042,22 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     // Bir kez çalışır (ayrı bayrak); sonradan girdiğiniz değer ezilmez.
                     if (!localStorage.getItem(TERMIN_KURTARMA_BAYRAK) && k.length >= 5) {
                         var trmH = k[3], tmmH = k[4];
+                        // Mevcut ELLE DÜZELTME kaydını da maildeki değere getir:
+                        // yalnızca ekrandaki değeri değiştirmek yetmiyordu, sonraki
+                        // applyPerfOverlerin eski kaydı geri uyguluyordu.
                         if (Number(sup.terminPuan) !== trmH) {
-                            sup.terminPuan = trmH; recordPerfOverride(sup.name, 'trm', trmH); n++;
+                            sup.terminPuan = trmH;
+                            if (Array.isArray(sup.monthlyTerminPuan)) {
+                                sup.monthlyTerminPuan = sup.monthlyTerminPuan.map(function(){ return trmH; });
+                            }
+                            recordPerfOverride(sup.name, 'trm', trmH); n++;
                         }
                         if (Number(sup.tamamlanmaPuan) !== tmmH) {
-                            sup.tamamlanmaPuan = tmmH; recordPerfOverride(sup.name, 'tmm', tmmH); n++;
+                            sup.tamamlanmaPuan = tmmH;
+                            if (Array.isArray(sup.monthlyTamamlanmaPuan)) {
+                                sup.monthlyTamamlanmaPuan = sup.monthlyTamamlanmaPuan.map(function(){ return tmmH; });
+                            }
+                            recordPerfOverride(sup.name, 'tmm', tmmH); n++;
                         }
                     }
                 });
@@ -19929,14 +19944,18 @@ function sinifTavaniSebepIki(s){
                                 if (data && data.length > 0) {
                                     allResults = data;
                                     allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
-                            try{ hedefleriKurtar(); }catch(e){}
                                     try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                                     try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
                                     try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
                                     try{ var c=document.getElementById('controls'); if(c) c.classList.add('active'); }catch(e){}
                                     // Yüklenen veri YAYINLANAN güncel veri → dönem etiketini paylaşılan adla hizala (eski dönem görünümü oturumluktur)
                                     try{ var _sh=localStorage.getItem('_sharedCurrentPeriodName'); if(_sh && (localStorage.getItem('_currentPeriodName')||'')!==_sh) localStorage.setItem('_currentPeriodName', _sh); }catch(e){}
-                                    try{ if(typeof applyPerfOverrides==='function') applyPerfOverrides((localStorage.getItem('_currentPeriodName')||'').trim()); }catch(e){} // elle düzeltmeleri açılışta uygula
+                                    try{ if(typeof applyPerfOverrides==='function') applyPerfOverrides((localStorage.getItem('_currentPeriodName')||'').trim()); }catch(e){}
+                try{ hedefleriKurtar(); }catch(e){} // elle düzeltmeleri açılışta uygula
+                                    // Kurtarma, elle düzeltmeler UYGULANDIKTAN sonra çalışır:
+                                    // aksi hâlde eski kayıt (ör. termin 89) kurtarmanın
+                                    // yazdığı 100'ün üzerine geri geliyordu.
+                                    try{ hedefleriKurtar(); }catch(e){}
                                     displayResults();
                                     _loaded = true;
                                     console.log('✅ Açılışta yerel (güncel) veriden ' + allResults.length + ' tedarikçi yüklendi');
@@ -20702,6 +20721,7 @@ function sinifTavaniSebepIki(s){
                 
                 // Elle performans düzeltmelerini bu döneme uygula (admin'in kaydettiği; herkeste görünür)
                 try{ if(typeof applyPerfOverrides==='function') applyPerfOverrides((localStorage.getItem('_currentPeriodName')||'').trim()); }catch(e){}
+                try{ hedefleriKurtar(); }catch(e){}
                 // Tabloyu ve dashboard'u yeniden render et (FİLTRESİZ)
                 renderTable(allResults);
                 updateDashboard(allResults);
@@ -20897,7 +20917,6 @@ function sinifTavaniSebepIki(s){
                         if (data && data.length) {
                             allResults = data;
                             allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
-                            try{ hedefleriKurtar(); }catch(e){}
                             try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                         }
                     }
@@ -20906,6 +20925,7 @@ function sinifTavaniSebepIki(s){
                     try{ loadSupplierInfoMap(); }catch(e){}
                     // Elle performans düzeltmelerini (admin'in kaydettiği) HERKESTE uygula → diğer kullanıcılar da düzeltilmiş değeri görür
                     try{ if(typeof applyPerfOverrides==='function') applyPerfOverrides((localStorage.getItem('_currentPeriodName')||'').trim()); }catch(e){}
+                try{ hedefleriKurtar(); }catch(e){}
                     try{ if(typeof displayResults==='function') displayResults(); }catch(e){}
                 }
                 try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
@@ -21313,7 +21333,6 @@ function sinifTavaniSebepIki(s){
                             allResults = d0;
                             if (sh) localStorage.setItem('_currentPeriodName', sh); else localStorage.removeItem('_currentPeriodName');
                             allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
-                            try{ hedefleriKurtar(); }catch(e){}
                             try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                             try{ loadSupplierCertData(); }catch(e){}
                             try{ loadSupplierStatusMap(); if (supplierStatusMap && supplierStatusMap.size) allResults.forEach(function(sp){ var k=normalizeName(sp.name); if(supplierStatusMap.has(k)) sp.status=supplierStatusMap.get(k); }); }catch(e){}
