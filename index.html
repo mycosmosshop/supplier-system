@@ -4284,8 +4284,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         async function _ykDonemleriOku() {
+            // ÖNCEDEN burada openDB() çağrılıyordu ama böyle bir fonksiyon
+            // YOK: çağrı her seferinde hata veriyor, catch sessizce boş
+            // liste döndürüyordu. Sonuç: 2025 dönemi kayıtlı olsa bile
+            // "karşılaştırılacak kayıtlı dönem yok" deniyordu. Sayfanın
+            // geri kalanı (sürüm sayacı dahil) global db'yi kullanıyor.
+            if (!db) { console.warn('Yıl karşılaştırma: veri tabanı hazır değil'); return []; }
             try {
-                const db = await openDB();
                 return await new Promise(res => {
                     const rq = db.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME).getAll();
                     rq.onsuccess = () => res((rq.result || []).slice().sort(
