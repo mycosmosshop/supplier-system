@@ -1691,8 +1691,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     
     <div class="container">
         <div style="text-align: left; margin-bottom: 15px; padding-left: 20px;">
-            <button id="toggleUploadBtn" onclick="toggleUploadSection()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-size: 1.3em; box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4); transition: all 0.3s ease; font-weight: bold;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                ▼
+            <button id="toggleUploadBtn" onclick="toggleUploadSection()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 10px 25px; border-radius: 25px; cursor: pointer; font-size: 1.3em; box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4); transition: all 0.3s ease; font-weight: bold;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" title="Excel yükleme bölümünü aç/kapat">
+                ▲
             </button>
         </div>
 
@@ -1720,7 +1720,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             <span style="color:#888; font-size:.82em;">(Excel'e gerek yok — PPM+Termin otomatik gelir)</span>
         </div>
 
-        <div id="uploadContainer" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px; transition: all 0.3s ease; overflow: hidden;">
+        <div id="uploadContainer" style="display: none; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 20px; transition: all 0.3s ease; overflow: hidden;">
             <div class="upload-section" style="margin: 0;">
                 <h3 style="margin-bottom: 15px; color: #1e3c72;">1️⃣ Ana Excel Dosyası (Sevkiyat, İade, Hata)</h3>
                 <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()" style="min-height: 200px; display: flex; flex-direction: column; justify-content: center;">
@@ -14260,6 +14260,54 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             renderClassPieChart(results);
         }
 
+        // ── Kaydırdıkça yükleme ─────────────────────────────────────────
+        // Liste uzun olduğunda (400+ tedarikçi) bütün satırları basmak ilk
+        // açılışı kilitliyordu. İlk parça hemen basılır, gerisi kullanıcı
+        // aşağı indikçe gelir. Arama / filtre / sıralama VERİ dizisi
+        // (allResults) üzerinde çalıştığı için etkilenmez — "bulunamadı"
+        // olmaz. Tabloyu DOM'dan okuyan işler (sütun özeti, yazdırma)
+        // önce tumSatirlariBas() çağırır, böylece eksik satır okumazlar.
+        let _kalanBasim = null;       // bir sonraki parçayı basan fonksiyon
+        let _nobetciGozlemci = null;
+
+        function _nobetcileriKaldir() {
+            if (_nobetciGozlemci) _nobetciGozlemci.disconnect();
+            document.querySelectorAll('tr[data-nobetci]').forEach(tr => tr.remove());
+        }
+
+        function _nobetciKur(tbody, devam) {
+            _kalanBasim = devam;
+            const nobetci = document.createElement('tr');
+            nobetci.setAttribute('data-nobetci', '1');
+            nobetci.innerHTML = '<td colspan="99" style="height:1px;padding:0;border:0"></td>';
+            tbody.appendChild(nobetci);
+            if (!_nobetciGozlemci) {
+                _nobetciGozlemci = new IntersectionObserver(function (girisler) {
+                    if (girisler.some(g => g.isIntersecting)) _sonrakiParca();
+                }, { rootMargin: '800px 0px' });   // görünmeden ÖNCE bas: bekleme hissedilmesin
+            }
+            _nobetciGozlemci.observe(nobetci);
+        }
+
+        function _sonrakiParca() {
+            const devam = _kalanBasim;
+            _kalanBasim = null;
+            _nobetcileriKaldir();
+            if (devam) devam();
+        }
+
+        // Kalan bütün satırları hemen bas. Tabloyu DOM'dan okuyan her iş
+        // (yazdırma, sütun özeti) bunu çağırmalı; yoksa yalnızca ekrana
+        // gelmiş satırları görür.
+        function tumSatirlariBas() {
+            let guvenlik = 2000;                 // sonsuz döngüye karşı
+            while (_kalanBasim && guvenlik-- > 0) _sonrakiParca();
+        }
+        window.tumSatirlariBas = tumSatirlariBas;
+        window.addEventListener('beforeprint', function () {
+            try { tumSatirlariBas(); } catch (e) {}
+        });
+
         function renderTableRowsChunked(results, tbody, startIndex, token, onComplete) {
             if (token !== activeRenderToken) return;
 
@@ -14274,10 +14322,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 tbody.insertAdjacentHTML('beforeend', html);
             }
 
-            if (end < results.length) {
-                requestAnimationFrame(() => renderTableRowsChunked(results, tbody, end, token, onComplete));
-            } else if (typeof onComplete === 'function') {
+            // onComplete İLK parçadan sonra çalışır: sıralama ikonları ve
+            // kaydırma konumu bütün listenin basılmasını beklemesin. Sonraki
+            // parçalarda tekrar çağrılsa sayfa kullanıcının altından zıplardı.
+            if (startIndex === 0 && typeof onComplete === 'function') {
                 onComplete();
+            }
+            if (end < results.length) {
+                _nobetciKur(tbody, () => renderTableRowsChunked(results, tbody, end, token, onComplete));
             }
         }
 
@@ -14300,10 +14352,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 tbody.insertAdjacentHTML('beforeend', html);
             }
 
-            if (end < items.length) {
-                requestAnimationFrame(() => renderCombinedRowsChunked(items, tbody, end, token, onComplete));
-            } else if (typeof onComplete === 'function') {
+            if (startIndex === 0 && typeof onComplete === 'function') {
                 onComplete();
+            }
+            if (end < items.length) {
+                _nobetciKur(tbody, () => renderCombinedRowsChunked(items, tbody, end, token, onComplete));
             }
         }
 
@@ -14364,6 +14417,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
             const tbody = container.querySelector('#suppliersTable tbody');
             const token = ++activeRenderToken;
+            _kalanBasim = null; _nobetcileriKaldir();   // önceki listenin kalanı basılmasın
             const items = [];
             let globalIndex = 0;
 
@@ -14718,6 +14772,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         function _sutunSayilari(tablo, idx) {
+            // Kaydırdıkça yüklemede henüz basılmamış satırlar olabilir;
+            // özet YANLIŞ çıkmasın diye önce hepsi basılır.
+            try { tumSatirlariBas(); } catch (e) {}
             const sayilar = [];
             tablo.querySelectorAll('tbody tr').forEach(tr => {
                 if (tr.classList.contains('separator-row')) return;
@@ -14974,6 +15031,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
             const tbody = container.querySelector('#suppliersTable tbody');
             const token = ++activeRenderToken;
+            _kalanBasim = null; _nobetcileriKaldir();   // önceki listenin kalanı basılmasın
 
             renderTableRowsChunked(results, tbody, 0, token, () => {
                 updateRowSelectAllCheckbox();
