@@ -25180,7 +25180,14 @@ function sinifTavaniSebepIki(s){
                 try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
             }
             if(allResults && allResults.length){
-                allResults.forEach(function(s){ try{ if(s.ppmTarget) savePPMTargetToStorage(s.name, s.ppmTarget); if(s.hataHedefi!==undefined&&s.hataHedefi!==null) saveHataHedefiToStorage(s.name, s.hataHedefi); recalculateSupplierScore(s); }catch(e){} });
+                // Yedekten donerken hedefleri NESNEDEN yazmak, hemen ustte prefs'ten
+                // geri yuklenen kalici hedefi eziyordu: bir kez "Drive'a yukle / geri yukle"
+                // yapinca duzeltilmis PPM/hata hedefleri eski degerine donuyordu.
+                // Kalici kayit otoritedir; nesne yalnizca kalici kayit YOKSA tohum olur.
+                allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
+                // Elle duzeltmeler (termin/tamamlanma/sevk/hata) prefs ile geri geldi;
+                // tabloya da uygulansin, yoksa dogru deger ancak sonraki acilista gorunuyordu.
+                try{ if(typeof applyPerfOverrides==='function') applyPerfOverrides((localStorage.getItem('_currentPeriodName')||'').trim()); }catch(e){}
                 try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                 try{ displayResults(); }catch(e){}
                 try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
