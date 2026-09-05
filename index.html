@@ -11864,8 +11864,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 try { if (typeof load8DCountsFromDB === 'function') await load8DCountsFromDB(); } catch (e) {}
                 // ELLE DÜZELTMELERİ GERİ UYGULA (Sevk/Hata/Hata Puanı/VDA/Termin/Tamamlanma/8D) — LeanSys verisi elle yazdıklarınızı EZMEZ;
                 // snapshot da düzeltilmiş haliyle kaydedilsin diye saveEdits'ten ÖNCE.
-                // Yalnız LeanSys'te olmayan alanlar (VDA/Denetim Puanı) geri uygulanır;
-                // sevk/hata/termin/tamamlanma birebir LeanSys'ten gelir.
+                // TÜM elle düzeltmeler geri uygulanır (sevk/hata/hata puanı/VDA/
+                // termin/tamamlanma). Düzeltmesi olmayan alan LeanSys'ten gelir.
                 var _ovr = 0;
                 try { if (typeof applyPerfOverrides === 'function') _ovr = applyPerfOverrides(donem); } catch (e) {}
                 // dönem olarak kaydet + paylaş (processFile onload'unun yaptığı)
@@ -15929,14 +15929,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 console.log('✋ Elle düzeltme kalıcı kaydedildi:', period, supplierName, field, '=', value);
             }catch(e){ console.warn('override kaydı:', e); }
         }
-        // LeanSys'in KENDİSİ ürettiği alanlarda elle düzeltme yeniden uygulanmaz — yoksa tablo
-        // kaynaktan sessizce sapıyor (sevk/iade/hata KLT007'den, termin/tamamlanma KLT013'ten gelir).
-        // Yalnız LeanSys'te OLMAYAN alan geri uygulanır: VDA/Denetim Puanı (denetim sonucu).
+        // ELLE DÜZELTMELER HER ZAMAN GERİ UYGULANIR (kullanıcı kararı).
+        // Önceden yalnız VDA geri uygulanıyordu; sevk/hata/termin/tamamlanma
+        // düzeltmeleri kayıt olarak duruyor ama tabloya hiç yazılmıyordu, bu
+        // yüzden LeanSys'ten her yüklemede kullanıcının düzeltmeleri ekrandan
+        // kayboluyordu. Artık hepsi geri uygulanır: tablo elle düzeltilmiş
+        // hâliyle görünür. Düzeltmeyi bırakmak için ilgili kayıt "✋ Düzeltmeler"
+        // penceresinden silinir — o zaman değer yine LeanSys'ten gelir.
         const OV_LEANSYS_DISI = ['vda'];
-        var _ovSadeceLeansysDisi = true;         // LeanSys yüklemesinde: yalnız 'vda'
+        // Not: applyPerfOverrides her çağrıda bunu yeniden ayarlar; buradaki
+        // değer yalnızca ilk hâl. Davranışı belirleyen o satırdır.
+        var _ovSadeceLeansysDisi = false;
         function _ovIzin(alan){ return !_ovSadeceLeansysDisi || OV_LEANSYS_DISI.indexOf(alan) >= 0; }
         function applyPerfOverrides(period, tumAlanlar){
-            _ovSadeceLeansysDisi = !tumAlanlar;
+            // Yalnız VDA istenirse açıkça false geçilir; varsayılan TÜM alanlar.
+            _ovSadeceLeansysDisi = (tumAlanlar === false);
             try{
                 period=(period||'').trim(); if(!period) return 0;
                 var all=_getPerfOverrides(); var n=0;
@@ -15969,7 +15976,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             var FL={sevk:'Toplam Sevk', hata:'Toplam Hata', hpd:'Hata Puanı (direkt)', vda:'VDA/Denetim Puanı', trm:'Termin Puanı', tmm:'Tamamlanma Puanı'};
             var _adm=isErpAdmin();
             var h='<div style="text-align:left;max-height:420px;overflow:auto;">';
-            h+='<div style="margin-bottom:10px;color:#555;font-size:0.9em;">Elle yapılan düzeltmeler burada saklanır. <b>Yalnızca VDA/Denetim Puanı</b> yeniden uygulanır — çünkü LeanSys bu alanı üretmez. Sevk / İade / Hata / Termin / Tamamlanma <b>her zaman LeanSys verisinden gelir</b>; buradaki eski değerleri tabloya yazılmaz (kayıt olarak durur).'
+            h+='<div style="margin-bottom:10px;color:#555;font-size:0.9em;">Elle yapılan düzeltmeler burada saklanır. Buradaki değerler <b>her yüklemeden sonra tabloya geri uygulanır</b> — LeanSys verisi elle yaptığınız düzeltmeleri ezmez. Bir düzeltmeden vazgeçmek için kaydını silin; o alan yine LeanSys\'ten gelir.'
               + (_adm ? ' Silerseniz bir sonraki LeanSys yüklemesinde o değer tekrar LeanSys\'ten gelir.' : '<br><b style="color:#b71c1c;">🔒 Yalnızca yönetici ekleyebilir/silebilir; siz görüntülüyorsunuz.</b>') + '</div>';
             if(!keys.length){ h+='<div style="text-align:center;padding:18px;color:#888;">Kayıtlı elle düzeltme yok.</div>'; }
             keys.forEach(function(k){
