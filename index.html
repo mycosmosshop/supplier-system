@@ -15935,18 +15935,21 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // düşmüşse onu mailin değeriyle geri yazar; kullanıcı sonradan başka
         // bir değer girdiyse ONA DOKUNMAZ (yalnızca varsayılanı düzeltir).
         // Bir kez çalışır, bayrağı localStorage'da tutulur.
+        // [ [adda GEÇMESİ gereken kelimeler], PPM hedefi, hata hedefi ]
+        // Tam ad yerine kelime kümesi: aynı tedarikçi kayıtlarda iki ayrı
+        // yazımla duruyor ("… san tic as cerkezkoy sube" ve boşluksuz
+        // "… san tic ascerkezkoy sube"), tam ad araması bunu tutturamıyordu.
         const HEDEF_KURTARMA = [
-            // [tedarikçi adı parçası, PPM hedefi, hata hedefi]
-            ['sanifoam endustri ve tuketim urunleri san tic as eskisehir sube', 1000, 4],
-            ['sanifoam endustri ve tuketim urunleri san tic as cerkezkoy sube', 9000, 4],
-            ['sanifoam endustri ve tuketim urunleri san tic as bursa sube', 10000, 11],
-            ['kimyapsan', 1000, 2],
-            ['carcano', 450, 4],
-            ['berkosan', 1800, 4],
-            ['basf turk kimya', 150, 4],
-            ['avs ambalaj', 9000, 8],
-            ['alternatif plast', 9000, 12],
-            ['yeni itimat', 10000, 4],
+            [['sanifoam', 'eskisehir'], 1000, 4],
+            [['sanifoam', 'cerkezkoy'], 9000, 4],
+            [['sanifoam', 'bursa'], 10000, 11],
+            [['kimyapsan'], 1000, 2],
+            [['carcano'], 450, 4],
+            [['berkosan'], 1800, 4],
+            [['basf', 'kimya'], 150, 4],
+            [['avs', 'ambalaj'], 9000, 8],
+            [['alternatif', 'plast'], 9000, 12],
+            [['yeni', 'itimat'], 10000, 4],
         ];
         const HEDEF_KURTARMA_BAYRAK = 'hedefKurtarma_20260904';
         const HEDEF_VARSAYILAN_PPM = 1000, HEDEF_VARSAYILAN_HATA = 2;
@@ -15965,15 +15968,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
         function hedefleriKurtar(zorla){
             try{
+                // Bayrak yalnızca BAŞARILI kurtarmada yazılır (aşağıda), bu yüzden
+                // başarısız bir deneme kurtarmayı kalıcı olarak kapatmaz.
                 if (!zorla && localStorage.getItem(HEDEF_KURTARMA_BAYRAK)) return 0;
                 if (!allResults || !allResults.length) return 0;
                 var n = 0, eksik = [], bulunan = 0;
                 HEDEF_KURTARMA.forEach(function(k){
-                    var parca = k[0], ppmH = k[1], hataH = k[2];
+                    var kelimeler = k[0], ppmH = k[1], hataH = k[2];
                     var sup = allResults.find(function(r){
-                        return _hedefAd(r.name).indexOf(_hedefAd(parca)) >= 0;
+                        var ad = _hedefAd(r.name);
+                        return kelimeler.every(function(w){ return ad.indexOf(_hedefAd(w)) >= 0; });
                     });
-                    if (!sup) { eksik.push(parca); return; }
+                    if (!sup) { eksik.push(kelimeler.join('+')); return; }
                     bulunan++;
                     var kt = loadPPMTargetFromStorage(sup.name);
                     // Yalnızca kayıt yoksa ya da VARSAYILANA düşmüşse düzelt.
@@ -15985,14 +15991,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         if (Number(kh) !== hataH) { saveHataHedefiToStorage(sup.name, hataH); sup.hataHedefi = hataH; n++; }
                     }
                 });
-                if (eksik.length) {
-                    console.warn('🎯 Hedef kurtarma: ' + eksik.length
-                        + ' tedarikçi listede bulunamadı → ' + eksik.join(' | '));
-                }
+                console.log('🎯 Hedef kurtarma: ' + bulunan + ' tedarikçi bulundu, '
+                    + n + ' hedef düzeltildi'
+                    + (eksik.length ? ', bulunamayan: ' + eksik.join(' | ') : ''));
                 // BAYRAK yalnızca liste gerçekten okunduğunda yazılır. Önceden
                 // hiçbir eşleşme olmasa (allResults henüz boşken) bile yazılıyor,
                 // kurtarma bir daha ASLA çalışmıyordu.
-                if (bulunan > 0) localStorage.setItem(HEDEF_KURTARMA_BAYRAK, new Date().toISOString());
+                // Bayrak yalnizca GERCEKTEN duzeltme yapildiginda yazilir:
+                // basarisiz denemeler kurtarmayi kilitlemez, basarili olunca da
+                // kullanicinin sonradan girecegi deger yeniden ezilmez.
+                if (n > 0) localStorage.setItem(HEDEF_KURTARMA_BAYRAK, new Date().toISOString());
                 if (n) {
                     console.log('🎯 ' + n + ' hedef 04.09.2026 performans maillerindeki değerlere geri yüklendi.');
                     allResults.forEach(function(r){ try{ recalculateSupplierScore(r); }catch(e){} });
