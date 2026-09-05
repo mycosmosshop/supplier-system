@@ -12731,7 +12731,43 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             return 0; // 6+ gün = 0%
         }
 
+        // PPM ve HATA puanini GUNCEL hedeften hesaplar. Hedef degistiginde
+        // (ornegin kalici kayittan geri yuklendiginde) alt puanlar eskisinde
+        // kaliyordu: Cerkezkoy'un PPM hedefi 1.000'den 9.000'e donmesine ragmen
+        // ppmPuan 0'da, hataPuan 0,4'te kalmisti ve toplam puan yanlis cikiyordu.
+        function altPuanlariTazele(r) {
+            if (!r) return;
+            try {
+                var ppmT = null;
+                try { ppmT = loadPPMTargetFromStorage(r.name); } catch (e) {}
+                if (ppmT === null || ppmT === undefined || ppmT === '') ppmT = r.ppmTarget;
+                ppmT = Number(ppmT) || 0;
+                var ppm = Number(r.ppm) || 0;
+                if (ppmT > 0) {
+                    r.ppmPuan = ppm === 0 ? 1
+                        : ppm <= 0.2 * ppmT ? 0.95
+                        : ppm <= 0.4 * ppmT ? 0.90
+                        : ppm <= 0.6 * ppmT ? 0.85
+                        : ppm <= 0.8 * ppmT ? 0.80
+                        : ppm < 1.2 * ppmT ? 0.60
+                        : 0;
+                }
+                var hh = null;
+                try { hh = loadHataHedefiFromStorage(r.name); } catch (e) {}
+                if (hh === null || hh === undefined || hh === '') hh = r.hataHedefi;
+                hh = Number(hh);
+                var hata = Number(r.totalHata) || 0;
+                if (!isNaN(hh)) {
+                    r.hataPuan = hh === 0 ? (hata === 0 ? 1 : 0)
+                        : hata === 0 ? 1
+                        : (hh / hata) > 1 ? 1
+                        : hh / hata;
+                }
+            } catch (e) { console.warn('altPuanlariTazele:', e); }
+        }
+
         function recalculateSupplierScore(result) {
+            altPuanlariTazele(result);
             // Normalizasyon: 0-100 aralığındaki değerleri 0-1 aralığına çevir
             const kalitePuanNormalized = result.kalitePuan / 100;
             const vdaPuanNormalized = result.vdaPuan / 100;
@@ -15419,17 +15455,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                                  kalitePuanNormalized * 0.05 + 
                                  supplier.ppmPuan * 0.30 + 
                                  donusOrani8DNormalized * 0.05 + 
-                                 terminPuanNormalized * 0.20 + 
+                                 terminPuanNormalized * 0.30 + 
                                  tamamlanmaPuanNormalized * 0.10 + 
                                  supplier.hataPuan * 0.10);
             } else {
                 // VDA denetimi olmayan tedarikçiler
                 tedarikcipuani = (kalitePuanNormalized * 0.05 + 
                                  supplier.ppmPuan * 0.40 + 
-                                 donusOrani8DNormalized * 0.10 + 
-                                 terminPuanNormalized * 0.20 + 
+                                 donusOrani8DNormalized * 0.05 + 
+                                 terminPuanNormalized * 0.30 + 
                                  tamamlanmaPuanNormalized * 0.10 + 
-                                 supplier.hataPuan * 0.15);
+                                 supplier.hataPuan * 0.10);
             }
             
             return tedarikcipuani;
