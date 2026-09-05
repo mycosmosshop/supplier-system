@@ -14194,16 +14194,31 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         // TEK bir güncellemede toplanır. Böylece açılış 3 çizim yerine 2
         // çizim yapar ve ikincisi görsel olarak tek seferde olur.
         const _CIZIM_TOPLAMA_MS = 400;
-        let _sonCizim = 0, _bekleyenCizim = null;
+        const _ACILIS_PENCERESI_MS = 5000;   // açılışta hiç çizmeden topla
+        const _AZAMI_ERTELEME_MS = 2000;     // ama bu kadar uzun bekletme
+        const _sayfaBasladi = Date.now();
+        let _sonCizim = 0, _bekleyenCizim = null, _ilkBekleyis = 0;
 
         function displayResults() {
             const simdi = Date.now();
-            if (simdi - _sonCizim > _CIZIM_TOPLAMA_MS) {
+            // AÇILIŞ PENCERESİ: sayfa açılırken çağrılar arka arkaya gelir
+            // (yerel veri → 8D sayıları → erp-admin-ready). Burada HİÇ
+            // çizmeyip hepsini TEK çizimde toplarız; yoksa tablo iki kez
+            // baştan kurulur, ekran yanıp söner ve kaydırma çubuğu zıplar.
+            const acilista = (simdi - _sayfaBasladi) < _ACILIS_PENCERESI_MS;
+            if (!acilista && simdi - _sonCizim > _CIZIM_TOPLAMA_MS) {
                 _sonCizim = simdi;
                 _displayResultsAsil();
                 return;
             }
-            if (_bekleyenCizim) return;            // zaten toplanıyor
+            if (_bekleyenCizim) {
+                // Yeni çağrı geldi: azami süreyi aşmadıysak beklemeyi uzat,
+                // böylece art arda gelen çağrılar tek çizimde birleşir.
+                if (simdi - _ilkBekleyis >= _AZAMI_ERTELEME_MS) return;
+                clearTimeout(_bekleyenCizim);
+            } else {
+                _ilkBekleyis = simdi;
+            }
             _bekleyenCizim = setTimeout(function () {
                 _bekleyenCizim = null;
                 _sonCizim = Date.now();
@@ -14313,11 +14328,18 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             document.querySelectorAll('tr[data-nobetci]').forEach(tr => tr.remove());
         }
 
-        function _nobetciKur(tbody, devam) {
+        function _nobetciKur(tbody, devam, kalanSatir) {
             _kalanBasim = devam;
             const nobetci = document.createElement('tr');
             nobetci.setAttribute('data-nobetci', '1');
-            nobetci.innerHTML = '<td colspan="99" style="height:1px;padding:0;border:0"></td>';
+            // DOLGU: henüz basılmamış satırların yeri şimdiden ayrılır.
+            // Yoksa satırlar geldikçe sayfa uzar, kaydırma çubuğu kısalıp
+            // uzar ve altta duran kullanıcı kayar.
+            const ornek = tbody.querySelector('tr:not([data-nobetci])');
+            const satirY = ornek ? Math.round(ornek.getBoundingClientRect().height) : 34;
+            const dolgu = Math.max(1, (kalanSatir || 0) * (satirY || 34));
+            nobetci.innerHTML = '<td colspan="99" style="height:' + dolgu +
+                'px;padding:0;border:0"></td>';
             tbody.appendChild(nobetci);
             if (!_nobetciGozlemci) {
                 _nobetciGozlemci = new IntersectionObserver(function (girisler) {
@@ -14368,7 +14390,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 onComplete();
             }
             if (end < results.length) {
-                _nobetciKur(tbody, () => renderTableRowsChunked(results, tbody, end, token, onComplete));
+                _nobetciKur(tbody, () => renderTableRowsChunked(results, tbody, end, token, onComplete),
+                    results.length - end);
             }
         }
 
@@ -14395,7 +14418,8 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 onComplete();
             }
             if (end < items.length) {
-                _nobetciKur(tbody, () => renderCombinedRowsChunked(items, tbody, end, token, onComplete));
+                _nobetciKur(tbody, () => renderCombinedRowsChunked(items, tbody, end, token, onComplete),
+                    items.length - end);
             }
         }
 
