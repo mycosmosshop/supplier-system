@@ -14184,7 +14184,45 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             } catch (e) { console.warn(e); }
         };
 
+        // ── Tek çizim ───────────────────────────────────────────────────
+        // Açılışta displayResults ÜÇ ayrı yoldan çağrılıyordu: yerel veriden
+        // yükleme, 8D sayılarının gelmesi ve guard'ın "erp-admin-ready"
+        // olayı. Her çağrı tabloyu bastan kuruyordu (container.innerHTML),
+        // kullanıcıya "sayfa birkaç kez yeniden yükleniyor" gibi görünüyordu.
+        //
+        // İlk çağrı HEMEN çizer (ekran beklemez); hemen ardından gelenler
+        // TEK bir güncellemede toplanır. Böylece açılış 3 çizim yerine 2
+        // çizim yapar ve ikincisi görsel olarak tek seferde olur.
+        const _CIZIM_TOPLAMA_MS = 400;
+        let _sonCizim = 0, _bekleyenCizim = null;
+
         function displayResults() {
+            const simdi = Date.now();
+            if (simdi - _sonCizim > _CIZIM_TOPLAMA_MS) {
+                _sonCizim = simdi;
+                _displayResultsAsil();
+                return;
+            }
+            if (_bekleyenCizim) return;            // zaten toplanıyor
+            _bekleyenCizim = setTimeout(function () {
+                _bekleyenCizim = null;
+                _sonCizim = Date.now();
+                _displayResultsAsil();
+            }, _CIZIM_TOPLAMA_MS);
+        }
+
+        // Bekleyen güncellemeyi hemen uygula (dışa aktarma, yazdırma gibi
+        // tabloyu okuyan işler eski çizimi görmesin).
+        function cizimiTamamla() {
+            if (!_bekleyenCizim) return;
+            clearTimeout(_bekleyenCizim);
+            _bekleyenCizim = null;
+            _sonCizim = Date.now();
+            _displayResultsAsil();
+        }
+        window.cizimiTamamla = cizimiTamamla;
+
+        function _displayResultsAsil() {
             try { _ayKutulariniKirp(); } catch(e){}   // dönem/ay kutuları güncel tarihe göre
 
             document.getElementById('controls').classList.add('active');
@@ -14305,6 +14343,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
         window.tumSatirlariBas = tumSatirlariBas;
         window.addEventListener('beforeprint', function () {
+            try { cizimiTamamla(); } catch (e) {}
             try { tumSatirlariBas(); } catch (e) {}
         });
 
@@ -14773,7 +14812,9 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
         function _sutunSayilari(tablo, idx) {
             // Kaydırdıkça yüklemede henüz basılmamış satırlar olabilir;
-            // özet YANLIŞ çıkmasın diye önce hepsi basılır.
+            // özet YANLIŞ çıkmasın diye önce bekleyen çizim uygulanır ve
+            // bütün satırlar basılır.
+            try { cizimiTamamla(); } catch (e) {}
             try { tumSatirlariBas(); } catch (e) {}
             const sayilar = [];
             tablo.querySelectorAll('tbody tr').forEach(tr => {
