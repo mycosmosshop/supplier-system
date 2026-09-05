@@ -15951,17 +15951,30 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         const HEDEF_KURTARMA_BAYRAK = 'hedefKurtarma_20260904';
         const HEDEF_VARSAYILAN_PPM = 1000, HEDEF_VARSAYILAN_HATA = 2;
 
+        // normalizeName büyük "İ" için toLowerCase'te "i̇" (i + birleşik nokta)
+        // üretir; düz "i" ile yazılan bir metin ASLA eşleşmez ("YENİ İTİMAT",
+        // "KİMYAPSAN" bu yüzden kurtarma tablosunda bulunamıyordu).
+        // NFD ile ayrıştırıp birleşik işaretleri atarak bu tuzağı kapatıyoruz.
+        function _hedefAd(x){
+            return String(x || '').normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, ' ')
+                .trim();
+        }
+
         function hedefleriKurtar(zorla){
             try{
                 if (!zorla && localStorage.getItem(HEDEF_KURTARMA_BAYRAK)) return 0;
                 if (!allResults || !allResults.length) return 0;
-                var n = 0;
+                var n = 0, eksik = [], bulunan = 0;
                 HEDEF_KURTARMA.forEach(function(k){
                     var parca = k[0], ppmH = k[1], hataH = k[2];
                     var sup = allResults.find(function(r){
-                        return normalizeName(r.name || '').indexOf(parca) >= 0;
+                        return _hedefAd(r.name).indexOf(_hedefAd(parca)) >= 0;
                     });
-                    if (!sup) return;
+                    if (!sup) { eksik.push(parca); return; }
+                    bulunan++;
                     var kt = loadPPMTargetFromStorage(sup.name);
                     // Yalnızca kayıt yoksa ya da VARSAYILANA düşmüşse düzelt.
                     if (kt === null || kt === undefined || Number(kt) === HEDEF_VARSAYILAN_PPM) {
@@ -15972,10 +15985,20 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         if (Number(kh) !== hataH) { saveHataHedefiToStorage(sup.name, hataH); sup.hataHedefi = hataH; n++; }
                     }
                 });
-                localStorage.setItem(HEDEF_KURTARMA_BAYRAK, new Date().toISOString());
+                if (eksik.length) {
+                    console.warn('🎯 Hedef kurtarma: ' + eksik.length
+                        + ' tedarikçi listede bulunamadı → ' + eksik.join(' | '));
+                }
+                // BAYRAK yalnızca liste gerçekten okunduğunda yazılır. Önceden
+                // hiçbir eşleşme olmasa (allResults henüz boşken) bile yazılıyor,
+                // kurtarma bir daha ASLA çalışmıyordu.
+                if (bulunan > 0) localStorage.setItem(HEDEF_KURTARMA_BAYRAK, new Date().toISOString());
                 if (n) {
                     console.log('🎯 ' + n + ' hedef 04.09.2026 performans maillerindeki değerlere geri yüklendi.');
                     allResults.forEach(function(r){ try{ recalculateSupplierScore(r); }catch(e){} });
+                    try{ if (typeof showAlert === 'function') showAlert('🎯 ' + n
+                        + ' hedef (PPM / hata) 04.09.2026 performans maillerindeki değerlere geri yüklendi.', 'success'); }catch(e){}
+                    try{ if (typeof displayResults === 'function') displayResults(); }catch(e){}
                 }
                 return n;
             }catch(e){ console.warn('hedef kurtarma:', e); return 0; }
@@ -19836,7 +19859,7 @@ function sinifTavaniSebepIki(s){
                                 if (data && data.length > 0) {
                                     allResults = data;
                                     allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
-                                    try{ hedefleriKurtar(); }catch(e){}
+                            try{ hedefleriKurtar(); }catch(e){}
                                     try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                                     try{ if(typeof loadSupplierCertData==='function') loadSupplierCertData(); }catch(e){}
                                     try{ if(typeof loadSavedFilters==='function') loadSavedFilters(); }catch(e){}
@@ -20804,6 +20827,7 @@ function sinifTavaniSebepIki(s){
                         if (data && data.length) {
                             allResults = data;
                             allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
+                            try{ hedefleriKurtar(); }catch(e){}
                             try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                         }
                     }
@@ -21219,6 +21243,7 @@ function sinifTavaniSebepIki(s){
                             allResults = d0;
                             if (sh) localStorage.setItem('_currentPeriodName', sh); else localStorage.removeItem('_currentPeriodName');
                             allResults.forEach(function(s){ try{ hedefleriKalicidanUygula(s); recalculateSupplierScore(s); }catch(e){} });
+                            try{ hedefleriKurtar(); }catch(e){}
                             try{ selectedSuppliers.clear(); allResults.forEach(function(s){ selectedSuppliers.add(s.mapKey||s.name); }); }catch(e){}
                             try{ loadSupplierCertData(); }catch(e){}
                             try{ loadSupplierStatusMap(); if (supplierStatusMap && supplierStatusMap.size) allResults.forEach(function(sp){ var k=normalizeName(sp.name); if(supplierStatusMap.has(k)) sp.status=supplierStatusMap.get(k); }); }catch(e){}
