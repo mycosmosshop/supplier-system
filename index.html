@@ -1985,6 +1985,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 <!-- Diğer İşlemler -->
                 <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                     <button class="btn" onclick="showSupplierAnalysis()" style="background: #673ab7; color: white; border-color: #673ab7;">🔍 Tedarikçi Analizi</button>
+                    <button class="btn" onclick="yilKarsAc()" style="background: #00838f; color: white; border-color: #00838f;">⇄ Yıl Karşılaştırma</button>
                     <button class="btn" onclick="openLocationPpmModal()" style="background: #00695c; color: white; border-color: #00695c;">📍 Lokasyon PPM Analizi</button>
                     <button class="btn" onclick="openParetoModal()" style="background: #5e35b1; color: white; border-color: #5e35b1;">📊 Pareto Analizi</button>
                     <div style="display:flex;align-items:center;gap:6px;padding:4px 10px;background:#f0f4ff;border:2px solid #1e3c72;border-radius:8px;">
@@ -2827,6 +2828,19 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     </div>
 
     <!-- Performans Bildirimi — onay ekranı -->
+    <div id="yilKarsModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="max-width: 1200px; width: 96%;">
+            <div class="modal-header">
+                <h3>⇄ Yıl Karşılaştırma — tedarikçi bazında değişim</h3>
+                <button class="modal-close" onclick="_ykKapat()">&times;</button>
+            </div>
+            <div class="modal-body" id="yilKarsGovde"></div>
+            <div class="modal-footer" style="text-align:right">
+                <button class="btn btn-secondary" onclick="_ykKapat()">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <div id="perfBildirimModal" class="modal-overlay" style="display: none;">
         <div class="modal-dialog" style="max-width: 1150px; width: 96%; max-height: 88vh; overflow: auto;">
             <div class="modal-header">
@@ -4201,6 +4215,220 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 if (a && out.indexOf(a) < 0) out.push(a);
             });
             return out;
+        }
+
+        // ── YIL KARŞILAŞTIRMA ─────────────────────────────────────────
+        // Önceki dönem verisi "Kaydedilen Sürümler"den (supplierHistory)
+        // gelir; her kayıt bir dönemin (ör. "Sanifoam 2025") tam kopyası.
+        // Canlı tablodan DEĞİL, o dönemin kendi kaydından okunur.
+        const YK_OLCUT = [
+            { k: 'totalSevk',        ad: 'Sevkiyat',            kucukIyi: false, ondalik: 0 },
+            { k: 'totalIade',        ad: 'İade',                kucukIyi: true,  ondalik: 0 },
+            { k: 'ppm',              ad: 'İade PPM',            kucukIyi: true,  ondalik: 0 },
+            { k: 'totalHata',        ad: 'Hata (tekrar) adedi', kucukIyi: true,  ondalik: 0 },
+            { k: 'tedarikcipuani',   ad: 'Tedarikçi Puanı',     kucukIyi: false, ondalik: 2 },
+            { k: 'terminPuan',       ad: 'Termin Puanı',        kucukIyi: false, ondalik: 2 },
+            { k: 'tamamlanmaPuan',   ad: 'Tamamlanma Puanı',    kucukIyi: false, ondalik: 2 },
+            { k: 'ppmTarget',        ad: 'PPM Hedefi',          kucukIyi: true,  ondalik: 0 },
+            { k: 'hataHedefi',       ad: 'Hata Hedefi',         kucukIyi: true,  ondalik: 0 },
+        ];
+        let _ykSecili = ['ppm', 'totalHata', 'tedarikcipuani'];
+        let _ykKapsam = 'secili';
+        let _ykFiltreId = null;
+        let _ykDonem = '';
+        let _ykDonemler = [];
+
+        // Bir tedarikçi kaydından ölçüt değeri. Sayı değilse null —
+        // "0" ile "veri yok" karıştırılmasın, yoksa boş dönem %100 düşüş gibi görünür.
+        function _ykDeger(sp, k) {
+            if (!sp) return null;
+            const v = sp[k];
+            if (v === null || v === undefined || v === '') return null;
+            const n = Number(v);
+            return isNaN(n) ? null : n;
+        }
+
+        // Değişim: yön ÖLÇÜTE bağlı. PPM'de düşüş iyileşme, puanda artış iyileşme.
+        function _ykDegisim(olcut, onceki, simdi) {
+            if (onceki === null || simdi === null) return { fark: null, yuzde: null, iyi: null };
+            const fark = simdi - onceki;
+            if (fark === 0) return { fark: 0, yuzde: 0, iyi: null };
+            return {
+                fark: fark,
+                yuzde: onceki !== 0 ? (fark / Math.abs(onceki)) * 100 : null,
+                iyi: olcut.kucukIyi ? fark < 0 : fark > 0,
+            };
+        }
+
+        // Kapsam: SEÇİLİ satırlar / kayıtlı FİLTRE / tümü. Kullanıcı isteği:
+        // "hepsini değil, filtredekileri ya da seçili olanları".
+        function _ykKapsamListesi() {
+            if (_ykKapsam === 'filtre') {
+                const f = (JSON.parse(localStorage.getItem('supplierFilters') || '[]') || [])
+                    .find(x => String(x.id) === String(_ykFiltreId));
+                const sec = new Set((f && f.selectedSuppliers) || []);
+                return allResults.filter(r => sec.has(normalizeName(r.name)) || sec.has(r.mapKey));
+            }
+            if (_ykKapsam === 'tum') return allResults.slice();
+            return allResults.filter(r => selectedRows.has(r.mapKey || r.name));
+        }
+
+        // Önceki dönemin kayıtlarını ada göre eşleştir (normalize isimle).
+        function _ykOncekiHarita(kayit) {
+            const m = new Map();
+            ((kayit && kayit.data) || []).forEach(sp => {
+                const ad = normalizeName(sp.name || sp['Tedarikçi Adı'] || '');
+                if (ad) m.set(ad, sp);
+            });
+            return m;
+        }
+
+        async function _ykDonemleriOku() {
+            try {
+                const db = await openDB();
+                return await new Promise(res => {
+                    const rq = db.transaction([STORE_NAME], 'readonly').objectStore(STORE_NAME).getAll();
+                    rq.onsuccess = () => res((rq.result || []).slice().sort(
+                        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)));
+                    rq.onerror = () => res([]);
+                });
+            } catch (e) { return []; }
+        }
+
+        async function yilKarsAc() {
+            _ykDonemler = await _ykDonemleriOku();
+            if (!_ykDonemler.length) {
+                showAlert('Karşılaştırılacak kayıtlı dönem yok. "📊 Kaydedilen Sürümler" ile bu dönemi kaydedin; '
+                    + 'gelecek yıl karşılaştırma yapılabilir.', 'error');
+                return;
+            }
+            // Varsayılan: adında GEÇEN YIL geçen kayıt, yoksa en yenisi.
+            const gecen = String(new Date().getFullYear() - 1);
+            const bul = _ykDonemler.find(d => String(d.name || '').indexOf(gecen) >= 0);
+            _ykDonem = (bul || _ykDonemler[0]).name;
+            if (!selectedRows.size && _ykKapsam === 'secili') _ykKapsam = 'tum';
+            _ykCiz();
+            document.getElementById('yilKarsModal').style.display = 'flex';
+        }
+
+        function _ykKapat() { document.getElementById('yilKarsModal').style.display = 'none'; }
+
+        function _ykAyarDegisti() {
+            _ykKapsam = document.getElementById('ykKapsam').value;
+            _ykFiltreId = document.getElementById('ykFiltre') ? document.getElementById('ykFiltre').value : null;
+            _ykDonem = document.getElementById('ykDonem').value;
+            _ykSecili = YK_OLCUT.map(o => o.k).filter(k => {
+                const el = document.getElementById('ykOlcut_' + k);
+                return el && el.checked;
+            });
+            _ykCiz();
+        }
+
+        function _ykSayi(v, ond) {
+            if (v === null || v === undefined || isNaN(Number(v))) return '—';
+            return Number(v).toLocaleString('tr-TR', { minimumFractionDigits: ond, maximumFractionDigits: ond });
+        }
+
+        function _ykCiz() {
+            const kap = document.getElementById('yilKarsGovde');
+            if (!kap) return;
+            const kayit = _ykDonemler.find(d => d.name === _ykDonem);
+            const onceki = _ykOncekiHarita(kayit);
+            const liste = _ykKapsamListesi();
+            const olcutler = YK_OLCUT.filter(o => _ykSecili.indexOf(o.k) >= 0);
+
+            const filtreler = JSON.parse(localStorage.getItem('supplierFilters') || '[]') || [];
+            let ust = '<div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; margin-bottom:12px">'
+                + '<label style="font-size:.85em"><b>Önceki dönem</b><br>'
+                + '<select id="ykDonem" onchange="_ykAyarDegisti()" style="padding:6px 8px; border:1px solid #ccc; border-radius:6px">'
+                + _ykDonemler.map(d => '<option value="' + _esc(d.name) + '"'
+                    + (d.name === _ykDonem ? ' selected' : '') + '>' + _esc(d.name) + '</option>').join('')
+                + '</select></label>'
+                + '<label style="font-size:.85em"><b>Kapsam</b><br>'
+                + '<select id="ykKapsam" onchange="_ykAyarDegisti()" style="padding:6px 8px; border:1px solid #ccc; border-radius:6px">'
+                + '<option value="secili"' + (_ykKapsam === 'secili' ? ' selected' : '') + '>Seçili satırlar (' + selectedRows.size + ')</option>'
+                + '<option value="filtre"' + (_ykKapsam === 'filtre' ? ' selected' : '') + '>Kayıtlı filtre</option>'
+                + '<option value="tum"' + (_ykKapsam === 'tum' ? ' selected' : '') + '>Tümü (' + allResults.length + ')</option>'
+                + '</select></label>';
+            if (_ykKapsam === 'filtre') {
+                ust += '<label style="font-size:.85em"><b>Filtre</b><br>'
+                    + '<select id="ykFiltre" onchange="_ykAyarDegisti()" style="padding:6px 8px; border:1px solid #ccc; border-radius:6px">'
+                    + (filtreler.length ? filtreler.map(f => '<option value="' + _esc(f.id) + '"'
+                        + (String(f.id) === String(_ykFiltreId) ? ' selected' : '') + '>' + _esc(f.name)
+                        + ' (' + ((f.selectedSuppliers || []).length) + ')</option>').join('')
+                        : '<option value="">kayıtlı filtre yok</option>')
+                    + '</select></label>';
+            }
+            ust += '</div>'
+                + '<div style="margin-bottom:12px; font-size:.85em"><b>Gösterilecek ölçütler</b><div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:5px">'
+                + YK_OLCUT.map(o => '<label style="display:flex; gap:5px; align-items:center; cursor:pointer">'
+                    + '<input type="checkbox" id="ykOlcut_' + o.k + '"' + (_ykSecili.indexOf(o.k) >= 0 ? ' checked' : '')
+                    + ' onchange="_ykAyarDegisti()">' + _esc(o.ad) + '</label>').join('')
+                + '</div></div>';
+
+            if (!liste.length) {
+                kap.innerHTML = ust + '<div style="padding:16px; background:#fff3e0; border-left:4px solid #fb8c00; border-radius:6px; color:#e65100">'
+                    + 'Bu kapsamda tedarikçi yok. Tablodan satır seçin ya da kapsamı değiştirin.</div>';
+                return;
+            }
+            if (!olcutler.length) {
+                kap.innerHTML = ust + '<div style="padding:16px; background:#e3f2fd; border-left:4px solid #1565c0; border-radius:6px; color:#0d47a1">'
+                    + 'En az bir ölçüt seçin.</div>';
+                return;
+            }
+
+            const H = 'padding:6px 9px; border:1px solid #e0e0e0';
+            let bas = '<tr style="background:#f4f6f8"><th style="' + H + '; text-align:left" rowspan="2">Tedarikçi</th>';
+            olcutler.forEach(o => { bas += '<th style="' + H + '; text-align:center" colspan="3">' + _esc(o.ad) + '</th>'; });
+            bas += '</tr><tr style="background:#f8f9fa; font-size:.85em">';
+            olcutler.forEach(() => {
+                bas += '<th style="' + H + '; text-align:right">önceki</th>'
+                    + '<th style="' + H + '; text-align:right">bu dönem</th>'
+                    + '<th style="' + H + '; text-align:right">değişim</th>';
+            });
+            bas += '</tr>';
+
+            let kayipSayi = 0;
+            const sat = liste.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr')).map(r => {
+                const o = onceki.get(normalizeName(r.name));
+                if (!o) kayipSayi++;
+                let h = '<tr><td style="' + H + '">' + _esc(r.name)
+                    + (o ? '' : ' <span style="color:#9e9e9e; font-size:.85em">(önceki dönemde yok)</span>') + '</td>';
+                olcutler.forEach(ol => {
+                    const a2 = _ykDeger(o, ol.k), b2 = _ykDeger(r, ol.k);
+                    const d = _ykDegisim(ol, a2, b2);
+                    const renk = d.iyi === null ? '#6b7280' : (d.iyi ? '#1e7e34' : '#c0392b');
+                    const ok = d.iyi === null ? '' : (d.fark > 0 ? '▲' : '▼');
+                    h += '<td style="' + H + '; text-align:right">' + _ykSayi(a2, ol.ondalik) + '</td>'
+                        + '<td style="' + H + '; text-align:right; font-weight:600">' + _ykSayi(b2, ol.ondalik) + '</td>'
+                        + '<td style="' + H + '; text-align:right; color:' + renk + '">'
+                        + (d.fark === null ? '—'
+                            : (d.fark === 0 ? 'değişmedi'
+                                : ok + ' ' + _ykSayi(d.fark, ol.ondalik)
+                                  + (d.yuzde !== null ? ' (' + _ykSayi(d.yuzde, 1) + '%)' : '')))
+                        + '</td>';
+                });
+                return h + '</tr>';
+            }).join('');
+
+            kap.innerHTML = ust
+                + '<div style="margin-bottom:8px; font-size:.85em; color:#555">'
+                + '<b>' + liste.length + '</b> tedarikçi · önceki dönem: <b>' + _esc(_ykDonem) + '</b>'
+                + (kayipSayi ? ' · <span style="color:#b7791f"><b>' + kayipSayi + '</b> tedarikçi önceki dönemde yok</span>' : '')
+                + '</div>'
+                + '<div style="max-height:56vh; overflow:auto; border:1px solid #e0e0e0; border-radius:6px">'
+                + '<table style="border-collapse:collapse; width:100%; font-size:.9em">'
+                + '<thead style="position:sticky; top:0">' + bas + '</thead><tbody>' + sat + '</tbody></table></div>'
+                + '<p style="margin-top:10px; font-size:.8em; color:#666">'
+                + 'Önceki dönem verisi “📊 Kaydedilen Sürümler”deki o dönemin kaydından okunur. '
+                + 'Yeşil ok iyileşme, kırmızı ok kötüleşme — yön ölçüte göre (PPM’de düşüş iyi, puanda artış iyi). '
+                + 'Önceki dönemde kaydı olmayan tedarikçide değişim hesaplanmaz.</p>';
+        }
+
+        function _esc(t) {
+            return String(t == null ? '' : t)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
         function _onayTedarikciListesi(liste) {
