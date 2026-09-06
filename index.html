@@ -3730,6 +3730,13 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                         <input type="checkbox" id="includeChartData" style="width: 18px; height: 18px; cursor: pointer;">
                         <span style="font-size: 0.95em; color: #1e3c72; font-weight: 500;">📈 Grafik verilerini ekle</span>
                     </label>
+                    <!-- Uygunsuzluk tablosu AYRI dosya: Target Agreement sayfa düzeni
+                         (A-L, 12 ay) sabit; 20 sütunluk kayıt tablosu oraya sığmaz. -->
+                    <label style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <input type="checkbox" id="includeNcExcel" style="width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-size: 0.95em; color: #1e3c72; font-weight: 500;">⚠️ Uygunsuzluk tablosunu ayrı Excel olarak indir</span>
+                        <span style="font-size: 0.8em; color: #78909c;">(LeanSys kayıtları: tarih, hata tipi, kaynak, stok, miktar, tarif, karar, sonuç)</span>
+                    </label>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <label style="font-size: 0.95em; color: #1e3c72; font-weight: 500; white-space: nowrap;">📅 Gözden geçirme tarihi:</label>
                         <input type="date" id="reviewDate" class="filter-name-input" style="width: 180px; padding: 6px 10px;">
@@ -27931,6 +27938,122 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
         }
 
         // Excel'e Target Agreement (tam antet ve biçim) olarak kaydet
+        // Tedarikçinin YIL BOYU uygunsuzluk kayıtları — AYRI Excel dosyası.
+        // Target Agreement sayfası A-L (12 ay) düzenine kilitli; 20 sütunluk
+        // kayıt tablosu oraya sığmadığı için ayrı dosya olarak iner.
+        // Kaynak, ekrandaki "uygunsuzluk kartları" ile AYNI: _uygAyGetir +
+        // _uygSatirlari (tekilleştirme dahil), böylece iki yer aynı sayıyı verir.
+        async function uygunsuzlukExceliIndir(tedarikciAdi, yil, sessiz) {
+            const SUTUN = [
+                ['Ay', 6], ['Uygunsuzluk No', 16], ['Tarih', 12], ['Durum', 10],
+                ['Kapatma Tarihi', 14], ['Tip', 12], ['Uygunsuzluk Türü', 26],
+                ['Hata Tipi', 18], ['Hata Kaynağı', 18], ['Stok Kodu', 14],
+                ['Stok Adı', 42], ['Hatalı Miktar', 13], ['Birim', 8],
+                ['Parti Hacmi', 12], ['Kontrol Miktarı', 14], ['Tespit Yeri', 18],
+                ['Makine', 16], ['Tespit Eden', 18], ['İş Emri', 14],
+                ['Tarif', 60], ['Karar', 24], ['Sonuç', 40],
+            ];
+            const satirlar = [];
+            const okunamayan = [];
+            for (let ay = 1; ay <= 12; ay++) {
+                try {
+                    const hepsi = await _uygAyGetir(ay, yil);
+                    _uygSatirlari(hepsi, tedarikciAdi).forEach(k => satirlar.push([
+                        // No, ekrandaki kartla AYNI kurulur (seri-sıra); tek alanlık
+                        // "uygunsuzlukNo" diye bir sütun kaynakta yok, boş kalırdı.
+                        ay, [k.uygunsuzlukSeri, k.uygunsuzlukSira].filter(Boolean).join('-'),
+                        k.uygunsuzlukTarih || '',
+                        String(k.kapatmaTarihi || '').trim() ? 'Kapandı' : 'Açık',
+                        k.kapatmaTarihi || '', k.tipi || '', k.uygunsuzlukTuru || '',
+                        k.hataTipi || '', k.hataKaynagi || '', k.stokKodu || '',
+                        k.stokAdi || '',
+                        (k.hataliMiktar ?? '') === '' ? '' : Number(k.hataliMiktar),
+                        k.birim || '',
+                        (k.partiHacmi ?? '') === '' ? '' : Number(k.partiHacmi),
+                        (k.kontrolMiktar ?? '') === '' ? '' : Number(k.kontrolMiktar),
+                        k.tespitYeri || '', k.makine || '', k.tespitEden || '',
+                        k.isEmriKodu || '', k.tarif || '', k.karar || '', k.sonuc || '',
+                    ]));
+                } catch (e) {
+                    // VERİ YOK ≠ SIFIR: okunamayan ay "uygunsuzluk yok" sayılmaz,
+                    // dosyada ve uyarıda açıkça yazılır.
+                    okunamayan.push(ay);
+                    console.warn('Uygunsuzluk ' + ay + '. ay okunamadı:', e);
+                }
+            }
+
+            const wb = new ExcelJS.Workbook();
+            const ws = wb.addWorksheet('Uygunsuzluklar');
+            ws.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+            ws.columns = SUTUN.map(s => ({ width: s[1] }));
+
+            ws.mergeCells(1, 1, 1, SUTUN.length);
+            const bas = ws.getCell(1, 1);
+            bas.value = tedarikciAdi + ' — ' + yil + ' Uygunsuzluk Kayıtları (LeanSys)';
+            bas.font = { bold: true, size: 13, color: { argb: 'FF1E3C72' } };
+            bas.alignment = { horizontal: 'center', vertical: 'middle' };
+            ws.getRow(1).height = 22;
+
+            ws.mergeCells(2, 1, 2, SUTUN.length);
+            const not = ws.getCell(2, 1);
+            not.value = 'Toplam ' + satirlar.length + ' kayıt · çıkarıldı '
+                + new Date().toLocaleString('tr-TR')
+                + (okunamayan.length
+                    ? '  ⚠️ OKUNAMAYAN AY: ' + okunamayan.join(', ')
+                        + ' — bu ayların kaydı listede YOK, "uygunsuzluk yok" anlamına gelmez.'
+                    : '');
+            not.font = { size: 9, italic: true, color: { argb: okunamayan.length ? 'FFC62828' : 'FF78909C' } };
+            ws.getRow(2).height = okunamayan.length ? 26 : 16;
+            not.alignment = { wrapText: true, vertical: 'middle' };
+
+            const bs = ws.getRow(3);
+            SUTUN.forEach((s, i) => {
+                const c = bs.getCell(i + 1);
+                c.value = s[0];
+                c.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3C72' } };
+                c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                c.border = { bottom: { style: 'thin', color: { argb: 'FF90A4AE' } } };
+            });
+            bs.height = 28;
+            ws.views = [{ state: 'frozen', ySplit: 3 }];
+            ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: SUTUN.length } };
+
+            satirlar.forEach((s, i) => {
+                const r = ws.addRow(s);
+                r.alignment = { vertical: 'top', wrapText: true };
+                r.font = { size: 9 };
+                if (i % 2) r.eachCell(c => {
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } };
+                });
+                // Açık uygunsuzluk kırmızı, kapanan yeşil — ekrandaki kartla aynı
+                const d = r.getCell(4);
+                d.font = { size: 9, bold: true,
+                    color: { argb: d.value === 'Açık' ? 'FFC62828' : 'FF2E7D32' } };
+            });
+
+            if (!satirlar.length) {
+                const r = ws.addRow([okunamayan.length
+                    ? 'Kayıt getirilemedi — yukarıdaki okunamayan aylara bakın.'
+                    : 'Bu tedarikçi için ' + yil + ' yılında LeanSys uygunsuzluk kaydı bulunmadı.']);
+                ws.mergeCells(r.number, 1, r.number, SUTUN.length);
+                r.getCell(1).font = { italic: true, color: { argb: 'FF78909C' } };
+            }
+
+            const buffer = await wb.xlsx.writeBuffer();
+            const guvenliAd = (tedarikciAdi || 'Tedarikci').replace(/[^a-zA-Z0-9_\- ]/g, '');
+            saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+                'Uygunsuzluklar_' + guvenliAd + '_' + yil + '.xlsx');
+            if (!sessiz) {
+                showAlert(okunamayan.length
+                    ? '⚠️ Uygunsuzluk Excel indirildi (' + satirlar.length + ' kayıt).\n'
+                        + 'Okunamayan ay: ' + okunamayan.join(', ') + ' — bu aylar EKSİK.'
+                    : '✅ Uygunsuzluk Excel indirildi (' + satirlar.length + ' kayıt).',
+                    okunamayan.length ? 'error' : 'success');
+            }
+            return satirlar.length;
+        }
+
         async function exportTargetAgreementExcel(options = {}) {
             try {
                 const supplierName = document.getElementById('perfSupplierName').textContent || '';
@@ -28579,6 +28702,18 @@ ${stats.suppliers === 0 ? '\n⚠️ Tedarikçi verileri için önce Excel dosyas
                 saveAs(blob, fileName);
                 if (!options.silent) {
                     showAlert('✅ Target Agreement (tam biçimlendirme) Excel indirildi!', 'success');
+                }
+                // Kutucuk işaretliyse uygunsuzluk kayıtları AYRI dosya olarak iner.
+                // Target Agreement'ın kendisi bundan etkilenmez: hata olsa bile
+                // ana dosya çoktan indi, kullanıcı yalnız ek dosyayı kaybeder.
+                try {
+                    if (!options.silent && document.getElementById('includeNcExcel')?.checked) {
+                        await uygunsuzlukExceliIndir(supplierName, baseYear, false);
+                    }
+                } catch (e) {
+                    console.error('Uygunsuzluk Excel hatası:', e);
+                    showAlert('❌ Uygunsuzluk Excel’i oluşturulamadı: ' + (e?.message || e)
+                        + '\n(Target Agreement dosyası indi.)', 'error');
                 }
             } catch (e) {
                 console.error('Target Agreement Excel oluşturulurken hata:', e);
