@@ -1480,6 +1480,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
       --tb-zemin:#fff; --tb-panel:#fbfcfd;
       background:var(--tb-zemin); border:1px solid var(--tb-kenar);
       border-radius:12px; margin:14px 0; overflow:hidden;
+      /* Kabuk ebeveyn flex icinde duruyordu: icerige gore daralip
+         genisliyor, sekme degisince saga sola kayiyordu. Tam satir
+         kaplar ve genisligi sabit kalir. */
+      display:block; width:100%; box-sizing:border-box;
+      flex:0 0 100%; align-self:stretch;
     }
     :root[data-theme="dark"] .tb-kabuk{
       --tb-yuzey:#2b3037; --tb-kenar:#3c434c; --tb-metin:#e7e9ec;
@@ -1499,7 +1504,12 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
       color:var(--tb-metin); background:var(--tb-panel);
       border-bottom-color:var(--tb-ana);
     }
-    .tb-panel{ display:none; padding:11px 12px; background:var(--tb-panel); align-items:center; flex-wrap:wrap; gap:7px; }
+    .tb-panel{
+      display:none; padding:11px 12px; background:var(--tb-panel);
+      align-items:center; flex-wrap:wrap; gap:7px;
+      /* Sekmeler arasi yukseklik sicramasini yumusatir */
+      min-height:54px; box-sizing:border-box;
+    }
     .tb-panel.acik{ display:flex; }
     .tb-baslik{
       font:700 11px/1 inherit; letter-spacing:.09em; text-transform:uppercase;
@@ -1558,12 +1568,14 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         ['Toplu işlem', '✏️', [
           ['Durum',  ['bulkUpdateStatus']],
           ['Etiket', ['bulkSetCategory']],
-          ['Hedef',  ['applyBulkPPMTarget', 'applyBulkHataHedefi']],
+          ['Hedef',  ['applyBulkPPMTarget', 'applyBulkHataHedefi',
+                      'bulkPPMTarget', 'bulkHataHedefi']],
           ['',       ['deleteSelectedSuppliers']]
         ]],
         ['Rapor', '📊', [
           ['Performans', ['exportSelectedPerformanceReports']],
-          ['Bildirim',   ['openPerfBildirim', '_perfHatirlatmaAyKaydet']],
+          ['Bildirim',   ['openPerfBildirim', '_perfHatirlatmaAyKaydet',
+                          'perfHatirlatma']],
           ['Dışa aktar', ['openExportDialog', 'belgeTakipPaneli']]
         ]],
         ['Analiz', '🔍', [
@@ -1638,8 +1650,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
         }
 
         // ── Ogeleri tasi ──
+        // Metin/sayi kutulari da taranir: "Hatirlat: her [1] ayda" gibi
+        // ucluler butonsuz oldugu icin eski satirda kaliyordu.
         var ogeler = Array.prototype.slice.call(
-          kaynak.querySelectorAll('button, select, input[type="file"]'));
+          kaynak.querySelectorAll('button, select, input'));
         var yerlesen = [];
         HARITA.forEach(function(s){
           var ad = s[0], v = paneller[ad];
@@ -1690,10 +1704,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                        artan.length);
         }
 
-        // Bosalan eski kutulari gizle (filtre satirlarina DOKUNMA)
+        // Bosalan eski kutulari gizle. Icinde yalniz etiket metni kalmis
+        // olabilir ("Secili Satirlari:") — etkilesimli oge yoksa gizlenir.
         Array.prototype.forEach.call(kaynak.children, function(c){
-          if (!c.querySelector('button, select, input')) c.classList.add('tb-gizli');
+          if (!c.querySelector('button, select, input, textarea'))
+            c.classList.add('tb-gizli');
         });
+        // Kaynak kabi tamamen bosaldiysa kendisi de gizlenir; yoksa
+        // bos bir cerceve olarak ekranda yer kaplardi.
+        if (!kaynak.querySelector('button, select, input, textarea'))
+          kaynak.classList.add('tb-gizli');
 
         try {
           var son = localStorage.getItem('tb_sekme');
