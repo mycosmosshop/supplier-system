@@ -169,10 +169,17 @@
         });
         try { localStorage.setItem('butonTemasi', ad); } catch (e) {}
         kok.__butonTemasi = ad;
+        /* Sekmeli arac cubugu bu isareti okur: "ozgun" secilince notr
+           stil devre disi kalir (butonlar kendi renginde), diger temalarda
+           panel renk degiskenleri o temanin tonuna doner. */
+        try { document.documentElement.setAttribute('data-btema', ad); } catch (e) {}
     }
 
     function secili() {
-        try { return localStorage.getItem('butonTemasi') || 'ozgun'; } catch (e) { return 'ozgun'; }
+        /* Varsayilan artik "kurumsal": sekmeli arac cubugu notr tasarimla
+           geliyor, ilk acan renk karnavali gormesin. "Ozgun (renkli)"
+           secenegi duruyor — isteyen eski gorunume doner. */
+        try { return localStorage.getItem('butonTemasi') || 'kurumsal'; } catch (e) { return 'kurumsal'; }
     }
 
     /* ---- seçim penceresi ---- */

@@ -1522,8 +1522,31 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
       color:var(--tb-etiket); margin:0 3px 0 0; white-space:nowrap;
     }
     .tb-ayrac{ width:1px; height:22px; background:var(--tb-ayrac); margin:0 3px; }
-    /* Butonlar: notr taban. Inline style'lar !important ile ezilir. */
-    .tb-panel .btn{
+    /* ── Dugme temasi ile uyum ──────────────────────────────────
+       "Ozgun (renkli)" secilince asagidaki notr kurallar UYGULANMAZ:
+       butonlar kendi inline renklerinde kalir. Diger temalarda panel
+       degiskenleri o temanin tonuna doner (asagida), butonlar sakin
+       kalir ama secilen renge burunur. */
+    :root[data-btema="kurumsal"] .tb-kabuk{
+      --tb-ana:#2f5d50; --tb-anaKenar:#26493f; --tb-teh:#8c3b3b; --tb-tehKenar:#e3cbcb;
+      --tb-etiket:#5b6472; --tb-kenar:#d6dbe1;
+    }
+    :root[data-btema="lacivert"] .tb-kabuk{
+      --tb-ana:#3c3f78; --tb-anaKenar:#313463; --tb-teh:#7a3550; --tb-tehKenar:#e0cbd3;
+      --tb-etiket:#57606f; --tb-kenar:#d5d9e2;
+    }
+    :root[data-btema="sade"] .tb-kabuk{
+      --tb-ana:#4b5563; --tb-anaKenar:#3d4552; --tb-teh:#7f1d1d; --tb-tehKenar:#e5cdcd;
+      --tb-etiket:#6b7280; --tb-kenar:#dcdfe4;
+    }
+    :root[data-btema="koyu"] .tb-kabuk{
+      --tb-ana:#14532d; --tb-anaKenar:#0f3f22; --tb-teh:#7f1d1d; --tb-tehKenar:#e5cdcd;
+      --tb-etiket:#3f3f46; --tb-kenar:#d4d4d8;
+    }
+    :root[data-btema="ozel"] .tb-kabuk{ --tb-kenar:#d8dde4; }
+    /* Ozgun temada notr kurallar devre disi: secici :root[data-btema="ozgun"]
+       oldugunda eslesmez, inline renkler gorunur. */
+    :root:not([data-btema="ozgun"]) .tb-panel .btn{
       height:32px; display:inline-flex; align-items:center; gap:7px;
       padding:0 12px!important; font-size:13px!important; font-weight:500!important;
       border-radius:7px!important; cursor:pointer;
@@ -1532,17 +1555,17 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
       box-shadow:none!important; transition:background .15s, border-color .15s!important;
       width:auto!important; margin:0!important;
     }
-    .tb-panel .btn:hover{
+    :root:not([data-btema="ozgun"]) .tb-panel .btn:hover{
       background:var(--tb-sessiz)!important; border-color:var(--tb-etiket)!important;
       transform:none!important; box-shadow:none!important;
     }
-    .tb-panel .btn:active{ transform:translateY(1px)!important; }
-    .tb-panel .btn:focus-visible{ outline:2px solid var(--tb-ana)!important; outline-offset:1px!important; }
-    .tb-panel .btn[data-tb="ana"]{
+    :root:not([data-btema="ozgun"]) .tb-panel .btn:active{ transform:translateY(1px)!important; }
+    :root:not([data-btema="ozgun"]) .tb-panel .btn:focus-visible{ outline:2px solid var(--tb-ana)!important; outline-offset:1px!important; }
+    :root:not([data-btema="ozgun"]) .tb-panel .btn[data-tb="ana"]{
       background:var(--tb-ana)!important; color:#fff!important;
       border-color:var(--tb-anaKenar)!important; font-weight:600!important;
     }
-    .tb-panel .btn[data-tb="tehlike"]{
+    :root:not([data-btema="ozgun"]) .tb-panel .btn[data-tb="tehlike"]{
       color:var(--tb-teh)!important; border-color:var(--tb-tehKenar)!important;
       background:var(--tb-yuzey)!important; font-weight:600!important;
     }
