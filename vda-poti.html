@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VDA POTİ — Potansiyel Tedarikçi Değerlendirmesi</title>
+<style>
+  :root{--laci:#1f3251;--kenar:#dde3ec;--zemin:#f4f6f9;--metin:#233044;--soluk:#5a6b82;
+        --yesil:#1e7e34;--sari:#b8860b;--kirmizi:#c0392b}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--zemin);color:var(--metin);
+       font:14px/1.55 "Segoe UI",Arial,sans-serif}
+  header{background:var(--laci);color:#fff;padding:14px 22px;display:flex;
+         align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{margin:0;font-size:17px;font-weight:600}
+  header small{color:#aebdd4;font-size:12px}
+  header a{color:#aebdd4;font-size:12px;margin-left:auto;text-decoration:none}
+  header a:hover{color:#fff}
+  .sar{max-width:1180px;margin:18px auto;padding:0 14px}
+  .kart{background:#fff;border:1px solid var(--kenar);border-radius:8px;
+        padding:16px 18px;margin-bottom:14px}
+  .kart h2{margin:0 0 12px;font-size:13px;color:var(--laci);text-transform:uppercase;
+           letter-spacing:.6px;border-bottom:1px solid var(--kenar);padding-bottom:8px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--soluk);margin:9px 0 4px}
+  input[type=text],input[type=date],select,textarea{width:100%;padding:7px 9px;
+       border:1px solid var(--kenar);border-radius:5px;font:inherit;font-size:13px}
+  textarea{resize:vertical;min-height:52px}
+  .satirlar{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:0 14px}
+  table{width:100%;border-collapse:collapse}
+  th{background:#5a6b82;color:#fff;font-size:11px;font-weight:600;padding:7px 9px;
+     text-align:left;position:sticky;top:0;z-index:2}
+  td{border-bottom:1px solid #eef1f5;padding:8px 9px;font-size:12.5px;vertical-align:top}
+  td.no{font-weight:700;color:var(--laci);white-space:nowrap;width:52px}
+  .puanlar{display:flex;gap:4px}
+  .puanlar button{border:1px solid var(--kenar);background:#f7f9fc;border-radius:13px;
+       padding:2px 10px;font-size:11px;cursor:pointer;color:#445;white-space:nowrap}
+  .puanlar button:hover{border-color:#9bf}
+  .puanlar button.sec[data-p="3"]{background:var(--yesil);color:#fff;border-color:var(--yesil)}
+  .puanlar button.sec[data-p="2"]{background:var(--sari);color:#fff;border-color:var(--sari)}
+  .puanlar button.sec[data-p="1"]{background:var(--kirmizi);color:#fff;border-color:var(--kirmizi)}
+  .puanlar button.sec[data-p="na"]{background:#8894a5;color:#fff;border-color:#8894a5}
+  .gerekce{margin-top:7px;display:none}
+  .gerekce.acik{display:block}
+  .gerekce textarea{font-size:12px;min-height:40px;margin-bottom:5px}
+  .ozet{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:4px}
+  .rozet{display:inline-block;padding:4px 16px;border-radius:14px;font-size:14px;
+         font-weight:700;color:#fff;background:#8894a5}
+  .rozet.YESIL{background:var(--yesil)} .rozet.SARI{background:var(--sari)}
+  .rozet.KIRMIZI{background:var(--kirmizi)}
+  .say{font-size:12px;color:var(--soluk)}
+  .dugmeler{display:flex;gap:9px;flex-wrap:wrap;margin-top:6px}
+  .dugmeler button{padding:9px 18px;border-radius:6px;border:1px solid var(--kenar);
+       background:#fff;font:inherit;font-size:13px;cursor:pointer}
+  .dugmeler button.ana{background:var(--laci);color:#fff;border-color:var(--laci);font-weight:600}
+  .dugmeler button:hover{filter:brightness(1.07)}
+  .bilgi{font-size:12px;color:var(--soluk);margin-top:8px;min-height:17px}
+  .kayitlar{max-height:190px;overflow:auto;border:1px solid var(--kenar);border-radius:6px}
+  .kayitlar div{padding:7px 10px;border-bottom:1px solid #eef1f5;font-size:12px;cursor:pointer}
+  .kayitlar div:hover{background:#eef5ff}
+  .kayitlar div:last-child{border-bottom:0}
+  .kural{font-size:11px;color:var(--soluk);background:#f8fafc;border:1px solid var(--kenar);
+         border-radius:5px;padding:8px 11px;margin-top:9px}
+</style>
+</head>
+<body>
+<header>
+  <h1>VDA POTİ</h1>
+  <small>FR191 — Potansiyel Tedarikçi Değerlendirmesi · 36 soru</small>
+  <a href="index.html">← Tedarikçi Sistemi</a>
+</header>
+
+<div class="sar">
+  <div class="kart">
+    <h2>Değerlendirme Künyesi</h2>
+    <div class="satirlar">
+      <div><label>Tedarikçi</label>
+        <input type="text" id="tedarikci" list="tedListe" placeholder="tedarikçi adı">
+        <datalist id="tedListe"></datalist></div>
+      <div><label>Ürün / Parça Kodu</label><input type="text" id="urun"></div>
+      <div><label>Değerlendirme Tarihi</label><input type="date" id="tarih"></div>
+      <div><label>Denetçi</label><input type="text" id="denetci" value="Osman Volkan Pekatik"></div>
+      <div><label>Tedarikçi Yetkilisi</label><input type="text" id="yetkili"></div>
+    </div>
+    <div class="ozet" style="margin-top:14px">
+      <b style="font-size:12px;color:var(--soluk)">SONUÇ</b>
+      <span class="rozet" id="rozet">—</span>
+      <span id="sonucMetin" style="font-size:13px;font-weight:600"></span>
+      <span class="say" id="sayim"></span>
+    </div>
+    <div class="kural">Değerlendirme: <b>3</b> = yeşil · <b>2</b> = sarı · <b>1</b> = kırmızı ·
+      N/A kapsam dışı. &nbsp;POT <b>YEŞİL</b>: en çok 7 sarı ve kırmızı yok ·
+      POT <b>SARI</b>: en çok 14 sarı ve kırmızı yok ·
+      POT <b>KIRMIZI</b>: 15+ sarı veya en az 1 kırmızı.
+      Sarı ve kırmızı sorularda zayıf nokta, düzeltici faaliyet ve kanıt zorunludur.</div>
+    <div class="dugmeler">
+      <button class="ana" id="kaydet">Kaydet</button>
+      <button id="disaAktar">Excel'e aktar</button>
+      <button id="yeni">Yeni değerlendirme</button>
+      <button id="hepsiYesil">Tümünü yeşil yap</button>
+    </div>
+    <div class="bilgi" id="bilgi"></div>
+  </div>
+
+  <div class="kart">
+    <h2>Kayıtlı Değerlendirmeler</h2>
+    <div class="kayitlar" id="kayitlar"><div style="color:#8894a5;cursor:default">yükleniyor…</div></div>
+  </div>
+
+  <div class="kart">
+    <h2>Sorular</h2>
+    <table>
+      <thead><tr><th>No</th><th>Soru</th><th style="width:230px">Değerlendirme</th></tr></thead>
+      <tbody id="govde"></tbody>
+    </table>
+  </div>
+</div>
+
+<script src="poti-sorular.js"></script>
+<script>
+const SUPA = 'https://nnubrxbpthmkitueixbh.supabase.co';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
+const TABLO = 'egt_ayar';                 // anahtar → JSON (yeni tablo açılamıyor)
+const ONEK  = 'poti_';
+const el = s => document.querySelector(s);
+const kac = t => String(t == null ? '' : t).replace(/[&<>"]/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const durum = {};                          // no → {puan, zayif, df, kanit}
+
+function basliklar() {
+  return {'apikey': ANON, 'Authorization': 'Bearer ' + ANON,
+          'Content-Type': 'application/json'};
+}
+
+// ─── Soru tablosu ───
+function tabloCiz() {
+  el('#govde').innerHTML = SORULAR.map(s => `
+    <tr data-no="${kac(s.no)}">
+      <td class="no">${kac(s.no)}</td>
+      <td>${kac(s.soru)}
+        <div class="gerekce">
+          <textarea data-alan="zayif" placeholder="Zayıf nokta / tespit"></textarea>
+          <textarea data-alan="df" placeholder="Düzeltici faaliyet (sorumlu, termin)"></textarea>
+          <textarea data-alan="kanit" placeholder="Kanıt (doküman, kayıt, form)"></textarea>
+        </div>
+      </td>
+      <td><div class="puanlar">
+        <button data-p="3">Yeşil 3</button><button data-p="2">Sarı 2</button>
+        <button data-p="1">Kırmızı 1</button><button data-p="na">N/A</button>
+      </div></td>
+    </tr>`).join('');
+
+  el('#govde').addEventListener('click', e => {
+    const b = e.target.closest('.puanlar button');
+    if (!b) return;
+    const tr = b.closest('tr'), no = tr.dataset.no;
+    tr.querySelectorAll('.puanlar button').forEach(x => x.classList.remove('sec'));
+    b.classList.add('sec');
+    durum[no] = Object.assign(durum[no] || {}, {puan: b.dataset.p});
+    tr.querySelector('.gerekce').classList.toggle('acik', b.dataset.p === '2' || b.dataset.p === '1');
+    hesapla();
+  });
+  el('#govde').addEventListener('input', e => {
+    const t = e.target.closest('textarea[data-alan]');
+    if (!t) return;
+    const no = t.closest('tr').dataset.no;
+    durum[no] = Object.assign(durum[no] || {}, {[t.dataset.alan]: t.value});
+  });
+}
+
+// ─── Karar kuralı (FR191 formundaki metnin birebir karşılığı) ───
+function karar(sari, kirmizi) {
+  if (kirmizi > 0 || sari >= 15) return 'KIRMIZI';
+  return sari <= 7 ? 'YESIL' : 'SARI';
+}
+const SONUC_METIN = {YESIL: 'GEÇTİ, ÇALIŞILABİLİR',
+                     SARI: 'ŞARTLI KABUL ÇALIŞILABİLİR',
+                     KIRMIZI: 'KABUL EDİLEMEZ, ÇALIŞILAMAZ'};
+
+function hesapla() {
+  let y = 0, s = 0, k = 0, na = 0, bos = 0;
+  SORULAR.forEach(q => {
+    const p = (durum[q.no] || {}).puan;
+    if (p === '3') y++; else if (p === '2') s++;
+    else if (p === '1') k++; else if (p === 'na') na++; else bos++;
+  });
+  const sonuc = karar(s, k);
+  const r = el('#rozet');
+  r.className = 'rozet ' + (bos ? '' : sonuc);
+  r.textContent = bos ? '—' : sonuc.replace('YESIL', 'YEŞİL');
+  el('#sonucMetin').textContent = bos ? '' : SONUC_METIN[sonuc];
+  el('#sayim').textContent = `${y} yeşil · ${s} sarı · ${k} kırmızı · ${na} N/A`
+    + (bos ? ` · ${bos} soru boş` : '');
+  return {y, s, k, na, bos, sonuc};
+}
+
+// ─── Kaydet / yükle ───
+function anahtar() {
+  const t = (el('#tedarikci').value || 'tedarikci').trim()
+    .replace(/[^A-Za-z0-9ÇĞİÖŞÜçğıöşü ]/g, '').replace(/\s+/g, '_').slice(0, 40);
+  return ONEK + t + '_' + (el('#tarih').value || '');
+}
+
+function toplaKayit() {
+  const h = hesapla();
+  return {
+    tedarikci: el('#tedarikci').value, urun: el('#urun').value,
+    tarih: el('#tarih').value, denetci: el('#denetci').value,
+    yetkili: el('#yetkili').value, sonuc: h.sonuc,
+    sayim: {yesil: h.y, sari: h.s, kirmizi: h.k, na: h.na},
+    cevaplar: durum, kayitZamani: new Date().toISOString(),
+  };
+}
+
+el('#kaydet').addEventListener('click', async () => {
+  const h = hesapla();
+  if (!el('#tedarikci').value.trim()) { bilgiYaz('Tedarikçi adı gerekli.', true); return; }
+  if (h.bos) { bilgiYaz(h.bos + ' soru henüz değerlendirilmedi.', true); return; }
+  const eksik = SORULAR.filter(q => {
+    const d = durum[q.no] || {};
+    return (d.puan === '2' || d.puan === '1')
+      && !(String(d.zayif || '').trim() && String(d.df || '').trim() && String(d.kanit || '').trim());
+  }).map(q => q.no);
+  if (eksik.length) {
+    bilgiYaz('Şu sorularda zayıf nokta / düzeltici faaliyet / kanıt eksik: ' + eksik.join(', '), true);
+    return;
+  }
+  bilgiYaz('kaydediliyor…');
+  const kayit = toplaKayit();
+  try {
+    const r = await fetch(SUPA + '/rest/v1/' + TABLO + '?on_conflict=anahtar', {
+      method: 'POST',
+      headers: Object.assign(basliklar(), {'Prefer': 'resolution=merge-duplicates'}),
+      body: JSON.stringify({anahtar: anahtar(), deger: JSON.stringify(kayit)}),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status + ' ' + (await r.text()).slice(0, 120));
+    localStorage.setItem(anahtar(), JSON.stringify(kayit));
+    bilgiYaz('kaydedildi — ' + anahtar());
+    kayitlariYukle();
+  } catch (e) {
+    localStorage.setItem(anahtar(), JSON.stringify(kayit));
+    bilgiYaz('buluta yazılamadı (' + e.message + '), yerel kopya alındı', true);
+  }
+});
+
+function bilgiYaz(t, uyari) {
+  const b = el('#bilgi');
+  b.textContent = t;
+  b.style.color = uyari ? 'var(--kirmizi)' : 'var(--soluk)';
+}
+
+async function kayitlariYukle() {
+  const kap = el('#kayitlar');
+  let liste = [];
+  try {
+    const r = await fetch(SUPA + '/rest/v1/' + TABLO + '?select=anahtar,deger,updated_at'
+      + '&anahtar=like.' + ONEK + '*&order=updated_at.desc&limit=60', {headers: basliklar()});
+    if (r.ok) liste = await r.json();
+  } catch (e) { /* çevrimdışı: yerel kayıtlar */ }
+  if (!liste.length) {
+    liste = Object.keys(localStorage).filter(k => k.startsWith(ONEK))
+      .map(k => ({anahtar: k, deger: localStorage.getItem(k)}));
+  }
+  if (!liste.length) {
+    kap.innerHTML = '<div style="color:#8894a5;cursor:default">kayıt yok</div>';
+    return;
+  }
+  kap.innerHTML = liste.map(x => {
+    let d = {};
+    try { d = JSON.parse(x.deger); } catch (e) {}
+    const s = (d.sonuc || '').replace('YESIL', 'YEŞİL');
+    return `<div data-a="${kac(x.anahtar)}"><b>${kac(d.tedarikci || x.anahtar)}</b>`
+      + ` — ${kac(d.tarih || '')} · <b style="color:${
+          d.sonuc === 'YESIL' ? 'var(--yesil)' : d.sonuc === 'SARI' ? 'var(--sari)' : 'var(--kirmizi)'
+        }">${kac(s)}</b>`
+      + ` <span style="color:#8894a5">(${(d.sayim || {}).sari || 0} sarı, ${
+          (d.sayim || {}).kirmizi || 0} kırmızı)</span></div>`;
+  }).join('');
+  [...kap.children].forEach(c => c.addEventListener('click', () => kayitAc(c.dataset.a, liste)));
+}
+
+function kayitAc(a, liste) {
+  const x = liste.find(v => v.anahtar === a);
+  if (!x) return;
+  let d;
+  try { d = JSON.parse(x.deger); } catch (e) { return; }
+  el('#tedarikci').value = d.tedarikci || '';
+  el('#urun').value = d.urun || '';
+  el('#tarih').value = d.tarih || '';
+  el('#denetci').value = d.denetci || '';
+  el('#yetkili').value = d.yetkili || '';
+  Object.keys(durum).forEach(k => delete durum[k]);
+  Object.assign(durum, d.cevaplar || {});
+  yansit();
+  bilgiYaz('açıldı: ' + a);
+}
+
+function yansit() {
+  document.querySelectorAll('#govde tr').forEach(tr => {
+    const d = durum[tr.dataset.no] || {};
+    tr.querySelectorAll('.puanlar button').forEach(b =>
+      b.classList.toggle('sec', b.dataset.p === d.puan));
+    tr.querySelector('.gerekce').classList.toggle('acik', d.puan === '2' || d.puan === '1');
+    tr.querySelectorAll('textarea[data-alan]').forEach(t => { t.value = d[t.dataset.alan] || ''; });
+  });
+  hesapla();
+}
+
+// ─── Excel'e aktar (Excel'in açtığı HTML tablo) ───
+el('#disaAktar').addEventListener('click', () => {
+  const h = hesapla();
+  const satir = SORULAR.map(q => {
+    const d = durum[q.no] || {};
+    const p = d.puan === 'na' ? 'N/A' : (d.puan || '');
+    return `<tr><td>${kac(q.no)}</td><td>${kac(q.soru)}</td><td>${p}</td>`
+      + `<td>${kac(d.zayif || '')}</td><td>${kac(d.df || '')}</td><td>${kac(d.kanit || '')}</td></tr>`;
+  }).join('');
+  const html = `<html><head><meta charset="utf-8"></head><body>
+<table border="1"><tr><td colspan="6"><b>FR191 POTİ — Potansiyel Tedarikçi Değerlendirmesi</b></td></tr>
+<tr><td>Tedarikçi</td><td colspan="5">${kac(el('#tedarikci').value)}</td></tr>
+<tr><td>Ürün / Parça</td><td colspan="5">${kac(el('#urun').value)}</td></tr>
+<tr><td>Tarih</td><td colspan="5">${kac(el('#tarih').value)}</td></tr>
+<tr><td>Denetçi</td><td colspan="5">${kac(el('#denetci').value)}</td></tr>
+<tr><td>Tedarikçi Yetkilisi</td><td colspan="5">${kac(el('#yetkili').value)}</td></tr>
+<tr><td>POT</td><td colspan="5"><b>${h.sonuc.replace('YESIL','YEŞİL')}</b> — ${SONUC_METIN[h.sonuc]}</td></tr>
+<tr><td>Sayım</td><td colspan="5">${h.y} yeşil · ${h.s} sarı · ${h.k} kırmızı · ${h.na} N/A</td></tr>
+<tr><th>No</th><th>Soru</th><th>Değerlendirme</th><th>Zayıf Nokta</th><th>Düzeltici Faaliyet</th><th>Kanıt</th></tr>
+${satir}</table></body></html>`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + html], {type: 'application/vnd.ms-excel'}));
+  a.download = 'FR191_POTI_' + (el('#tedarikci').value || 'tedarikci').replace(/\s+/g, '_')
+    + '_' + (el('#tarih').value || '') + '.xls';
+  a.click();
+  bilgiYaz('Excel dosyası indirildi.');
+});
+
+el('#yeni').addEventListener('click', () => {
+  Object.keys(durum).forEach(k => delete durum[k]);
+  ['#urun', '#yetkili'].forEach(s => el(s).value = '');
+  yansit();
+  bilgiYaz('yeni değerlendirme');
+});
+
+el('#hepsiYesil').addEventListener('click', () => {
+  SORULAR.forEach(q => { durum[q.no] = Object.assign(durum[q.no] || {}, {puan: '3'}); });
+  yansit();
+  bilgiYaz('tümü yeşil işaretlendi — bulgulu soruları sarı/kırmızıya çevirin');
+});
+
+// ─── Tedarikçi listesi (ERP'nin yerel deposundan) ───
+function tedarikcileriYukle() {
+  let adlar = [];
+  try {
+    const ham = localStorage.getItem('suppliers');
+    if (ham) adlar = (JSON.parse(ham) || []).map(s => s.name).filter(Boolean);
+  } catch (e) {}
+  el('#tedListe').innerHTML = [...new Set(adlar)].sort()
+    .map(a => `<option value="${kac(a)}">`).join('');
+}
+
+el('#tarih').value = new Date().toISOString().slice(0, 10);
+tabloCiz();
+tedarikcileriYukle();
+kayitlariYukle();
+hesapla();
+</script>
+</body>
+</html>
