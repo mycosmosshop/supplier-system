@@ -5304,10 +5304,21 @@
                 fileName: fileName || '',
                 loadedAt: new Date().toISOString()
             };
-            localStorage.setItem('coaExcelData_' + year, JSON.stringify(data));
-            // Geriye uyumluluk için legacy anahtarları da güncelle
+            // Hammadde listesi (irsaliyeleriyle) YALNIZ yıl anahtarında tutulur.
+            // Eskiden 'coa_materials' anahtarına ikinci kopyası da yazılıyordu;
+            // LeanSys 2026 (8.606 irsaliye) iki kopyayla localStorage kotasını
+            // aşıyor, QuotaExceededError yüklemeyi yarıda kesiyordu.
+            // 'coa_materials' yalnız aktif yıl yokken okunan eski yedek.
+            localStorage.removeItem('coa_materials');
+            try {
+                localStorage.setItem('coaExcelData_' + year, JSON.stringify(data));
+            } catch (e) {
+                // Kota yine dolarsa yükleme DURMAZ: veri bu oturumda bellekte
+                // kullanılır; mevcut kayıtlar silinmez (veri yok ≠ sil).
+                console.warn('coaExcelData_' + year + ' kaydedilemedi (tarayıcı depolama kotası):', e);
+                showToast('⚠️ ' + year + ' listesi tarayıcı belleğine sığmadı; bu oturumda kullanılabilir. Sayfayı yeniden açınca LeanSys\'ten tekrar yükleyin.', 'warning', 7000);
+            }
             localStorage.setItem('coaSupplierList', JSON.stringify(supplierArr));
-            localStorage.setItem('coa_materials', JSON.stringify(materialArr));
         }
 
         function switchYear(year) {
@@ -5321,9 +5332,8 @@
                 suppliers = data.suppliers || [];
                 materials = data.materials || [];
                 setActiveYear(year);
-                // Legacy anahtarları güncelle
+                // Legacy tedarikçi listesi (küçük); hammadde listesi yıl anahtarında
                 localStorage.setItem('coaSupplierList', JSON.stringify(suppliers));
-                localStorage.setItem('coa_materials', JSON.stringify(materials));
                 updateSupplierDropdowns();
                 updateMaterialDropdown();
                 showToast(`✅ ${year} yılı verileri yüklendi: ${suppliers.length} tedarikçi, ${materials.length} hammadde`, 'success');
