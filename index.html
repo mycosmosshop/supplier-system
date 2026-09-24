@@ -15774,39 +15774,15 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
 
         // Tedarikçi Puanını hesaplayan yardımcı fonksiyon
         function calculateTedarikcipuani(supplier) {
-            let tedarikcipuani = 0;
-            
-            // Kalite puanı 0-100 aralığında, 0-1 aralığına çevir
-            const kalitePuanNormalized = supplier.kalitePuan / 100;
-            // VDA puanı 0-100 aralığında, 0-1 aralığına çevir
-            const vdaPuanNormalized = supplier.vdaPuan / 100;
-            // 8D dönüş oranı 0-100 aralığında, 0-1 aralığına çevir
-            const donusOrani8DNormalized = supplier.donusOrani8D / 100;
-            // Termin puanı 0-100 aralığında, 0-1 aralığına çevir
-            const terminPuanNormalized = supplier.terminPuan / 100;
-            // Tamamlanma puanı 0-100 aralığında, 0-1 aralığına çevir
-            const tamamlanmaPuanNormalized = supplier.tamamlanmaPuan / 100;
-            
-            if (supplier.vdaPuan > 0) {
-                // VDA puanı olan tedarikçiler
-                tedarikcipuani = (vdaPuanNormalized * 0.20 + 
-                                 kalitePuanNormalized * 0.05 + 
-                                 supplier.ppmPuan * 0.30 + 
-                                 donusOrani8DNormalized * 0.05 + 
-                                 terminPuanNormalized * 0.30 + 
-                                 tamamlanmaPuanNormalized * 0.10 + 
-                                 supplier.hataPuan * 0.10);
-            } else {
-                // VDA denetimi olmayan tedarikçiler
-                tedarikcipuani = (kalitePuanNormalized * 0.05 + 
-                                 supplier.ppmPuan * 0.40 + 
-                                 donusOrani8DNormalized * 0.05 + 
-                                 terminPuanNormalized * 0.30 + 
-                                 tamamlanmaPuanNormalized * 0.10 + 
-                                 supplier.hataPuan * 0.10);
-            }
-            
-            return tedarikcipuani;
+            // TEK KAYNAK: recalculateSupplierScore (PR06 Rev04 Tablo 6).
+            // Burada ikinci bir kopya vardi ve denetimli dalda Termin %30
+            // yaziyordu (dogrusu %20): agirlik toplami %110 oluyor, VDA 88
+            // girilince tedarikci puani 105,1 cikiyordu. Elle giris
+            // (updateVDAPuan, update8D, termin, tamamlanma...) 18 yerden bu
+            // fonksiyonu cagiriyor; hepsi ayni formulden gecsin.
+            const t = { ...supplier };
+            recalculateSupplierScore(t);
+            return t.tedarikcipuani;
         }
 
         // Tedarikçi sınıfını hesaplayan fonksiyon
