@@ -2160,11 +2160,6 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </div>
                 </div>
             </div>
-            <!-- Vileda tedarikçileri: vileda_tedarikci.json (D:\Yazılım\vileda-16qa\vileda_tedarikci.py üretir) -->
-            <div class="supplier-filter">
-                <button type="button" id="vledaFiltreBtn" class="btn btn-secondary" onclick="toggleVledaFiltre()"
-                        title="Vileda ürünlerinin (Veliköy) hammadde, ambalaj ve tutkal tedarikçileri — alternatifler dahil, 2022 listesi + LeanSys mal kabul 2021→bugün">🧽 Vileda tedarikçileri</button>
-            </div>
             <!-- Ay Filtresi -->
             <div class="supplier-filter">
                 <div class="supplier-filter-label">📅 Aylar:</div>
@@ -4112,12 +4107,16 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     </div>
 
     <script>
-        // ========= Vileda tedarikçi filtresi =========
-        // Liste: vileda_tedarikci.json — Vileda ürün ağaçlarındaki malzemeler + aynı kodun diğer
-        // revizyonları + VL/HVL/VILEDA ambalajları + tüm laminasyon tutkalları; kaynak LeanSys mal
-        // kabul 2021→bugün ve NAS 2022 PL11 / FHP hammadde listesi. Kayıtlarda cari kodu olmadığı için
-        // ad ile eşlenir; "İ" küçülünce "i̇" olur (birleşik nokta) — anahtar noktasız i'ye indirilir.
-        let VILEDA_TED = null, vledaFiltre = false;
+        // ========= Kaydedilmiş filtre: "Veliköy Vileda Tedarikçileri <yıl>" =========
+        // Liste: vileda_tedarikci.json (D:\Yazılım\vileda-16qa\vileda_tedarikci.py üretir) — Vileda ürün
+        // ağaçlarındaki malzemeler + aynı kodun diğer revizyonları + VL/HVL/VILEDA ambalajları + tüm
+        // laminasyon tutkalları; kaynak LeanSys mal kabul 2021→bugün ve NAS 2022 PL11 / FHP hammadde
+        // listesi. Kayıtlarda cari kodu olmadığı için ad ile eşlenir; "İ" küçülünce "i̇" olur (birleşik
+        // nokta) — anahtar noktasız i'ye indirilir.
+        // Sanifoam <yıl> dönemi yüklenince o döneme ait filtre YOKSA bir kez oluşturulur; kullanıcı
+        // düzenler/silerse bir daha dokunulmaz (silinenler _vledaSilinen'de tutulur).
+        let VILEDA_TED = null, _vledaYukleniyor = false;
+        const VLEDA_ID_TABAN = 9000000000000;   // applyFilter(id) sayı bekliyor: 9000000002026 = 2026
         function _vledaAnahtar(ad) {
             const s = normalizeName(ad).normalize('NFD').replace(/[̀-ͯ]/g, '')
                 .replace(/[^a-z0-9 ]/g, ' ')
@@ -4131,26 +4130,57 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
             if (!r.ok) throw new Error('vileda_tedarikci.json okunamadı: HTTP ' + r.status);
             const liste = await r.json();
             VILEDA_TED = new Map();
-            liste.forEach(t => { const k = _vledaAnahtar(t.ad); if (k && !VILEDA_TED.has(k)) VILEDA_TED.set(k, t); });
+            // Ayni firmanin LeanSys'teki yazim farklari (RTC KIMYA / RTC KİMYA) tek anahtara duser:
+            // yillar TOPLANIR, bayraklar birlestirilir (yalniz ilkini tutmak 2023 girislerini kaybediyordu)
+            liste.forEach(t => {
+                const k = _vledaAnahtar(t.ad); if (!k) return;
+                const e = VILEDA_TED.get(k);
+                if (!e) { VILEDA_TED.set(k, Object.assign({}, t, { yillar: Object.assign({}, t.yillar || {}) })); return; }
+                Object.entries(t.yillar || {}).forEach(([y, n]) => { e.yillar[y] = (e.yillar[y] || 0) + n; });
+                e.yalniz_2022_listesi = !!(e.yalniz_2022_listesi && t.yalniz_2022_listesi);
+                e.pl11_2022 = e.pl11_2022 || t.pl11_2022;
+            });
             return liste;
         }
-        async function toggleVledaFiltre() {
-            const btn = document.getElementById('vledaFiltreBtn');
-            try {
-                if (!VILEDA_TED) await _vledaYukle();
-            } catch (e) { alert(e.message); return; }
-            vledaFiltre = !vledaFiltre;
-            const hepsi = (typeof allResults !== 'undefined' && allResults) ? allResults : [];
-            const bulunan = new Set(hepsi.map(r => _vledaAnahtar(r.name)).filter(k => VILEDA_TED.has(k)));
-            const eksik = Array.from(VILEDA_TED.entries()).filter(([k]) => !bulunan.has(k)).map(([, t]) => t.ad);
-            if (btn) {
-                btn.style.background = vledaFiltre ? '#2e7d32' : '';
-                btn.style.color = vledaFiltre ? '#fff' : '';
-                btn.textContent = vledaFiltre ? ('🧽 Vileda: ' + bulunan.size + '/' + VILEDA_TED.size + ' listede ✕') : '🧽 Vileda tedarikçileri';
-                btn.title = eksik.length ? ('ERP listesinde OLMAYAN Vileda tedarikçileri (' + eksik.length + '):\n• ' + eksik.join('\n• '))
-                                         : 'Tüm Vileda tedarikçileri ERP listesinde';
+        // O yılın Vileda tedarikçisi mi: o yıl Vileda malzemesi girişi var ya da 2022 listesinde
+        // alternatif / yalnız 2022 listesinde. 2021–2022'de LeanSys mal kabulü yok denecek kadar az → tümü.
+        function _vledaYilda(t, yil) {
+            if (yil <= 2022) return true;
+            return (t.yillar && t.yillar[String(yil)] > 0) || !!t.yalniz_2022_listesi
+                || !!(t.pl11_2022 && t.pl11_2022.alternatif);
+        }
+        // Döneme ait filtreyi kurar; dönen değer: eklendi mi (çağıran listeyi yeniden çizer)
+        function _vledaFiltreKur(donem, sonuclar, filtreler) {
+            const m = /^Sanifoam (20\d\d)$/.exec(String(donem || '').trim());
+            if (!m || !VILEDA_TED || !sonuclar || !sonuclar.length) return false;
+            const yil = +m[1];
+            if (yil < 2021 || yil > 2026) return false;
+            const id = VLEDA_ID_TABAN + yil;
+            if (filtreler.some(f => f && f.id === id)) return false;               // var → dokunma
+            const silinen = JSON.parse(localStorage.getItem('_vledaSilinen') || '[]');
+            if (silinen.indexOf(id) >= 0) return false;                            // kullanıcı silmiş
+            const secili = sonuclar.filter(r => { const t = _vledaKayit(r.name); return t && _vledaYilda(t, yil); })
+                .map(r => r.mapKey || r.name);
+            if (!secili.length) return false;
+            const lok = Array.from(document.querySelectorAll('#locationOptions input[type="checkbox"]:not([value="__TUMU__"])')).map(cb => cb.value);
+            filtreler.push({ id: id, name: 'Veliköy Vileda Tedarikçileri ' + yil, searchTerm: '',
+                selectedSuppliers: secili, selectedLocations: lok, timestamp: new Date().toISOString(),
+                period: String(donem).trim(), kaynak: 'vileda_tedarikci.json' });
+            return true;
+        }
+        function _vledaFiltreTohumla() {
+            const donem = (localStorage.getItem('_currentPeriodName') || '').trim();
+            if (!/^Sanifoam 20\d\d$/.test(donem)) return;
+            if (!VILEDA_TED) {
+                if (_vledaYukleniyor) return;
+                _vledaYukleniyor = true;
+                _vledaYukle().then(() => { _vledaYukleniyor = false; if (typeof loadSavedFilters === 'function') loadSavedFilters(); })
+                    .catch(e => { _vledaYukleniyor = false; console.warn('Vileda filtresi:', e.message); });
+                return;
             }
-            if (typeof filterTable === 'function') filterTable();
+            const hepsi = (typeof allResults !== 'undefined' && allResults) ? allResults : [];
+            const filtreler = JSON.parse(localStorage.getItem('supplierFilters') || '[]');
+            if (_vledaFiltreKur(donem, hepsi, filtreler)) localStorage.setItem('supplierFilters', JSON.stringify(filtreler));
         }
 
         // Sıralama değişkenleri
@@ -15983,10 +16013,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     }
                 }
                 
-                // Vileda filtresi (açıksa yalnız Vileda tedarikçileri)
-                const vledaMatch = !vledaFiltre || !!_vledaKayit(r.name);
-
-                return nameMatch && supplierMatch && locationMatch && statusMatch && vledaMatch;
+                return nameMatch && supplierMatch && locationMatch && statusMatch;
             });
 
             // Sınıf filtresi (A/B/C/D)
@@ -19919,6 +19946,7 @@ function sinifTavaniSebepIki(s){
         }
 
         function loadSavedFilters() {
+            try { _vledaFiltreTohumla(); } catch (e) { console.warn('Vileda filtresi:', e); }
             const allSavedFilters = JSON.parse(localStorage.getItem('supplierFilters') || '[]');
             const filtersList = document.getElementById('savedFiltersList');
             const filtersSection = document.getElementById('savedFiltersSection');
@@ -20093,9 +20121,14 @@ function sinifTavaniSebepIki(s){
             
             // Filtreyi listeden çıkar
             savedFilters = savedFilters.filter(f => f.id !== filterId);
-            
+
             // LocalStorage'ı güncelle
             localStorage.setItem('supplierFilters', JSON.stringify(savedFilters));
+            // Otomatik kurulan Vileda filtresi silindiyse tekrar kurulmasın
+            if (filterId > VLEDA_ID_TABAN && filterId < VLEDA_ID_TABAN + 10000) {
+                const sil = JSON.parse(localStorage.getItem('_vledaSilinen') || '[]');
+                if (sil.indexOf(filterId) < 0) { sil.push(filterId); localStorage.setItem('_vledaSilinen', JSON.stringify(sil)); }
+            }
             
             // Silinen filtre aktifse, aktif durumu kaldır
             if (currentFilterId === filterId) {
