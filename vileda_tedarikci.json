@@ -1,0 +1,1885 @@
+[
+ {
+  "ad": "AFG ÇELİK YAPI VE KİMYA LTD.ŞTİ. (EUR)",
+  "cari_kodu": "320-50-3482",
+  "kategoriler": [
+   "Laminasyon tutkalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.029",
+    "ad": "ASSANCHEM ASSANATE CB 211 (YAPIŞTIRICI)"
+   },
+   {
+    "kod": "910.4.207",
+    "ad": "ASSANATE PA 510 BİNDER"
+   }
+  ],
+  "yillar": {
+   "2025": 10,
+   "2026": 11
+  },
+  "depolar": {
+   "VELIKOY": 21
+  },
+  "velikoy": true,
+  "ilk": "2025-01-24",
+  "son": "2026-09-21",
+  "giris": 21,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "AKRAPOL KİMYA SAN. VE TIC.LTD.STI.",
+  "cari_kodu": "320-50-1176",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "913.4.027",
+    "ad": "TALK PUDRA 05 MICRON"
+   }
+  ],
+  "yillar": {
+   "2023": 3,
+   "2024": 2,
+   "2025": 1,
+   "2026": 1
+  },
+  "depolar": {
+   "VELIKOY": 7
+  },
+  "velikoy": true,
+  "ilk": "2023-06-12",
+  "son": "2026-02-09",
+  "giris": 7,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "TALK PUDRA",
+   "fabrika": "VELİKÖY",
+   "musteri": "",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2017-05-12",
+   "ad": "AKRAPOL KİMYA SAN. VE TİC.LTD.ŞTİ."
+  },
+  "fhp_2022": [
+   "913.4.027"
+  ]
+ },
+ {
+  "ad": "ARCHROMA TURKEY KIMYA SANAVI VE TIC. LTD.STI.",
+  "cari_kodu": "320-50-0860",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.051",
+    "ad": "ESKİ - PRINTOFIX (HELIZAN) BINDER MTC.TR Liq-Clariant"
+   },
+   {
+    "kod": "910.4.051-2",
+    "ad": "HELIZARIN BINDER MTB.EG (PRINTOFIX MTC)"
+   }
+  ],
+  "yillar": {
+   "2022": 2,
+   "2024": 1,
+   "2025": 1,
+   "2026": 1
+  },
+  "depolar": {
+   "ESKISEHIR": 5
+  },
+  "velikoy": false,
+  "ilk": "2022-07-05",
+  "son": "2026-08-05",
+  "giris": 5,
+  "guncel_agacta": false,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "",
+   "malzeme": "KİMYASAL",
+   "fabrika": "ESKİŞEHİR",
+   "musteri": ".",
+   "sinif": "",
+   "oncelikli": false,
+   "alternatif": true,
+   "ekleme": "",
+   "ad": "ARCHROMA TURKEY KIMYA SANAVI VE TIC. LTD.STI."
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "ARİMPEX IÇ VE DIS TIC.A.Ş.",
+  "cari_kodu": "320-50-3086",
+  "kategoriler": [
+   "PU sünger"
+  ],
+  "malzemeler": [
+   {
+    "kod": "905.4.001",
+    "ad": "ULTRA PARLAK SÜNGER TURUNCU"
+   },
+   {
+    "kod": "905.4.002",
+    "ad": "ULTRA PARLAK SÜNGER YESIL"
+   },
+   {
+    "kod": "905.4.003",
+    "ad": "ULTRA PARLAK SÜNGER MAVI"
+   },
+   {
+    "kod": "905.4.004",
+    "ad": "ULTRA PARLAK SÜNGER PEMBE"
+   }
+  ],
+  "yillar": {
+   "2023": 9
+  },
+  "depolar": {
+   "VELIKOY": 9
+  },
+  "velikoy": true,
+  "ilk": "2023-08-14",
+  "son": "2023-10-20",
+  "giris": 9,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "AS KİMYA SANAYI VE DIS TIC. A.S",
+  "cari_kodu": "320-50-0856",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "913.4.037",
+    "ad": "AMONYUM KLORÜR- BASF "
+   }
+  ],
+  "yillar": {
+   "2022": 5,
+   "2023": 8,
+   "2024": 3,
+   "2025": 4,
+   "2026": 2
+  },
+  "depolar": {
+   "VELIKOY": 22
+  },
+  "velikoy": true,
+  "ilk": "2022-04-19",
+  "son": "2026-08-21",
+  "giris": 22,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "VELİKÖY",
+   "musteri": "GENEL",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2016-01-04",
+   "ad": "AS KIMYA SANAYI VE DIS TIC. A.S"
+  },
+  "fhp_2022": [
+   "913.4.037"
+  ]
+ },
+ {
+  "ad": "ATAFİBER PLASTİK ENERJİ SAN.TİC.A.Ş.(USD)",
+  "cari_kodu": "320-50-3247",
+  "kategoriler": [
+   "Elyaf (keçe)"
+  ],
+  "malzemeler": [
+   {
+    "kod": "950.4.041",
+    "ad": "15/64 mm POLYESTER ELYAF-YESIL//"
+   }
+  ],
+  "yillar": {
+   "2026": 3
+  },
+  "depolar": {
+   "VELIKOY": 3
+  },
+  "velikoy": true,
+  "ilk": "2026-02-21",
+  "son": "2026-07-28",
+  "giris": 3,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "ATEŞSAN AMBALAJ SANAYİ VE TİCARET A.Ş.",
+  "cari_kodu": "320-50-2539",
+  "kategoriler": [
+   "Koli"
+  ],
+  "malzemeler": [
+   {
+    "kod": "982.4.190",
+    "ad": "HORECA KOLISI 380x300x470mm BST-C"
+   },
+   {
+    "kod": "982.4.190-1",
+    "ad": "METRO PROFESSIONAL BASKILI KOLİ 300x380x470 mm BST-C"
+   },
+   {
+    "kod": "982.4.190-2",
+    "ad": "FINE DREAMING BASKILI KOLİSİ 300x380x470 mm BST-C"
+   },
+   {
+    "kod": "982.4.200",
+    "ad": "CF BASKISIZ BEYAZ KOLI 470x360x460mm BST-C"
+   },
+   {
+    "kod": "982.4.234-2",
+    "ad": "VL 8LI OL.SUNGER12LI KOLI 400x400x220mm KST-C"
+   },
+   {
+    "kod": "982.4.236-1",
+    "ad": "VL 10LU RAINBOW SNG 12LI KOLI 290x260x300mm KST-C"
+   },
+   {
+    "kod": "982.4.239-2",
+    "ad": "VL YESIL SNG 5LI EKO 12LI KOLI 245x240x300mm KST-C"
+   },
+   {
+    "kod": "982.4.240-2",
+    "ad": "VL YESIL OL.SNG.5LI 12LI KOLI 400x230x260mm KST-C"
+   },
+   {
+    "kod": "982.4.243",
+    "ad": "VL RENKLI ANTISCRATCH 4LÜ SNG KOLISI TSU (169750) 200x400x220 mm  BST-C"
+   },
+   {
+    "kod": "982.4.245",
+    "ad": "VL (TSU 180377) YESIL 5LI DÜZ 20LI SÜNGER KOLISİ 360x235x280mm KST-C"
+   },
+   {
+    "kod": "982.4.246",
+    "ad": "VL (TSU 180376) YESIL 5LI OLUKLU 20LI SÜNGER KOLISİ 390x365x245mm KST-C"
+   },
+   {
+    "kod": "982.4.248-2",
+    "ad": "VL 5LI RAINBOW SÜNG.KOLISI 400x300x315 mm KST-C"
+   },
+   {
+    "kod": "982.4.280",
+    "ad": "VL 2LI RAINBOW SÜNG.KOLISI 380x160x265 mm KST-C"
+   },
+   {
+    "kod": "982.4.286",
+    "ad": "HVL 3+1 BASKILI BEZ KOLISI (179682) 400x400x230mm KST-C"
+   },
+   {
+    "kod": "982.4.297-2",
+    "ad": "HVL 141052 MIRACLEAN  KOLISI 393x147x230mm BST-C"
+   },
+   {
+    "kod": "982.4.301-1",
+    "ad": "VL 12LI PU ÇIZMEZ 1+1 KOLISI 275x200x140mm KST-C"
+   },
+   {
+    "kod": "982.4.303-2",
+    "ad": "VL YESIL 2LI OLK.12LI KOLI 300x200x160mm KST-C"
+   },
+   {
+    "kod": "982.4.306-1",
+    "ad": "VL YESIL 2LI DÜZ 12LI KOLI 300x185x120mm KST-C"
+   },
+   {
+    "kod": "982.4.317-2",
+    "ad": "VL SELÜLOZIK 2LI OL.12LI KOLI 240x230x160mm KST-C"
+   },
+   {
+    "kod": "982.4.318-1",
+    "ad": "VL SELÜLOZIK 2LI DÜZ 12LI KOLI 300x185x120mm KST-C"
+   },
+   {
+    "kod": "982.4.336-2",
+    "ad": "VL 10LU YESIL DUZ KOLISI 295x275x345mm KST-C"
+   },
+   {
+    "kod": "982.4.337",
+    "ad": "VL ULTRA PARLAK SUNGER 200x150x185mm KST-C"
+   },
+   {
+    "kod": "982.4.338",
+    "ad": "VL 174285 ULTRA PARLAK SÜNGER KOLİSİ 200x150x185 mm KST-C  (EXPORT)"
+   },
+   {
+    "kod": "982.4.339",
+    "ad": "VL 175128 ULTRA PARLAK FİLE BEZ KAPLI SÜNGER KOLİSİ 360x290x185 mm KST-C  (EXPORT)"
+   },
+   {
+    "kod": "982.4.343",
+    "ad": "VL 6x MIRACLEAN 2LI SILGI SUNGER KOLISI 200x150x120mm BST-C (196072)"
+   },
+   {
+    "kod": "982.4.343-1",
+    "ad": "VL 6x MIRACLEAN 2LI SILGI SUNGER KOLISI 200x150x120mm BST-C (196072) (küçük kulak)"
+   },
+   {
+    "kod": "982.4.344",
+    "ad": "VL 9x CIZMEZ SUNGER 2LI KOLISI 400x150x105mm KST-C (169076)"
+   },
+   {
+    "kod": "982.4.345",
+    "ad": "VL 177478  ULTRA PARLAK FİLE BEZ KAPLI SÜNGER KOLİSİ 360x290x185 mm KST-C  (EXPORT)"
+   },
+   {
+    "kod": "982.4.346",
+    "ad": "VL YESIL 2LI OLK.60LI KOLI 395x235x435mm BST-C"
+   },
+   {
+    "kod": "982.4.347",
+    "ad": "VL YESIL 2LI DÜZ 60LI KOLI 295x385x235mm BST-C"
+   }
+  ],
+  "yillar": {
+   "2022": 95,
+   "2023": 110,
+   "2024": 127,
+   "2025": 127,
+   "2026": 116
+  },
+  "depolar": {
+   "VELIKOY": 575
+  },
+  "velikoy": true,
+  "ilk": "2022-05-14",
+  "son": "2026-10-08",
+  "giris": 575,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "AYKA AMBALAJ SAN. VE TIC. LTD. STI.",
+  "cari_kodu": "320-50-2521",
+  "kategoriler": [
+   "OPP",
+   "Torba / poşet"
+  ],
+  "malzemeler": [
+   {
+    "kod": "980.4.247-2",
+    "ad": "VL 2LI CIZMEZ SUNGER OPP 8690803712211-A"
+   },
+   {
+    "kod": "980.4.864",
+    "ad": "40 cm BASKISIZ OPP 30mic."
+   },
+   {
+    "kod": "980.4.868",
+    "ad": "47 cm BASKISIZ OPP 30mic."
+   },
+   {
+    "kod": "981.4.634",
+    "ad": "SEFFAF JELATIN 23x36 cm "
+   }
+  ],
+  "yillar": {
+   "2022": 5,
+   "2023": 1
+  },
+  "depolar": {
+   "VELIKOY": 6
+  },
+  "velikoy": true,
+  "ilk": "2022-05-24",
+  "son": "2023-05-26",
+  "giris": 6,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "OPP",
+   "fabrika": "VELİKÖY",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": false,
+   "alternatif": true,
+   "ekleme": "2019-09-09",
+   "ad": "AYKA AMBALAJ SAN. VE TIC. LTD. STI."
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "BASF TÜRK KIMYA SAN. VE TIC. LTD. STI.",
+  "cari_kodu": "320-01-169",
+  "kategoriler": [
+   "Melamin (Basotect)"
+  ],
+  "malzemeler": [
+   {
+    "kod": "909.4.017.84",
+    "ad": "BASOTECT W 2500x1250x500MM"
+   }
+  ],
+  "yillar": {
+   "2022": 3,
+   "2023": 4,
+   "2024": 4,
+   "2025": 2,
+   "2026": 2
+  },
+  "depolar": {
+   "GÜMRÜK": 15
+  },
+  "velikoy": false,
+  "ilk": "2022-08-08",
+  "son": "2026-05-22",
+  "giris": 15,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": [
+   "909.4.017.84"
+  ]
+ },
+ {
+  "ad": "CLEARITY KIMYA TEKSTIL PAZ.SAN.DIS.TIC.LTD.STI. (USD)",
+  "cari_kodu": "320-50-0693",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.051-1",
+    "ad": "CLEARIT BINDER T-CTM LIQ-(snf)"
+   }
+  ],
+  "yillar": {
+   "2022": 6,
+   "2023": 3,
+   "2024": 16,
+   "2025": 5
+  },
+  "depolar": {
+   "ESKISEHIR": 29,
+   "VELIKOY": 1
+  },
+  "velikoy": true,
+  "ilk": "2022-05-26",
+  "son": "2025-04-15",
+  "giris": 30,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2017-01-04",
+   "ad": "CLEARITY KIMYA TEKSTIL PAZ.SAN.DIS.TIC.LTD.STI."
+  },
+  "fhp_2022": [
+   "910.4.051-1"
+  ]
+ },
+ {
+  "ad": "CORNEX TEMIZLIK ÜRÜNLERI SAN.TİC.LTD.ŞTİ.",
+  "cari_kodu": "320-50-9952",
+  "kategoriler": [
+   "PU sünger"
+  ],
+  "malzemeler": [
+   {
+    "kod": "905.4.001",
+    "ad": "ULTRA PARLAK SÜNGER TURUNCU"
+   },
+   {
+    "kod": "905.4.002",
+    "ad": "ULTRA PARLAK SÜNGER YESIL"
+   },
+   {
+    "kod": "905.4.003",
+    "ad": "ULTRA PARLAK SÜNGER MAVI"
+   },
+   {
+    "kod": "905.4.004",
+    "ad": "ULTRA PARLAK SÜNGER PEMBE"
+   }
+  ],
+  "yillar": {
+   "2022": 14,
+   "2023": 3
+  },
+  "depolar": {
+   "VELIKOY": 17
+  },
+  "velikoy": true,
+  "ilk": "2022-05-31",
+  "son": "2023-07-25",
+  "giris": 17,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "DYSTAR KIMYA SAN.VE TIC.LTD.STI.",
+  "cari_kodu": "320-11-0117",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.043",
+    "ad": "SERA FAST M-LF"
+   }
+  ],
+  "yillar": {
+   "2022": 6
+  },
+  "depolar": {
+   "VELIKOY": 6
+  },
+  "velikoy": true,
+  "ilk": "2022-05-10",
+  "son": "2022-08-05",
+  "giris": 6,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2016-03-02",
+   "ad": "DYSTAR KIMYA SAN.TIC.LTD.STI."
+  },
+  "fhp_2022": [
+   "910.4.043",
+   "913.4.013"
+  ]
+ },
+ {
+  "ad": "ENDİTEKS DIŞ TİC. TEKSTİL SAN.VE TİC.LTD.ŞTİ.",
+  "cari_kodu": "320-50-3138",
+  "kategoriler": [
+   "File kumaş"
+  ],
+  "malzemeler": [
+   {
+    "kod": "955.4.114",
+    "ad": "150 GR/M2 AİR FİLE KUMAŞ-TURUNCU 150 CM. (VF-101A) (RAL:23101041)"
+   },
+   {
+    "kod": "955.4.116",
+    "ad": "150 GR/M2 AİR FİLE KUMAŞ-MAVİ 150 CM. (VF-101A) (RAL:23103026)"
+   },
+   {
+    "kod": "955.4.117",
+    "ad": "150 GR/M2 AİR FİLE KUMAŞ-FIS.YEŞİLİ 150 CM. (VF-101A) (RAL:23104095)"
+   },
+   {
+    "kod": "955.4.118",
+    "ad": "150 GR/M2 AİR FİLE KUMAŞ-FUŞYA 150 CM. (VF-101A) (RAL:23108035)"
+   }
+  ],
+  "yillar": {
+   "2023": 4
+  },
+  "depolar": {
+   "VELIKOY": 4
+  },
+  "velikoy": true,
+  "ilk": "2023-10-19",
+  "son": "2023-10-19",
+  "giris": 4,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "ESAN ECZACIBAŞI END.HAM.SAN.VE TİC.A.Ş.",
+  "cari_kodu": "320-11-0099",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "913.4.082",
+    "ad": "KUVARS 200 MIC. ESQ Gr -200+63"
+   }
+  ],
+  "yillar": {
+   "2022": 1,
+   "2023": 1,
+   "2024": 3,
+   "2025": 1
+  },
+  "depolar": {
+   "VELIKOY": 6
+  },
+  "velikoy": true,
+  "ilk": "2022-11-23",
+  "son": "2025-04-07",
+  "giris": 6,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "VELİKÖY",
+   "musteri": "GENEL",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2016-01-20",
+   "ad": "ESAN ECZACIBASI END.HAM.S.A.S."
+  },
+  "fhp_2022": [
+   "913.4.082"
+  ]
+ },
+ {
+  "ad": "F.H.P FREUDENBERG HOUSEHOLD PROD",
+  "cari_kodu": "320-20-0021",
+  "kategoriler": [
+   "PU sünger"
+  ],
+  "malzemeler": [
+   {
+    "kod": "9MM.4.049",
+    "ad": "VL 525848  ÇIZMEZ OLUKLU SÜNG.DÖKME"
+   }
+  ],
+  "yillar": {
+   "2025": 11,
+   "2026": 9
+  },
+  "depolar": {
+   "VELIKOY": 20
+  },
+  "velikoy": true,
+  "ilk": "2025-02-06",
+  "son": "2026-09-04",
+  "giris": 20,
+  "guncel_agacta": true,
+  "musteri_tedarikli": true,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "F.H.P. EVIÇI KULLANIM ARAÇLARI SAN. VE TIC. A.S.",
+  "cari_kodu": "320-20-202",
+  "kategoriler": [
+   "PU sünger",
+   "Palet (Vileda)"
+  ],
+  "malzemeler": [
+   {
+    "kod": "990.4.101",
+    "ad": "VL VILEDA PALET"
+   },
+   {
+    "kod": "9MM.4.049",
+    "ad": "VL 525848  ÇIZMEZ OLUKLU SÜNG.DÖKME"
+   }
+  ],
+  "yillar": {
+   "2021": 2,
+   "2022": 16,
+   "2023": 13,
+   "2024": 16,
+   "2025": 1
+  },
+  "depolar": {
+   "VELIKOY": 48
+  },
+  "velikoy": true,
+  "ilk": "2021-11-23",
+  "son": "2025-01-10",
+  "giris": 48,
+  "guncel_agacta": true,
+  "musteri_tedarikli": true,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "HES KONFEKSİYON MAK.VE YEDEK PARÇ.SAN.TİC.LTD.ŞTİ.",
+  "cari_kodu": "320-50-3205",
+  "kategoriler": [
+   "Dikiş ipliği"
+  ],
+  "malzemeler": [
+   {
+    "kod": "999.4.101",
+    "ad": "TÜR-SAN 120 D.MAVİ DİKİŞ İPİ 3537 NO-5000 MT."
+   },
+   {
+    "kod": "999.4.102",
+    "ad": "TÜR-SAN 120 D.TURUNCU DİKİŞ İPİ 3460 NO-5000 MT."
+   },
+   {
+    "kod": "999.4.103",
+    "ad": "TÜR-SAN 120 D.FISTIK YEŞİL DİKİŞ İPİ 3655 NO-5000 MT."
+   },
+   {
+    "kod": "999.4.104",
+    "ad": "TÜR-SAN 120 D.FUŞYA-PEMBE  DİKİŞ İPİ 604 NO-5000 MT."
+   }
+  ],
+  "yillar": {
+   "2023": 8,
+   "2024": 19,
+   "2025": 6,
+   "2026": 6
+  },
+  "depolar": {
+   "VELIKOY": 39
+  },
+  "velikoy": true,
+  "ilk": "2023-12-15",
+  "son": "2026-04-07",
+  "giris": 39,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "KAPADOKYA PET AMB.LEVH.ELYAF SAN.TIC.LTD.STI.",
+  "cari_kodu": "320-50-0567",
+  "kategoriler": [
+   "Elyaf (keçe)"
+  ],
+  "malzemeler": [
+   {
+    "kod": "950.4.041",
+    "ad": "15/64 mm POLYESTER ELYAF-YESIL//"
+   }
+  ],
+  "yillar": {
+   "2022": 1,
+   "2023": 6,
+   "2024": 3,
+   "2025": 6,
+   "2026": 1
+  },
+  "depolar": {
+   "VELIKOY": 17
+  },
+  "velikoy": true,
+  "ilk": "2022-10-20",
+  "son": "2026-01-07",
+  "giris": 17,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "KEMİTEKS KİMYA SAN.VE TIC.A.S.",
+  "cari_kodu": "320-50-0206",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.009",
+    "ad": "KM KEMILINE NW 245 (snx)"
+   },
+   {
+    "kod": "910.4.009-1",
+    "ad": "KM KEMILINE NW 247"
+   },
+   {
+    "kod": "911.4.003",
+    "ad": "KM PIGMACOLOR BLACK KBN"
+   },
+   {
+    "kod": "911.4.005",
+    "ad": "KM PIGMACOLOR GREEN KB"
+   },
+   {
+    "kod": "911.4.005-3",
+    "ad": "(ESKİ) PIGMACOLOR GREEN KBT-E"
+   },
+   {
+    "kod": "911.4.007-2",
+    "ad": "KM PIGMACOLOR SARI (YELLOW) KG"
+   },
+   {
+    "kod": "911.4.007-3",
+    "ad": "KM PIGMACOLOR SARI (YELLOW) KN"
+   },
+   {
+    "kod": "911.4.024-1",
+    "ad": "KM PIGMACOLOR FUCHSIA KBL"
+   },
+   {
+    "kod": "911.4.032",
+    "ad": "KM PIGMACOLOR GREEN KBE"
+   },
+   {
+    "kod": "913.4.020",
+    "ad": "KÖPÜK KESICI "
+   }
+  ],
+  "yillar": {
+   "2022": 69,
+   "2023": 84,
+   "2024": 72,
+   "2025": 71,
+   "2026": 59
+  },
+  "depolar": {
+   "VELIKOY": 285,
+   "BURSA": 46,
+   "ESKISEHIR": 24
+  },
+  "velikoy": true,
+  "ilk": "2022-05-11",
+  "son": "2026-09-25",
+  "giris": 355,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2016-01-04",
+   "ad": "KEMITEKS KIMYA SAN.VE TIC.A.S."
+  },
+  "fhp_2022": [
+   "910.4.009",
+   "911.4.004",
+   "911.4.005-3",
+   "911.4.007-2",
+   "911.4.024-1",
+   "913.4.020"
+  ]
+ },
+ {
+  "ad": "KEMİTEKS KİMYA SAN.VE TİC.A.Ş. (EUR)",
+  "cari_kodu": "320-50-3030",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "913.4.020",
+    "ad": "KÖPÜK KESICI "
+   }
+  ],
+  "yillar": {
+   "2023": 1
+  },
+  "depolar": {
+   "ESKISEHIR": 1
+  },
+  "velikoy": false,
+  "ilk": "2023-02-16",
+  "son": "2023-02-16",
+  "giris": 1,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2016-01-04",
+   "ad": "KEMITEKS KIMYA SAN.VE TIC.A.S."
+  },
+  "fhp_2022": [
+   "910.4.009",
+   "911.4.004",
+   "911.4.005-3",
+   "911.4.007-2",
+   "911.4.024-1",
+   "913.4.020"
+  ]
+ },
+ {
+  "ad": "KRAFT BOYA VE KIMYA SAN.TIC.LTD.ŞTİ.",
+  "cari_kodu": "320-50-3101",
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.057",
+    "ad": "LUCA TEX SEW (WAX)"
+   },
+   {
+    "kod": "910.4.058",
+    "ad": "LUCA TEX LTY (MLF)"
+   }
+  ],
+  "yillar": {
+   "2024": 7,
+   "2025": 12,
+   "2026": 10
+  },
+  "depolar": {
+   "VELIKOY": 29
+  },
+  "velikoy": true,
+  "ilk": "2024-09-09",
+  "son": "2026-10-06",
+  "giris": 29,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "KURŞUN AMBALAJ KUYUMCULUK SAN.TIC.LTD.STI.",
+  "cari_kodu": "320-50-0790",
+  "kategoriler": [
+   "OPP",
+   "Torba / poşet"
+  ],
+  "malzemeler": [
+   {
+    "kod": "980.4.174",
+    "ad": "VL 10LU YESIL DUZ OPP 8690803712969-K"
+   },
+   {
+    "kod": "980.4.174-1",
+    "ad": "VL 10LU YESIL DUZ OPP 8690803712969-K ( S. ARABİSTAN )"
+   },
+   {
+    "kod": "980.4.186-2",
+    "ad": "VL SELÜLOZIK 2LI OLUKLU  SNG.OPP 8690803713294-K"
+   },
+   {
+    "kod": "980.4.186-3",
+    "ad": "VL SELÜLOZIK 2LI OLUKLU \"PARLAK KONFOR\" SNG.OPP 8690803713294-K"
+   },
+   {
+    "kod": "980.4.187-1",
+    "ad": "VL SELÜLOZIK 2LI DÜZ SNG.OPP 8690803713287-E"
+   },
+   {
+    "kod": "980.4.191-2",
+    "ad": "VL 5LI RAINBOW BULS.SÜNG.OPP 86900803712105 137657- K"
+   },
+   {
+    "kod": "980.4.191-3",
+    "ad": "VL 5LI RAINBOW BULS.SÜNG.OPP 86900803712105 137657- K (S.ARABİSTAN)"
+   },
+   {
+    "kod": "980.4.202",
+    "ad": "VL RENKLI ANTISCRATCH 4 LÜ SNG OPP 169750 4023103231924-K"
+   },
+   {
+    "kod": "980.4.208-2",
+    "ad": "VL 10LU RAINBOW BULS.SÜNG.OPP 4023103073241 141128 "
+   },
+   {
+    "kod": "980.4.210-2",
+    "ad": "VL 2LI OLUKLU BUL.SNG.OPP  8690803711818-K"
+   },
+   {
+    "kod": "980.4.210-3",
+    "ad": "VL 2LI OLUKLU BUL.SNG.OPP  8690803711818-K"
+   },
+   {
+    "kod": "980.4.211-3",
+    "ad": "VL 2LI DÜZ BULS.SÜNG.OPP 8690803711610-K"
+   },
+   {
+    "kod": "980.4.219-3",
+    "ad": "VL 5LI DÜZ YESIL EKO.PAK.OPP 8690803711627 141126"
+   },
+   {
+    "kod": "980.4.225-4",
+    "ad": "VL 5LI OL.YESIL EKO.PAK.OPP 8690803711825 141125- K"
+   },
+   {
+    "kod": "980.4.225-5",
+    "ad": "VL 5LI OL.YESIL EKO.PAK.OPP 8690803711825 141125- K  (S.ARABİSTAN)"
+   },
+   {
+    "kod": "980.4.227-2",
+    "ad": "VL 8LI OL.EKO.PAK.OPP 8690803711634-K (ÇAP<28)"
+   },
+   {
+    "kod": "980.4.227-3",
+    "ad": "VL 8LI OL.EKO.PAK.OPP 8690803711634-K (ÇAP<28)"
+   },
+   {
+    "kod": "980.4.227-4",
+    "ad": "VL 8LI OL.EKO.PAK.OPP 8690803711634-K (ÇAP<28)   ( S. ARABİSTAN) "
+   },
+   {
+    "kod": "980.4.235-2",
+    "ad": "HVL 141052 MIRACLEAN 1+1 OPP 4023103144439-K"
+   },
+   {
+    "kod": "980.4.240",
+    "ad": "VL İKİLİ RAİNBOW SÜNGER OPP 4023103237025-K"
+   },
+   {
+    "kod": "980.4.247-3",
+    "ad": "VL 2LI CIZMEZ SUNGER OPP 8690803712211-K"
+   },
+   {
+    "kod": "980.4.343",
+    "ad": "VL 6x MIRACLEAN 2LI SILGI SUNGER OPP 4023103230439 (196072)-K"
+   },
+   {
+    "kod": "981.4.526-1",
+    "ad": "VL ULTRA PARLAK SUNGER TORBASI 114x213mm 4023103223554-S-K"
+   },
+   {
+    "kod": "981.4.530",
+    "ad": "VL 175128 ULTRA PARLAK SÜNGER TORB. 40 mic. 116,6*215 mm 4023103244818-K  (EXPORT)"
+   },
+   {
+    "kod": "981.4.531",
+    "ad": "VL 177478 ULTRA PARLAK SÜNGER TORB. 40mic. 116,6*215mm 4023103252332-K (EXPORT)"
+   }
+  ],
+  "yillar": {
+   "2022": 15,
+   "2023": 24,
+   "2024": 39,
+   "2025": 20,
+   "2026": 22
+  },
+  "depolar": {
+   "VELIKOY": 120
+  },
+  "velikoy": true,
+  "ilk": "2022-05-12",
+  "son": "2026-09-28",
+  "giris": 120,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "OPP",
+   "fabrika": "VELİKÖY",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2018-10-22",
+   "ad": "KURSUN AMBALAJ KUYUMCULUK SAN.TIC.LTD.STI."
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "KUYUMCU TEKSTİL MAKİNA SAN.VE TİC.LTD.ŞTİ.",
+  "cari_kodu": "320-50-3271",
+  "kategoriler": [
+   "Elyaf (keçe)"
+  ],
+  "malzemeler": [
+   {
+    "kod": "950.4.999",
+    "ad": "VL NUMUNE ELYAF 2000300"
+   }
+  ],
+  "yillar": {
+   "2024": 2
+  },
+  "depolar": {
+   "CERKEZKOY": 2
+  },
+  "velikoy": false,
+  "ilk": "2024-02-24",
+  "son": "2024-03-09",
+  "giris": 2,
+  "guncel_agacta": false,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "MEGA INTERNATIONAL TRADING CO LTD",
+  "cari_kodu": "320-01-0114",
+  "kategoriler": [
+   "Çelik tel"
+  ],
+  "malzemeler": [
+   {
+    "kod": "932.4.003",
+    "ad": "15 gr CELIK TOPTEL"
+   }
+  ],
+  "yillar": {
+   "2023": 2,
+   "2024": 1,
+   "2025": 1,
+   "2026": 2
+  },
+  "depolar": {
+   "GÜMRÜK": 6
+  },
+  "velikoy": false,
+  "ilk": "2023-01-20",
+  "son": "2026-06-30",
+  "giris": 6,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "NARFEN MEDYA REKLAM AMB.BASKI TEKN.SAN.VE TİC.LTD.ŞTİ.",
+  "cari_kodu": "320-50-0755",
+  "kategoriler": [
+   "Ürün etiketi"
+  ],
+  "malzemeler": [
+   {
+    "kod": "984.4.593",
+    "ad": "HVL 27505 5LI BÜYK END.SÜN.ETK. 5 201 815 218 207 "
+   },
+   {
+    "kod": "984.4.594-3",
+    "ad": "HVL 142076 5LI KÜÇK END.ETK 5201815212304 10*10cm"
+   },
+   {
+    "kod": "984.4.595-3",
+    "ad": "HVL 142077 5LI ORT.END.ETK 5201815212311 10*10cm"
+   }
+  ],
+  "yillar": {
+   "2023": 4,
+   "2024": 8,
+   "2025": 3,
+   "2026": 4
+  },
+  "depolar": {
+   "VELIKOY": 19
+  },
+  "velikoy": true,
+  "ilk": "2023-04-17",
+  "son": "2026-06-16",
+  "giris": 19,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "STİKER",
+   "fabrika": "VELİKÖY",
+   "musteri": "",
+   "sinif": "A",
+   "oncelikli": false,
+   "alternatif": false,
+   "ekleme": "2015-01-05",
+   "ad": "NARFEN MEDYA REKLAM AMB.BASKI TEKNOLOJILERI"
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "OMAK EV GERÇ. VE IST. SIS. SAN. TIC. LTD. STI.(TL)",
+  "cari_kodu": "320-50-2871",
+  "kategoriler": [
+   "Çelik tel"
+  ],
+  "malzemeler": [
+   {
+    "kod": "932.4.003",
+    "ad": "15 gr CELIK TOPTEL"
+   }
+  ],
+  "yillar": {
+   "2022": 1,
+   "2025": 1
+  },
+  "depolar": {
+   "VELIKOY": 2
+  },
+  "velikoy": true,
+  "ilk": "2022-11-04",
+  "son": "2025-03-05",
+  "giris": 2,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "OMAK EV GERÇ. VE IST. SIS. SAN. TIC. LTD. STI.(USD)",
+  "cari_kodu": "320-50-2716",
+  "kategoriler": [
+   "Çelik tel"
+  ],
+  "malzemeler": [
+   {
+    "kod": "932.4.003",
+    "ad": "15 gr CELIK TOPTEL"
+   }
+  ],
+  "yillar": {
+   "2022": 2,
+   "2025": 1
+  },
+  "depolar": {
+   "VELIKOY": 3
+  },
+  "velikoy": true,
+  "ilk": "2022-11-24",
+  "son": "2025-12-15",
+  "giris": 3,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "RTC KIMYA ITH.IHR.SAN. VE TIC. LTD.STI.",
+  "cari_kodu": "320-11-0060",
+  "kategoriler": [
+   "Laminasyon tutkalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.023-2",
+    "ad": "RTC   RT 142-1"
+   }
+  ],
+  "yillar": {
+   "2022": 6
+  },
+  "depolar": {
+   "VELIKOY": 6
+  },
+  "velikoy": true,
+  "ilk": "2022-06-06",
+  "son": "2022-11-09",
+  "giris": 6,
+  "guncel_agacta": false,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "VELİKÖY",
+   "musteri": "GENEL",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2016-01-05",
+   "ad": "RTC KIMYA ITH.IHR.SAN. VE TIC. LTD.STI"
+  },
+  "fhp_2022": [
+   "910.4.023-2"
+  ]
+ },
+ {
+  "ad": "RTC KİMYA İTH. İHR. SAN. VE TİC. LTD. ŞTİ. [EUR]",
+  "cari_kodu": "320-50-3001",
+  "kategoriler": [
+   "Laminasyon tutkalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.023",
+    "ad": "RTC   RT-142  "
+   },
+   {
+    "kod": "910.4.023-2",
+    "ad": "RTC   RT 142-1"
+   }
+  ],
+  "yillar": {
+   "2023": 4,
+   "2024": 4
+  },
+  "depolar": {
+   "VELIKOY": 8
+  },
+  "velikoy": true,
+  "ilk": "2023-01-25",
+  "son": "2024-10-25",
+  "giris": 8,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "VELİKÖY",
+   "musteri": "GENEL",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2016-01-05",
+   "ad": "RTC KIMYA ITH.IHR.SAN. VE TIC. LTD.STI"
+  },
+  "fhp_2022": [
+   "910.4.023-2"
+  ]
+ },
+ {
+  "ad": "SAFAŞ SAF PLASTIK SAN.ve TIC.A.S.",
+  "cari_kodu": "320-10-0021",
+  "kategoriler": [
+   "PU sünger"
+  ],
+  "malzemeler": [
+   {
+    "kod": "900.4.14B-M.01",
+    "ad": "14/15 D. MAVI BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.14B-P.01",
+    "ad": "14/15 D. PEMBE BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.14B-Y.01",
+    "ad": "14/15 D. YESIL BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.15B-S.01",
+    "ad": "14/15 D. SARI BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.15B-S.07",
+    "ad": "15 D. SARI BLOK SÜNGER 300x202x100 cm"
+   },
+   {
+    "kod": "900.4.18B-M.01",
+    "ad": "18 D. MAVI BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.18B-Y.01",
+    "ad": "18 D. YESIL BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.19B-S.01",
+    "ad": "(KULLANMA) 19 D. SARI BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.19B-S.03",
+    "ad": "(KULLANMA) 19 D. SARI BLOK SÜNGER 103x202x100 cm"
+   },
+   {
+    "kod": "900.4.19B-S.04",
+    "ad": "19 D. SARI BLOK SÜNGER 102x202x100 cm"
+   },
+   {
+    "kod": "900.4.22K-B.01",
+    "ad": "22 D. BEYAZ RULO SERIT SÜNGER 2,4cm x 7,7cm x 25metre"
+   }
+  ],
+  "yillar": {
+   "2022": 60,
+   "2023": 110,
+   "2024": 119,
+   "2025": 145,
+   "2026": 87
+  },
+  "depolar": {
+   "VELIKOY": 521
+  },
+  "velikoy": true,
+  "ilk": "2022-07-22",
+  "son": "2026-09-30",
+  "giris": 521,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "SÜNGER",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2014-01-02",
+   "ad": "SAFAS SAF PLASTIK SAN.ve TIC.A.S."
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "SASA POLYESTER SAN.A.S.",
+  "cari_kodu": "320-50-0661",
+  "kategoriler": [
+   "Elyaf (keçe)"
+  ],
+  "malzemeler": [
+   {
+    "kod": "950.4.007",
+    "ad": "16,7x60mm (15/64mm) YMOMukFF HOLLOW CONJUGATE ELYAF-BEYAZ//"
+   }
+  ],
+  "yillar": {
+   "2022": 1
+  },
+  "depolar": {
+   "VELIKOY": 1
+  },
+  "velikoy": true,
+  "ilk": "2022-08-12",
+  "son": "2022-08-12",
+  "giris": 1,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "ELYAF",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2019-04-17",
+   "ad": "SASA POLYESTER SAN.A.S."
+  },
+  "fhp_2022": [
+   "950.4.007"
+  ]
+ },
+ {
+  "ad": "SERKA PLASTIK AMB.SAN.TIC.LTD.STI.",
+  "cari_kodu": "320-50-0619",
+  "kategoriler": [
+   "OPP",
+   "Torba / poşet"
+  ],
+  "malzemeler": [
+   {
+    "kod": "980.4.241",
+    "ad": "HVL 3+1 TEMIZLIK BEZI OPP 179682- 4023103257993-S (stx)"
+   },
+   {
+    "kod": "980.4.868",
+    "ad": "47 cm BASKISIZ OPP 30mic."
+   },
+   {
+    "kod": "981.4.526",
+    "ad": "VL ULTRA PARLAK SUNGER TORBASI 4023103223554-S"
+   },
+   {
+    "kod": "981.4.526-1",
+    "ad": "VL ULTRA PARLAK SUNGER TORBASI 114x213mm 4023103223554-S-K"
+   }
+  ],
+  "yillar": {
+   "2022": 1,
+   "2023": 1,
+   "2024": 2,
+   "2025": 3,
+   "2026": 2
+  },
+  "depolar": {
+   "VELIKOY": 9
+  },
+  "velikoy": true,
+  "ilk": "2022-05-18",
+  "son": "2026-05-05",
+  "giris": 9,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "SÜNGER",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2016-01-04",
+   "ad": "SERRA SÜNGER VE PETROL ÜRÜNLERI SAN. TIC.A.S."
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "SPONCEL SP. Z.O.O.",
+  "cari_kodu": "320-01-162",
+  "kategoriler": [
+   "Selülozik sünger"
+  ],
+  "malzemeler": [
+   {
+    "kod": "908.4.022.85",
+    "ad": "GREEN CELLULOSE SPONGE / YESIL SELÜLOZIK SÜNGER"
+   }
+  ],
+  "yillar": {
+   "2022": 2,
+   "2023": 8,
+   "2024": 6,
+   "2025": 7,
+   "2026": 10
+  },
+  "depolar": {
+   "GÜMRÜK": 33
+  },
+  "velikoy": false,
+  "ilk": "2022-05-31",
+  "son": "2026-10-08",
+  "giris": 33,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "SELÜLOZİK SÜNGER",
+   "fabrika": "VELİKÖY",
+   "musteri": "ORTAK",
+   "sinif": "",
+   "oncelikli": false,
+   "alternatif": false,
+   "ekleme": "",
+   "ad": "SPONCEL SP. Z.O.O."
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "SÜNPOR ISI YAL.PLST.VE INS.SAN.DIS TIC.NAK.LTD.STI.",
+  "cari_kodu": "320-10-0097",
+  "kategoriler": [
+   "PU sünger"
+  ],
+  "malzemeler": [
+   {
+    "kod": "900.4.15B-S.01",
+    "ad": "14/15 D. SARI BLOK SÜNGER 101x202x100 cm"
+   }
+  ],
+  "yillar": {
+   "2025": 10
+  },
+  "depolar": {
+   "VELIKOY": 10
+  },
+  "velikoy": true,
+  "ilk": "2025-04-14",
+  "son": "2025-05-02",
+  "giris": 10,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "SÜNGER",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2017-10-24",
+   "ad": "SÜNPOR ISI YAL.PLST.VE INS.SAN.DIS TIC. LTD.STI."
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "VEFA GRUP KİMYA TEKSTİL SAN. İÇ VE DIŞ TİC.LTD.ŞTİ.",
+  "cari_kodu": "320-50-3068",
+  "kategoriler": [
+   "File kumaş"
+  ],
+  "malzemeler": [
+   {
+    "kod": "955.4.114",
+    "ad": "150 GR/M2 AİR FİLE KUMAŞ-TURUNCU 150 CM. (VF-101A) (RAL:23101041)"
+   },
+   {
+    "kod": "955.4.116",
+    "ad": "150 GR/M2 AİR FİLE KUMAŞ-MAVİ 150 CM. (VF-101A) (RAL:23103026)"
+   },
+   {
+    "kod": "955.4.117",
+    "ad": "150 GR/M2 AİR FİLE KUMAŞ-FIS.YEŞİLİ 150 CM. (VF-101A) (RAL:23104095)"
+   },
+   {
+    "kod": "955.4.118",
+    "ad": "150 GR/M2 AİR FİLE KUMAŞ-FUŞYA 150 CM. (VF-101A) (RAL:23108035)"
+   }
+  ],
+  "yillar": {
+   "2023": 9,
+   "2024": 10,
+   "2025": 7,
+   "2026": 13
+  },
+  "depolar": {
+   "VELIKOY": 39
+  },
+  "velikoy": true,
+  "ilk": "2023-11-09",
+  "son": "2026-09-15",
+  "giris": 39,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "ÖZTUNÇ MAKİNA İNŞ.SAN.İÇ VE DIŞ.TİC.LTD.ŞTİ",
+  "cari_kodu": "320-50-3362",
+  "kategoriler": [
+   "Koli"
+  ],
+  "malzemeler": [
+   {
+    "kod": "982.4.303-2",
+    "ad": "VL YESIL 2LI OLK.12LI KOLI 300x200x160mm KST-C"
+   },
+   {
+    "kod": "982.4.317-2",
+    "ad": "VL SELÜLOZIK 2LI OL.12LI KOLI 240x230x160mm KST-C"
+   }
+  ],
+  "yillar": {
+   "2025": 2
+  },
+  "depolar": {
+   "CERKEZKOY": 2
+  },
+  "velikoy": false,
+  "ilk": "2025-05-20",
+  "son": "2025-05-20",
+  "giris": 2,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": null,
+  "fhp_2022": []
+ },
+ {
+  "ad": "ÜROSAN KIMYA SANAYI A.S.",
+  "cari_kodu": "320-10-0001",
+  "kategoriler": [
+   "PU sünger"
+  ],
+  "malzemeler": [
+   {
+    "kod": "900.4.14B-M.01",
+    "ad": "14/15 D. MAVI BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.14B-Y.01",
+    "ad": "14/15 D. YESIL BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.15B-S.01",
+    "ad": "14/15 D. SARI BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.15B-S.03",
+    "ad": "15 D. SARI BLOK SÜNGER 101x204x100 cm"
+   },
+   {
+    "kod": "900.4.18B-M.01",
+    "ad": "18 D. MAVI BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.18B-Y.01",
+    "ad": "18 D. YESIL BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.19B-S.01",
+    "ad": "(KULLANMA) 19 D. SARI BLOK SÜNGER 101x202x100 cm"
+   },
+   {
+    "kod": "900.4.19B-TMR.01",
+    "ad": "19 D. MERCAN TURKUAZ BLOK SÜNGER 100x200x100 cm"
+   },
+   {
+    "kod": "900.4.19B-YMR.01",
+    "ad": "19 D.MERCAN YESIL BÜY.GÖZ.BLOK 101x202x65 cm"
+   },
+   {
+    "kod": "900.4.19B-YMR.03",
+    "ad": "19 D.MERCAN YESIL BÜY.GÖZ.BLOK 150x200x100 cm"
+   }
+  ],
+  "yillar": {
+   "2022": 14,
+   "2023": 5,
+   "2024": 2,
+   "2026": 1
+  },
+  "depolar": {
+   "VELIKOY": 22
+  },
+  "velikoy": true,
+  "ilk": "2022-05-13",
+  "son": "2026-03-13",
+  "giris": 22,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "SÜNGER",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": false,
+   "alternatif": true,
+   "ekleme": "2015-01-05",
+   "ad": "ÜROSAN KIMYA SANAYI A.S."
+  },
+  "fhp_2022": []
+ },
+ {
+  "ad": "KOBE POLIÜRETAN SAN. VE TIC. A.S.",
+  "cari_kodu": null,
+  "kategoriler": [
+   "Keçe kimyasalı"
+  ],
+  "malzemeler": [
+   {
+    "kod": "910.4.025",
+    "ad": ""
+   },
+   {
+    "kod": "910.4.026",
+    "ad": ""
+   }
+  ],
+  "yillar": {},
+  "depolar": {},
+  "velikoy": true,
+  "ilk": null,
+  "son": null,
+  "giris": 0,
+  "guncel_agacta": false,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "KİMYASAL",
+   "fabrika": "VELİKÖY",
+   "musteri": "GENEL",
+   "sinif": "B",
+   "oncelikli": false,
+   "alternatif": true,
+   "ekleme": "2021-01-21",
+   "ad": "KOBE POLIÜRETAN SAN. VE TIC. A.S."
+  },
+  "fhp_2022": [
+   "910.4.025",
+   "910.4.026"
+  ],
+  "yalniz_2022_listesi": true
+ },
+ {
+  "ad": "ERTONA TEKS.PLAST.KIMYA SAN.LTD.STI.",
+  "cari_kodu": null,
+  "kategoriler": [
+   "Elyaf (keçe)"
+  ],
+  "malzemeler": [
+   {
+    "kod": "950.4.080",
+    "ad": ""
+   }
+  ],
+  "yillar": {},
+  "depolar": {},
+  "velikoy": true,
+  "ilk": null,
+  "son": null,
+  "giris": 0,
+  "guncel_agacta": false,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "TEKSTİL",
+   "fabrika": "ORTAK",
+   "musteri": "GENEL",
+   "sinif": "A",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2014-01-03",
+   "ad": "ERTONA TEKS.PLAST.KIMYA SAN.LTD.STI."
+  },
+  "fhp_2022": [
+   "950.4.080"
+  ],
+  "yalniz_2022_listesi": true
+ },
+ {
+  "ad": "NINGBO NECO SPONGE TECHNOLOGY CO., LTD.",
+  "cari_kodu": null,
+  "kategoriler": [
+   "Selülozik sünger"
+  ],
+  "malzemeler": [
+   {
+    "kod": "908.4.019.85",
+    "ad": ""
+   },
+   {
+    "kod": "908.4.020.85",
+    "ad": ""
+   },
+   {
+    "kod": "908.4.021.85",
+    "ad": ""
+   },
+   {
+    "kod": "908.4.022.85",
+    "ad": ""
+   },
+   {
+    "kod": "908.4.024.85",
+    "ad": ""
+   },
+   {
+    "kod": "908.4.025.85",
+    "ad": ""
+   }
+  ],
+  "yillar": {},
+  "depolar": {},
+  "velikoy": true,
+  "ilk": null,
+  "son": null,
+  "giris": 0,
+  "guncel_agacta": true,
+  "musteri_tedarikli": false,
+  "pl11_2022": {
+   "onay": "ONAYLI",
+   "malzeme": "SELÜLOZİK SÜNGER",
+   "fabrika": "VELİKÖY",
+   "musteri": "ORTAK",
+   "sinif": "B",
+   "oncelikli": true,
+   "alternatif": false,
+   "ekleme": "2018-06-13",
+   "ad": "NINGBO NECO SPONGE TECHNOLOGY CO., LTD."
+  },
+  "fhp_2022": [
+   "908.4.019.85",
+   "908.4.020.85",
+   "908.4.021.85",
+   "908.4.022.85",
+   "908.4.024.85",
+   "908.4.025.85"
+  ],
+  "yalniz_2022_listesi": true
+ }
+]

@@ -2160,6 +2160,11 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     </div>
                 </div>
             </div>
+            <!-- Vileda tedarikçileri: vileda_tedarikci.json (D:\Yazılım\vileda-16qa\vileda_tedarikci.py üretir) -->
+            <div class="supplier-filter">
+                <button type="button" id="vledaFiltreBtn" class="btn btn-secondary" onclick="toggleVledaFiltre()"
+                        title="Vileda ürünlerinin (Veliköy) hammadde, ambalaj ve tutkal tedarikçileri — alternatifler dahil, 2022 listesi + LeanSys mal kabul 2021→bugün">🧽 Vileda tedarikçileri</button>
+            </div>
             <!-- Ay Filtresi -->
             <div class="supplier-filter">
                 <div class="supplier-filter-label">📅 Aylar:</div>
@@ -4107,6 +4112,47 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     </div>
 
     <script>
+        // ========= Vileda tedarikçi filtresi =========
+        // Liste: vileda_tedarikci.json — Vileda ürün ağaçlarındaki malzemeler + aynı kodun diğer
+        // revizyonları + VL/HVL/VILEDA ambalajları + tüm laminasyon tutkalları; kaynak LeanSys mal
+        // kabul 2021→bugün ve NAS 2022 PL11 / FHP hammadde listesi. Kayıtlarda cari kodu olmadığı için
+        // ad ile eşlenir; "İ" küçülünce "i̇" olur (birleşik nokta) — anahtar noktasız i'ye indirilir.
+        let VILEDA_TED = null, vledaFiltre = false;
+        function _vledaAnahtar(ad) {
+            const s = normalizeName(ad).normalize('NFD').replace(/[̀-ͯ]/g, '')
+                .replace(/[^a-z0-9 ]/g, ' ')
+                .replace(/\b(san|ve|tic|ltd|sti|as|a|s|dis|ic|sanayi|ticaret|eur)\b/g, ' ')
+                .replace(/\s+/g, ' ').trim();
+            return s.split(' ').slice(0, 2).join(' ');
+        }
+        function _vledaKayit(ad) { return VILEDA_TED ? VILEDA_TED.get(_vledaAnahtar(ad)) || null : null; }
+        async function _vledaYukle() {
+            const r = await fetch('vileda_tedarikci.json?v=' + Date.now());
+            if (!r.ok) throw new Error('vileda_tedarikci.json okunamadı: HTTP ' + r.status);
+            const liste = await r.json();
+            VILEDA_TED = new Map();
+            liste.forEach(t => { const k = _vledaAnahtar(t.ad); if (k && !VILEDA_TED.has(k)) VILEDA_TED.set(k, t); });
+            return liste;
+        }
+        async function toggleVledaFiltre() {
+            const btn = document.getElementById('vledaFiltreBtn');
+            try {
+                if (!VILEDA_TED) await _vledaYukle();
+            } catch (e) { alert(e.message); return; }
+            vledaFiltre = !vledaFiltre;
+            const hepsi = (typeof allResults !== 'undefined' && allResults) ? allResults : [];
+            const bulunan = new Set(hepsi.map(r => _vledaAnahtar(r.name)).filter(k => VILEDA_TED.has(k)));
+            const eksik = Array.from(VILEDA_TED.entries()).filter(([k]) => !bulunan.has(k)).map(([, t]) => t.ad);
+            if (btn) {
+                btn.style.background = vledaFiltre ? '#2e7d32' : '';
+                btn.style.color = vledaFiltre ? '#fff' : '';
+                btn.textContent = vledaFiltre ? ('🧽 Vileda: ' + bulunan.size + '/' + VILEDA_TED.size + ' listede ✕') : '🧽 Vileda tedarikçileri';
+                btn.title = eksik.length ? ('ERP listesinde OLMAYAN Vileda tedarikçileri (' + eksik.length + '):\n• ' + eksik.join('\n• '))
+                                         : 'Tüm Vileda tedarikçileri ERP listesinde';
+            }
+            if (typeof filterTable === 'function') filterTable();
+        }
+
         // Sıralama değişkenleri
         let currentSortColumn = null;
         let currentSortDirection = 'asc';
@@ -15937,7 +15983,10 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                     }
                 }
                 
-                return nameMatch && supplierMatch && locationMatch && statusMatch;
+                // Vileda filtresi (açıksa yalnız Vileda tedarikçileri)
+                const vledaMatch = !vledaFiltre || !!_vledaKayit(r.name);
+
+                return nameMatch && supplierMatch && locationMatch && statusMatch && vledaMatch;
             });
 
             // Sınıf filtresi (A/B/C/D)
