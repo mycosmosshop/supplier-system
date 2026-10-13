@@ -51,6 +51,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
     <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="fr13.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.0/jspdf.plugin.autotable.min.js"></script>
     <style>
@@ -2947,6 +2948,7 @@ document.write('<script src="supplier-sync.js?v=' + (((location.search.match(/[?
                 
                 <div style="display: flex; gap: 10px;">
                     <button onclick="export8DReportPDF()" style="padding: 10px 20px; background: #e53935; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.95em;">📄 PDF Export</button>
+                    <button onclick="export8DReportExcel()" title="Firmanın FR13 8D Report Excel formatı" style="padding: 10px 20px; background: #1e7e4a; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.95em;">📊 Excel (FR13)</button>
                     <button onclick="send8DReportEmail()" id="sendEmail8DBtn" style="padding: 10px 20px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.95em;">📧 Mail Gönder</button>
                     <button onclick="share8DReport()" id="share8DBtn" style="padding: 10px 20px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.95em;">🔗 Paylaş</button>
                     <button onclick="manualSync8D()" id="sync8DBtn" style="padding: 10px 20px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.95em; display: block;">🔄 Senkronize</button>
@@ -17490,20 +17492,60 @@ function sinifTavaniSebepIki(s){
             },
             vfs: null
         };
+        let _pdfFontSozu = null;
+        function pdfFontHazirla(){                                       // fontu bir kez indir, belleğe al
+            if (PDF_FONT.vfs) return Promise.resolve(PDF_FONT.vfs);
+            if (!_pdfFontSozu) _pdfFontSozu = (async () => {
+                const indir = async (u) => {
+                    const r = await fetch(u);
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const b = new Uint8Array(await r.arrayBuffer());
+                    let t = '', PARCA = 0x8000;                           // yığın taşmasın diye parça parça
+                    for (let i = 0; i < b.length; i += PARCA) t += String.fromCharCode.apply(null, b.subarray(i, i + PARCA));
+                    return btoa(t);
+                };
+                const [n1, b1] = await Promise.all([indir(PDF_FONT.url.normal), indir(PDF_FONT.url.bold)]);
+                return (PDF_FONT.vfs = { normal: n1, bold: b1 });
+            })().catch(e => { _pdfFontSozu = null; throw e; });
+            return _pdfFontSozu;
+        }
+        // BÜTÜN jsPDF belgeleri: font hazırsa her yeni belgeye Roboto eklenir ve 'helvetica'/'times'/
+        // tanımsız font istekleri Roboto'ya yönlenir. (8D, DÖF, performans raporları tek tek
+        // helvetica yazıyordu; "sarımın" -> "s a r ı m ı n", "İ" -> "0" çıkıyordu.) Font sayfa açılınca
+        // arka planda indirilir; PDF fonksiyonları ayrıca await pdfFontHazirla() ile bekleyebilir.
+        (function jsPdfTurkce(){
+            const kur = () => {
+                const J = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+                if (!J || J.__turkce) return !!J;
+                J.__turkce = true;
+                J.API.events.push(['initialized', function () {
+                    if (!PDF_FONT.vfs) return;
+                    const doc = this, asil = doc.setFont;           // setFont belge metodudur, J.API'de yok
+                    try {
+                        doc.addFileToVFS('Roboto-Regular.ttf', PDF_FONT.vfs.normal);
+                        doc.addFileToVFS('Roboto-Bold.ttf', PDF_FONT.vfs.bold);
+                        doc.addFont('Roboto-Regular.ttf', PDF_FONT.ad, 'normal');
+                        doc.addFont('Roboto-Bold.ttf', PDF_FONT.ad, 'bold');
+                    } catch (e) { console.warn('PDF Türkçe font eklenemedi:', e); return; }
+                    doc.setFont = function (ad, stil, agirlik) {
+                        if (!ad || /^(helvetica|times|arial)$/i.test(ad)) {
+                            ad = PDF_FONT.ad;
+                            stil = /bold/i.test(String(stil || '')) || agirlik >= 600 ? 'bold' : 'normal';
+                            agirlik = undefined;
+                        }
+                        return asil.call(doc, ad, stil, agirlik);
+                    };
+                    try { asil.call(doc, PDF_FONT.ad, 'normal'); } catch (e) {}
+                }]);
+                return true;
+            };
+            if (!kur()) window.addEventListener('load', kur);
+            const basla = () => pdfFontHazirla().catch(e => console.warn('PDF Türkçe font yüklenemedi:', e));
+            setTimeout(basla, 1500);                                      // sayfa açılınca arka planda
+        })();
         async function pdfTurkceFont(doc){
             try {
-                if (!PDF_FONT.vfs) {
-                    const indir = async (u) => {
-                        const r = await fetch(u);
-                        if (!r.ok) throw new Error('HTTP ' + r.status);
-                        const b = new Uint8Array(await r.arrayBuffer());
-                        let t = '', PARCA = 0x8000;                       // yığın taşmasın diye parça parça
-                        for (let i = 0; i < b.length; i += PARCA) t += String.fromCharCode.apply(null, b.subarray(i, i + PARCA));
-                        return btoa(t);
-                    };
-                    const [n1, b1] = await Promise.all([indir(PDF_FONT.url.normal), indir(PDF_FONT.url.bold)]);
-                    PDF_FONT.vfs = { normal: n1, bold: b1 };
-                }
+                await pdfFontHazirla();
                 doc.addFileToVFS('Roboto-Regular.ttf', PDF_FONT.vfs.normal);
                 doc.addFont('Roboto-Regular.ttf', PDF_FONT.ad, 'normal');
                 doc.addFileToVFS('Roboto-Bold.ttf', PDF_FONT.vfs.bold);
@@ -34540,18 +34582,9 @@ Devam etmek istiyor musunuz?`;
                 }, 1000); // 1 saniye bekle, modal tamamen yüklensin
         }
 
-        async function save8DReport() {
-            if (!current8DSupplier || !current8DMonth) {
-                showAlert('⚠️ Tedarikçi veya ay bilgisi eksik!', 'error');
-                return;
-            }
-
-            if (!db) {
-                showAlert('⚠️ Veritabanı hazır değil!', 'error');
-                return;
-            }
-
-            const reportData = {
+        // 8D penceresindeki formun tamamı (head, d1…d8) — kaydetme ve FR13 Excel aynı veriyi kullanır
+        function collect8DReportData() {
+            return {
                 supplierName: current8DSupplier,
                 monthIndex: current8DMonth,
                 timestamp: new Date().toISOString(),
@@ -34694,6 +34727,20 @@ Devam etmek istiyor musunuz?`;
                     lastUpdated: new Date().toISOString()
                 }
             };
+        }
+
+        async function save8DReport() {
+            if (!current8DSupplier || !current8DMonth) {
+                showAlert('⚠️ Tedarikçi veya ay bilgisi eksik!', 'error');
+                return;
+            }
+
+            if (!db) {
+                showAlert('⚠️ Veritabanı hazır değil!', 'error');
+                return;
+            }
+
+            const reportData = collect8DReportData();
 
             try {
                 const transaction = db.transaction([REPORT_8D_STORE_NAME], 'readwrite');
@@ -35527,6 +35574,20 @@ Devam etmek istiyor musunuz?`;
         }
 
         // 8D PDF Export
+        // FR13 8D Report Excel'i (firmanın formatı) — fr13.js, 8d-rapor.html ile ortak
+        async function export8DReportExcel() {
+            try {
+                if (!window.FR13) throw new Error('fr13.js yüklenemedi — sayfayı yenileyin');
+                const r = FR13.docToFr13(collect8DReportData());
+                const ad = (r.rapNo || '8D') + ' FR13' + (current8DSupplier ? ' - ' + current8DSupplier : '');
+                await FR13.download(r, ad);
+                showAlert('✅ FR13 Excel indirildi', 'success');
+            } catch (e) {
+                console.error('FR13 Excel hatası:', e);
+                showAlert('❌ FR13 Excel hatası: ' + e.message, 'error');
+            }
+        }
+
         async function export8DReportPDF(retryCount = 0) {
             if (!current8DSupplier || current8DMonth === null || current8DMonth === undefined) {
                 showAlert('⚠️ 8D raporu bilgileri eksik! Lütfen raporu kapatıp tekrar açın.', 'error');
@@ -35558,6 +35619,7 @@ Devam etmek istiyor musunuz?`;
             }
 
             try {
+                try { await pdfFontHazirla(); } catch (e) { console.warn('PDF Türkçe font yüklenemedi:', e); }
                 const doc = new jsPDF('p', 'mm', 'a4');
             
             // Get current form data
